@@ -32,7 +32,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Instalar dependências
@@ -58,7 +58,24 @@ jobs:
           EOF
           fi
 
+      - name: Esse release já existe?
+        id: existe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        # Publicar daqui da máquina cria a tag, e a tag dispara este workflow.
+        # Sem esta verificação ele tentaria criar um release que já existe e
+        # falharia — enchendo o repositório de X vermelho sem nada de errado.
+        run: |
+          if gh release view "v${{ steps.meta.outputs.version }}" >/dev/null 2>&1; then
+            echo "pular=sim" >> "$GITHUB_OUTPUT"
+            echo "v${{ steps.meta.outputs.version }} já publicado — nada a fazer."
+          else
+            echo "pular=nao" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publicar
+        if: steps.existe.outputs.pular == 'nao'
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release.mjs ${{ steps.meta.outputs.version }} --notes-file notes.txt --ci
