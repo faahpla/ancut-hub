@@ -211,9 +211,24 @@ export class UpdateService {
       this.set({ phase: 'error', error: 'Termine ou cancele a análise antes de atualizar.' })
       return false
     }
+    // O UAC é modal e bloqueia esta chamada até o usuário responder. Sem esta
+    // trava, cada clique no botão empilharia mais um pedido de permissão na
+    // tela — e os órfãos sobram lá depois.
+    if (this.busy) return false
+    this.busy = true
 
+    try {
+      return await this.runApply(manifest.version)
+    } catch (err) {
+      this.busy = false
+      this.set({ phase: 'ready', error: describe(err) })
+      return false
+    }
+  }
+
+  private async runApply(version: string): Promise<boolean> {
     const installRoot = dirname(app.getPath('exe'))
-    const stage = this.stageDir(manifest.version)
+    const stage = this.stageDir(version)
     const payload = join(stage, 'payload')
 
     // O script vem de dentro do asar — copiar pra fora é obrigatório: o
@@ -242,7 +257,9 @@ export class UpdateService {
       'utf-8'
     )
 
+    this.set({ phase: 'applying', error: null })
     const elevated = await runElevated(runScript)
+    this.busy = false
     if (!elevated) {
       this.set({ phase: 'ready', error: 'Atualização cancelada — o Windows não deu permissão.' })
       return false

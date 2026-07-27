@@ -20,7 +20,12 @@ export function UpdateCheckButton(): JSX.Element {
     )
   }
 
-  if (phase === 'available' || phase === 'downloading' || phase === 'ready') {
+  if (
+    phase === 'available' ||
+    phase === 'downloading' ||
+    phase === 'ready' ||
+    phase === 'applying'
+  ) {
     return (
       <Button variant="ghost" size="sm" className="text-primary" onClick={() => setOpen(true)}>
         Versão {status.manifest?.version} disponível

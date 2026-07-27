@@ -254,6 +254,8 @@ export type UpdatePhase =
   | 'available'
   | 'downloading'
   | 'ready'
+  /** Esperando o usuário responder ao pedido de permissão do Windows. */
+  | 'applying'
   | 'error'
 
 export interface UpdateStatus {

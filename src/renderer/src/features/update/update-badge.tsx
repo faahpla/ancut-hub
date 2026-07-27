@@ -18,7 +18,11 @@ export function UpdateBadge(): JSX.Element | null {
 
   const phase = status?.phase
   const visible =
-    !dismissed && (phase === 'available' || phase === 'downloading' || phase === 'ready')
+    !dismissed &&
+    (phase === 'available' ||
+      phase === 'downloading' ||
+      phase === 'ready' ||
+      phase === 'applying')
 
   if (!visible) return null
 
@@ -85,7 +89,9 @@ function UpdateDialog(): JSX.Element {
           : `AnCut HUB ${manifest?.version ?? ''} disponível`
       }
       description={
-        phase === 'ready'
+        phase === 'applying'
+          ? 'Confirme o pedido de permissão do Windows que apareceu na tela. Depois disso o app fecha e volta atualizado.'
+          : phase === 'ready'
           ? 'O app vai fechar, aplicar a atualização e abrir de novo sozinho. O Windows vai pedir permissão uma vez.'
           : `Você está na ${status?.currentVersion}. O download é de ${totalMb.toFixed(1)} MB — só o que mudou, não o pacote inteiro.`
       }
@@ -95,9 +101,20 @@ function UpdateDialog(): JSX.Element {
           <Button variant="ghost" onClick={dismiss}>
             Depois
           </Button>
-          {phase === 'ready' ? (
-            <Button variant="primary" onClick={() => void apply()}>
-              Instalar e reiniciar
+          {phase === 'ready' || phase === 'applying' ? (
+            <Button
+              variant="primary"
+              disabled={phase === 'applying'}
+              onClick={() => void apply()}
+            >
+              {phase === 'applying' ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Aguardando permissão…
+                </>
+              ) : (
+                'Instalar e reiniciar'
+              )}
             </Button>
           ) : (
             <Button
