@@ -33,11 +33,16 @@ if (!gotLock) {
     registerIpc(windows, settings, python, updates)
     windows.createMain()
 
-    // Checagem automática, uma vez por abertura. Os 12s de atraso são pra não
-    // disputar a abertura da janela nem o probe da GPU (que já custa ~4s);
-    // atualização é assunto de fundo, não pode atrasar o app aparecendo.
+    // Checagem automática. Os 12s de atraso são pra não disputar a abertura da
+    // janela nem o probe da GPU (que já custa ~4s); atualização é assunto de
+    // fundo, não pode atrasar o app aparecendo.
+    //
+    // E repete de 4 em 4 horas, porque o AnCut fica aberto o dia inteiro
+    // durante as análises — checar só na abertura significaria não avisar de
+    // nada pra quem não fecha o app.
     if (updates.getStatus().supported) {
       setTimeout(() => void updates.check(), 12_000)
+      setInterval(() => void updates.check(), 4 * 60 * 60 * 1000)
     }
 
     app.on('activate', () => {

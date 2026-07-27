@@ -172,9 +172,12 @@ function pack(name, file, build) {
 
 function run(cmd, args) {
   log(`$ ${cmd} ${args.slice(0, 3).join(' ')}${args.length > 3 ? ' …' : ''}`)
-  // shell: true porque npm/npx/gh no Windows são .cmd, que o spawn direto
-  // não executa.
-  execFileSync(cmd, args, { cwd: ROOT, stdio: 'inherit', shell: true })
+  // shell: true porque npm e npx no Windows são .cmd, que o spawn direto não
+  // executa. O preço é que o Node NÃO cita os argumentos nesse modo: sem as
+  // aspas abaixo, "AnCut HUB 1.1.0" chegaria como três argumentos e todo
+  // caminho com espaço quebraria.
+  const quoted = args.map((a) => (/^[\w.\-=/\\:]+$/.test(a) ? a : `"${a}"`))
+  execFileSync(cmd, quoted, { cwd: ROOT, stdio: 'inherit', shell: true })
 }
 
 function log(msg) {
