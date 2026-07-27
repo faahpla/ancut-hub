@@ -1,0 +1,24 @@
+# Dependências e saídas de build
+node_modules/
+out/
+dist/
+
+# Builds e instaladores — pesam GB e vão pro Releases, não pro repositório.
+# O limite do GitHub é 100 MB por arquivo; o instalador completo tem 2,1 GB.
+release/
+
+# O motor Python empacotado, quando copiado pra cá pra montar o instalador
+engine/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs e rascunho
+*.log
+*.local
+.env
+.env.*

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AnCut HUB</title>
+    <!--
+      CSP explícita: sem isto o Electron avisa no console e, mais importante,
+      um bug de XSS no futuro teria via livre. `media:` está liberado porque é
+      o esquema próprio que serve keyframes e clipes do disco.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' media: data: blob:; media-src 'self' media: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,46 @@
+appId: com.faah.ancuthub
+productName: AnCut HUB
+# SEM espaços: o GitHub renomeia arquivos com espaço e isso quebra o
+# auto-update quando ele existir (lição do Focus HUB).
+artifactName: AnCut-HUB-${version}-${arch}.${ext}
+
+directories:
+  buildResources: build
+  output: release/${version}
+
+files:
+  - out/**/*
+  - resources/**/*
+  - package.json
+  # Builds anteriores NÃO podem entrar no asar: o electron-builder só exclui
+  # a pasta da versão atual, então release/ antigo vira peso morto dentro do
+  # pacote (no Focus HUB o instalador foi de 80 MB pra 243 MB assim).
+  - '!release/**'
+  - '!build/**'
+
+# O backend Python NÃO é embutido. Ele pesa 4,8 GB (torch + CUDA) e o NSIS é
+# 32-bit — não consegue mapear um pacote acima de ~2 GB, e a compilação falha
+# em "failed creating mmap". O app localiza o motor na instalação do AnCut HUB
+# (Qt), que é distribuída pelo instalador Inno Setup dela.
+#
+# O efeito colateral é bom: este instalador fica em ~100 MB e atualizar a
+# interface não custa baixar o torch de novo.
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: AnCut HUB
+  # AppId próprio: instala ao lado do Corte Cenas original, não por cima.
+  guid: 9c3d1f8a-6b47-4d52-a1e9-7f2c5b8d0e34
+
+# Sem publicação automática: o release é manual por enquanto.
+publish: null

@@ -1,0 +1,82 @@
+/**
+ * Nomes de canal IPC — valores de RUNTIME.
+ *
+ * Este arquivo NÃO pode importar nada. O preload importa daqui, e qualquer
+ * dependência puxada junto (zod & cia) infla o bundle do preload — lição
+ * paga no Dangai, onde o preload foi de 0,5 kB pra 132 kB.
+ * Os tipos (que somem na compilação) moram em ./types.ts.
+ */
+
+export const CH = {
+  /** Renderer → main: dispara uma análise. Devolve o runId. */
+  analysisStart: 'analysis:start',
+  /** Renderer → main: cancelamento cooperativo do run atual. */
+  analysisCancel: 'analysis:cancel',
+  /** Fecha o Modo Descoberta com os nomes dados pelo usuário. */
+  commitDiscovery: 'analysis:commit-discovery',
+  /** Main → renderer: stream de eventos do pipeline Python. */
+  analysisEvent: 'analysis:event',
+
+  /** Renderer → main: abre seletor de arquivo/pasta. */
+  pickVideo: 'dialog:pick-video',
+  pickFolder: 'dialog:pick-folder',
+
+  /** Consultas leves ao backend (sem carregar o pipeline). */
+  parseFilename: 'episode:parse-filename',
+  skipRanges: 'episode:skip-ranges',
+  hasAnalysis: 'episode:has-analysis',
+
+  /** Resultados: episódios já analisados, personagens e cenas. */
+  recentEpisodes: 'results:recent',
+  loadResults: 'results:load',
+  loadShots: 'results:shots',
+  /** Converte caminho do disco em URL media:// (e libera a raiz). */
+  mediaUrls: 'results:media-urls',
+
+  /** Renderer → main: lê/grava as configurações persistidas. */
+  settingsGet: 'settings:get',
+  settingsSet: 'settings:set',
+
+  /** Renderer → main: info de ambiente (versão, GPU, empacotado). */
+  appInfo: 'app:info',
+
+  /** Atualização automática pelo GitHub Releases. */
+  updateStatus: 'update:status',
+  updateCheck: 'update:check',
+  updateDownload: 'update:download',
+  updateApply: 'update:apply',
+  /** Main → renderer: mudanças de fase e progresso do download. */
+  updateEvent: 'update:event',
+
+  /** Renderer → main: abre caminho no Explorer / player do sistema. */
+  revealPath: 'shell:reveal',
+  openPath: 'shell:open',
+
+  /** Controles da janela (ela é frameless — a barra de título é nossa). */
+  winMinimize: 'win:minimize',
+  winMaximizeToggle: 'win:maximize-toggle',
+  winClose: 'win:close',
+  winMaximizedChanged: 'win:maximized-changed'
+} as const
+
+export type ChannelName = (typeof CH)[keyof typeof CH]
+
+/**
+ * Etapas do pipeline, na ordem. Espelha `STAGES` em app/pipeline_types.py —
+ * se mudar lá, muda aqui (o painel de progresso monta a checklist a partir
+ * desta lista, e a telemetria de tempo vem chaveada por estes ids).
+ */
+export const STAGES = [
+  { id: 'parse', label: 'Lendo arquivo' },
+  { id: 'detect_shots', label: 'Detectando shots' },
+  { id: 'cut_shots', label: 'Cortando clipes' },
+  { id: 'fetch_characters', label: 'Buscando personagens' },
+  { id: 'download_refs', label: 'Baixando referências' },
+  { id: 'embed_refs', label: 'Gerando embeddings das referências' },
+  { id: 'analyze_shots', label: 'Analisando shots' },
+  { id: 'second_pass', label: 'Resgatando cenas parecidas' },
+  { id: 'ai_review', label: 'Revisão IA dos duvidosos' },
+  { id: 'organize', label: 'Organizando resultados' }
+] as const
+
+export type StageId = (typeof STAGES)[number]['id']

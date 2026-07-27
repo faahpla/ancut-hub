@@ -1,0 +1,64 @@
+name: Publicar versão
+
+# Duas formas de disparar:
+#   - push de uma tag v1.2.3
+#   - botão "Run workflow" na aba Actions, informando a versão
+#
+# Este caminho publica SÓ a interface. O motor Python precisa do PyInstaller
+# com torch/CUDA (~5 GB, e os pesos dos modelos não ficam no repositório), o
+# que não cabe num runner — quando o motor muda, o release sai da máquina de
+# desenvolvimento com `npm run release -- <versão> --engine`.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versão (ex: 1.2.0)'
+        required: true
+      notes:
+        description: 'O que mudou'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependências
+        # O npm bloqueia o postinstall do electron/esbuild em CI; rodar na mão
+        # é o que baixa o binário do Electron. Sem isto o electron-builder
+        # falha sem dizer por quê.
+        run: |
+          npm ci --ignore-scripts
+          node node_modules/electron/install.js
+          node node_modules/esbuild/install.js
+
+      - name: Descobrir versão e notas
+        id: meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+            echo "${{ github.event.head_commit.message }}" > notes.txt
+          else
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            cat <<'EOF' > notes.txt
+          ${{ inputs.notes }}
+          EOF
+          fi
+
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release.mjs ${{ steps.meta.outputs.version }} --notes-file notes.txt --ci
