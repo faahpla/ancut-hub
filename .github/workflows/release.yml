@@ -50,7 +50,12 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
             echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-            echo "${{ github.event.head_commit.message }}" > notes.txt
+            # As notas viram texto que o usuário lê na tela de atualização, e
+            # a mensagem do commit traz rodapé técnico (Co-Authored-By e cia).
+            # Corta do primeiro trailer em diante.
+            cat <<'COMMIT_MSG' | grep -viE '^(co-authored-by|signed-off-by|reviewed-by):' > notes.txt
+          ${{ github.event.head_commit.message }}
+          COMMIT_MSG
           else
             echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
             cat <<'EOF' > notes.txt
