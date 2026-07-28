@@ -7,7 +7,8 @@ import type {
   DiscoveryReadyEvent,
   MatchParams,
   NeedsInputEvent,
-  PresetKey
+  PresetKey,
+  RenderExportMode
 } from '@shared/types'
 
 export type RunStatus = 'idle' | 'running' | 'done' | 'failed' | 'cancelled'
@@ -253,6 +254,7 @@ export function buildRequest(form: {
   params: MatchParams
   useDanbooru: boolean
   skipCreditShots: boolean
+  renderExportMode: RenderExportMode
 }): Omit<AnalysisRequest, 'aiReview' | 'discovery' | 'mergePrevious'> {
   return { ...form }
 }

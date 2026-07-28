@@ -5,7 +5,38 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Field, Input } from '@/components/ui/field'
 import { Panel } from '@/components/ui/panel'
 import { UpdateCheckButton } from '@/features/update/update-check-button'
-import type { AppInfo, AppSettings } from '@shared/types'
+import type { AppInfo, AppSettings, RenderExportMode } from '@shared/types'
+
+/**
+ * Os dois níveis são separados de propósito: dá pra ligar só a compatibilidade
+ * e medir, sem pagar o tamanho do all-intra. Se "compatível" já resolver o
+ * gargalo do render, "seek rápido" fica desnecessário.
+ */
+const RENDER_MODES: {
+  value: RenderExportMode
+  label: string
+  cost: string
+  hint: string
+}[] = [
+  {
+    value: 'off',
+    label: 'Padrão',
+    cost: '',
+    hint: 'Mantém o formato de sempre. Bom pra assistir e editar à mão.'
+  },
+  {
+    value: 'compat',
+    label: 'Compatível com render',
+    cost: '· mesmo tamanho',
+    hint: '8 bits e 23,976 quadros por segundo fixos. Vídeo 10 bits não é decodificado por hardware, o que joga o render pra CPU. Na GPU esta opção não custa espaço nenhum.'
+  },
+  {
+    value: 'intra',
+    label: 'Compatível + seek rápido',
+    cost: '· ~1,8x o tamanho',
+    hint: 'Todo quadro vira ponto de entrada, então pular quadro a quadro fica barato. Só vale se o modo acima não tiver resolvido.'
+  }
+]
 
 /**
  * Configurações. Grava no MESMO config.json do app Qt, então o que mudar
@@ -159,6 +190,40 @@ export function SettingsDialog({
                   </span>
                 </span>
               </label>
+            </Panel>
+
+            <Panel title="Formato dos clipes" compact>
+              <div className="space-y-1.5">
+                {RENDER_MODES.map((m) => (
+                  <label
+                    key={m.value}
+                    className="flex cursor-pointer items-start gap-2.5"
+                  >
+                    <input
+                      type="radio"
+                      name="render-export-mode"
+                      checked={settings.renderExportMode === m.value}
+                      onChange={() => patch({ renderExportMode: m.value })}
+                      className="mt-0.5 size-4 shrink-0 accent-primary"
+                    />
+                    <span>
+                      <span className="text-[13px]">
+                        {m.label}
+                        <span className="ml-1.5 text-[11px] text-muted-foreground">
+                          {m.cost}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block text-[11.5px] leading-relaxed text-muted-foreground">
+                        {m.hint}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2.5 text-[11.5px] leading-relaxed text-muted-foreground">
+                Mudar o formato faz os clipes serem cortados de novo na próxima
+                análise — os que já estão no disco estão no formato antigo.
+              </p>
             </Panel>
 
             <div className="flex items-center justify-between px-1">

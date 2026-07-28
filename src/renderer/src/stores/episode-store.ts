@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { MatchParams, PresetKey } from '@shared/types'
+import type { MatchParams, PresetKey, RenderExportMode } from '@shared/types'
 import { PRESETS } from './analysis-store'
 
 /**
@@ -22,6 +22,7 @@ interface EpisodeState {
   params: MatchParams
   useDanbooru: boolean
   skipCreditShots: boolean
+  renderExportMode: RenderExportMode
   hydrated: boolean
 
   set: (patch: Partial<EpisodeState>) => void
@@ -62,6 +63,7 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
   params: PRESETS.auto.params,
   useDanbooru: false,
   skipCreditShots: false,
+  renderExportMode: 'off',
   hydrated: false,
 
   set: (patch) => set(patch),
@@ -91,6 +93,7 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
       preset: s.preset,
       params: s.params,
       useDanbooru: s.useDanbooru,
+      renderExportMode: s.renderExportMode,
       hydrated: true
     })
   }

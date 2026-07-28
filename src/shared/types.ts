@@ -37,7 +37,23 @@ export interface AnalysisRequest {
   mergePrevious: boolean
   skipCreditShots: boolean
   useDanbooru: boolean
+  renderExportMode: RenderExportMode
 }
+
+/**
+ * Formato de saída dos clipes.
+ *
+ * Os dois níveis são separados de propósito, pra dar pra medir um sem o outro:
+ *
+ *   off     como sempre foi
+ *   compat  8 bits + 23,976 CFR. H.264 High 10 não é decodificado por
+ *           WebCodecs nem pelo NVDEC da maioria das placas, então clipe
+ *           10-bit cai em decode por software no pipeline de render.
+ *           Medido: custo de tamanho ~0% na GPU.
+ *   intra   compat + todo frame é keyframe (seek quadro a quadro barato).
+ *           Medido: 1,82x o tamanho.
+ */
+export type RenderExportMode = 'off' | 'compat' | 'intra'
 
 // ---------------------------------------------------------------- eventos
 
@@ -201,6 +217,7 @@ export interface AppSettings {
   params: MatchParams
   skipCreditShots: boolean
   useDanbooru: boolean
+  renderExportMode: RenderExportMode
   navyaiApiKey: string
   navyaiModel: string
   navyaiBaseUrl: string

@@ -80,7 +80,8 @@ export function AnalyzeView(): JSX.Element {
         discovery: Boolean(opts.discovery),
         mergePrevious,
         skipCreditShots: ep.skipCreditShots,
-        useDanbooru: ep.useDanbooru
+        useDanbooru: ep.useDanbooru,
+        renderExportMode: ep.renderExportMode
       })
     } catch (e) {
       // O start falhou antes do backend subir (ex.: sidecar não encontrado):

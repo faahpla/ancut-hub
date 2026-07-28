@@ -1,7 +1,12 @@
 import { promises as fs } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import type { AppSettings, MatchParams, PresetKey } from '../../shared/types'
+import type {
+  AppSettings,
+  MatchParams,
+  PresetKey,
+  RenderExportMode
+} from '../../shared/types'
 
 /**
  * As configurações moram no MESMO config.json que o app Qt usa
@@ -93,12 +98,19 @@ function toSettings(raw: RawConfig): AppSettings {
     // Não é persistido no Python de propósito (heurística frágil, fica OFF).
     skipCreditShots: false,
     useDanbooru: bool(raw, 'use_danbooru', false),
+    renderExportMode: modeFor(str(raw, 'render_export_mode', 'off')),
     navyaiApiKey: str(raw, 'navyai_api_key'),
     navyaiModel: str(raw, 'navyai_model', 'gemini-2.5-flash'),
     navyaiBaseUrl: str(raw, 'navyai_base_url', 'https://api.navy/v1'),
     geminiApiKey: str(raw, 'gemini_api_key'),
     geminiModel: str(raw, 'gemini_model', 'gemini-2.5-flash')
   }
+}
+
+/** Modo desconhecido no config.json vira "off": formato de saída não pode
+ *  mudar por causa de um valor digitado errado no arquivo. */
+function modeFor(value: string): RenderExportMode {
+  return value === 'compat' || value === 'intra' ? value : 'off'
 }
 
 /** Aplica o patch por cima do JSON cru, preservando chaves desconhecidas. */
@@ -112,6 +124,7 @@ function applyPatch(raw: RawConfig, patch: Partial<AppSettings>): RawConfig {
   set('last_season', patch.lastSeason)
   set('last_episode', patch.lastEpisode)
   set('use_danbooru', patch.useDanbooru)
+  set('render_export_mode', patch.renderExportMode)
   set('navyai_api_key', patch.navyaiApiKey)
   set('navyai_model', patch.navyaiModel)
   set('navyai_base_url', patch.navyaiBaseUrl)
