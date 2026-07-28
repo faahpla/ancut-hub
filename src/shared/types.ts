@@ -97,6 +97,11 @@ export interface AnalysisResult {
   /** Aviso quando quase ninguém tinha referência utilizável. */
   lowRefsWarning?: string
   refsDir?: string
+  /** Identifica o episódio recém-analisado pra abrir o resultado sozinho. */
+  episodeId: number
+  animeTitle: string
+  season: number
+  episode: number
 }
 
 export interface DoneEvent {
@@ -190,6 +195,8 @@ export interface EpisodeResults {
   episodeRoot: string
   totalShots: number
   characters: CharacterSummary[]
+  /** Pasta de refs da FRANQUIA (todas as temporadas dividem a mesma). */
+  refsDir?: string
 }
 
 export interface ShotRow {

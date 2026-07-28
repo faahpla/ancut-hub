@@ -1,4 +1,4 @@
-import { Clapperboard, FolderOpen, History, Loader2, X } from 'lucide-react'
+import { Clapperboard, FolderOpen, History, Images, Loader2, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { useResultsStore } from '@/stores/results-store'
@@ -30,6 +30,18 @@ export function ResultsView(): JSX.Element {
           {results.totalShots} cenas · {results.characters.length} personagens
         </span>
         <span className="flex-1" />
+        {results.refsDir && (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="gap-1.5"
+            title="Onde ficam as fotos de referência usadas pra reconhecer os personagens"
+            onClick={() => void window.ancut.shell.open(results.refsDir as string)}
+          >
+            <Images />
+            Pasta de refs
+          </Button>
+        )}
         <Button
           size="sm"
           className="gap-1.5"
