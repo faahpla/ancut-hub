@@ -209,8 +209,18 @@ export interface ShotRow {
   start: number
   end: number
   duration: number
-  confidence: number
+  /** Null na visão de todas as cenas: confiança pertence ao par
+   *  (cena, personagem), e ali uma cena pode ter vários ou nenhum. */
+  confidence: number | null
   approved: number | null
+}
+
+export interface MergeResult {
+  shotId: number
+  file: string
+  mergedCount: number
+  removed: number
+  seconds: number
 }
 
 // -------------------------------------------------------------- settings
@@ -344,7 +354,15 @@ export interface AnCutBridge {
     /** Episódios já analisados, pra reabrir sem reprocessar. */
     recent(): Promise<RecentEpisode[]>
     load(episodeId: number): Promise<EpisodeResults | null>
+    /** `characterId` 0 (ou negativo) traz TODAS as cenas do episódio. */
     shots(episodeId: number, characterId: number): Promise<ShotRow[]>
+    /**
+     * Junta as cenas num clipe só, em ordem cronológica. Os pedaços somem de
+     * shots/ mas sobrevivem em by_character/ (são hardlinks pro mesmo
+     * arquivo). Reencoda quando o episódio foi cortado pra render, pra não
+     * desfazer a cadência constante na emenda.
+     */
+    merge(episodeId: number, shotIds: number[]): Promise<MergeResult | null>
     /**
      * Libera a pasta do episódio pro esquema media:// e devolve o prefixo de
      * URL. Sem isto o renderer não consegue exibir keyframe nem tocar clipe.

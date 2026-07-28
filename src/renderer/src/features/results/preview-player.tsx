@@ -57,8 +57,13 @@ export function PreviewPlayer(): JSX.Element {
   return (
     <div className="panel flex min-h-0 flex-col gap-2.5 overflow-hidden p-3">
       <h2 className="truncate text-[13px] font-semibold text-muted-foreground">
+        {/* Sem confiança na visão de todas as cenas: ela pertence ao par
+            (cena, personagem), e ali a cena pode ter vários ou nenhum. */}
         {activeShot
-          ? `#${String(activeShot.idx).padStart(4, '0')} · confiança ${activeShot.confidence.toFixed(2)}`
+          ? `#${String(activeShot.idx).padStart(4, '0')}` +
+            (activeShot.confidence !== null
+              ? ` · confiança ${activeShot.confidence.toFixed(2)}`
+              : ` · ${activeShot.duration.toFixed(1)}s`)
           : 'Prévia'}
       </h2>
 

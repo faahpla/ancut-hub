@@ -45,6 +45,8 @@ const bridge: AnCutBridge = {
     load: (episodeId: number) => ipcRenderer.invoke(CH.loadResults, episodeId),
     shots: (episodeId: number, characterId: number) =>
       ipcRenderer.invoke(CH.loadShots, episodeId, characterId),
+    merge: (episodeId: number, shotIds: number[]) =>
+      ipcRenderer.invoke(CH.mergeShots, episodeId, shotIds),
     grantMedia: (episodeRoot: string) => ipcRenderer.invoke(CH.mediaUrls, episodeRoot)
   },
   settings: {

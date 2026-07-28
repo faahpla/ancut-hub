@@ -30,6 +30,8 @@ export const CH = {
   recentEpisodes: 'results:recent',
   loadResults: 'results:load',
   loadShots: 'results:shots',
+  /** Junta várias cenas num clipe só, substituindo os pedaços em shots/. */
+  mergeShots: 'results:merge',
   /** Converte caminho do disco em URL media:// (e libera a raiz). */
   mediaUrls: 'results:media-urls',
 

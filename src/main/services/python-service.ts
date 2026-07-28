@@ -6,6 +6,7 @@ import type {
   AnalysisEvent,
   AnalysisRequest,
   EpisodeResults,
+  MergeResult,
   RecentEpisode,
   ShotRow
 } from '../../shared/types'
@@ -275,6 +276,13 @@ export class PythonService {
   async recentEpisodes(): Promise<RecentEpisode[]> {
     const r = await this.runOneShot<{ episodes: RecentEpisode[] }>(['recent'], 'recent')
     return r?.episodes ?? []
+  }
+
+  mergeShots(episodeId: number, shotIds: number[]): Promise<MergeResult | null> {
+    return this.runOneShot<MergeResult & { type: string }>(
+      ['merge', String(episodeId), ...shotIds.map(String)],
+      'merged'
+    )
   }
 
   loadResults(episodeId: number): Promise<EpisodeResults | null> {

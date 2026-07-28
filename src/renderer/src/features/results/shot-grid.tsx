@@ -1,4 +1,7 @@
-import { Loader2 } from 'lucide-react'
+import { Check, Combine, Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { mediaUrl, useResultsStore } from '@/stores/results-store'
 import { cn } from '@/lib/utils'
 import type { ShotRow } from '@shared/types'
@@ -17,8 +20,14 @@ export function ShotGrid(): JSX.Element {
     activeShot,
     setActiveShot,
     cardWidth,
-    setCardWidth
+    setCardWidth,
+    selection,
+    toggleSelected,
+    clearSelection,
+    mergeSelected,
+    merging
   } = useResultsStore()
+  const [confirmar, setConfirmar] = useState(false)
 
   return (
     <div className="panel flex min-h-0 flex-col overflow-hidden">
@@ -46,6 +55,64 @@ export function ShotGrid(): JSX.Element {
         </label>
       </header>
 
+      {selection.length > 0 && (
+        <div className="mx-3 mb-2 flex shrink-0 items-center gap-2 rounded-md border border-primary/30 bg-primary/[0.08] px-3 py-2">
+          <span className="text-[12.5px] font-semibold text-primary">
+            {selection.length} {selection.length === 1 ? 'cena marcada' : 'cenas marcadas'}
+          </span>
+          <span className="text-[11.5px] text-muted-foreground">
+            {selection.length < 2
+              ? 'marque pelo menos duas pra mesclar'
+              : 'viram um clipe só, em ordem cronológica'}
+          </span>
+          <span className="flex-1" />
+          <Button size="sm" variant="ghost" onClick={clearSelection} disabled={merging}>
+            Limpar
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            className="gap-1.5"
+            disabled={selection.length < 2 || merging}
+            onClick={() => setConfirmar(true)}
+          >
+            {merging ? <Loader2 className="animate-spin" /> : <Combine />}
+            Mesclar
+          </Button>
+        </div>
+      )}
+
+      <Dialog open={confirmar} onOpenChange={setConfirmar}>
+        {confirmar && (
+          <DialogContent
+            title={`Mesclar ${selection.length} cenas num clipe só?`}
+            description="Os pedaços saem da pasta shots e o clipe mesclado toma o lugar deles."
+            onClose={() => setConfirmar(false)}
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setConfirmar(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setConfirmar(false)
+                    void mergeSelected()
+                  }}
+                >
+                  Mesclar
+                </Button>
+              </>
+            }
+          >
+            <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+              As pastas dos personagens não são tocadas — os pedaços continuam
+              lá, então nada se perde de verdade.
+            </p>
+          </DialogContent>
+        )}
+      </Dialog>
+
       <div className="scrollbar-thin flex-1 overflow-y-auto px-3 pb-3">
         {loadingShots ? (
           <div className="grid h-full place-items-center">
@@ -68,7 +135,9 @@ export function ShotGrid(): JSX.Element {
                 shot={shot}
                 prefix={mediaPrefix}
                 active={activeShot?.id === shot.id}
+                marcada={selection.includes(shot.id)}
                 onSelect={() => setActiveShot(shot)}
+                onToggle={(faixa) => toggleSelected(shot.id, faixa)}
               />
             ))}
           </div>
@@ -82,27 +151,56 @@ function ShotCard({
   shot,
   prefix,
   active,
-  onSelect
+  marcada,
+  onSelect,
+  onToggle
 }: {
   shot: ShotRow
   prefix: string
   active: boolean
+  marcada: boolean
   onSelect: () => void
+  /** `faixa` = shift pressionado: marca do último marcado até aqui. */
+  onToggle: (faixa: boolean) => void
 }): JSX.Element {
   const thumb = mediaUrl(prefix, shot.keyframe)
   const conf = shot.confidence
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
+      onKeyDown={(e) => e.key === 'Enter' && onSelect()}
       className={cn(
-        'group overflow-hidden rounded-md border bg-surface-sunken text-left transition-all',
-        active
-          ? 'border-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.4)]'
-          : 'border-border hover:border-muted'
+        'group relative cursor-pointer overflow-hidden rounded-md border bg-surface-sunken text-left transition-all',
+        marcada
+          ? 'border-primary shadow-[0_0_0_2px_hsl(var(--primary)/0.5)]'
+          : active
+            ? 'border-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.4)]'
+            : 'border-border hover:border-muted'
       )}
     >
+      {/* A caixa fica FORA do fluxo de clique do card: clicar na imagem toca a
+          cena, clicar aqui marca pra mesclar. Misturar os dois faria toda
+          tentativa de assistir virar seleção. */}
+      <button
+        type="button"
+        aria-label={marcada ? 'Desmarcar cena' : 'Marcar cena pra mesclar'}
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggle(e.shiftKey)
+        }}
+        className={cn(
+          'absolute left-1.5 top-1.5 z-10 grid size-5 place-items-center rounded border transition-all',
+          marcada
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-white/40 bg-black/50 opacity-0 group-hover:opacity-100'
+        )}
+      >
+        {marcada && <Check className="size-3.5" strokeWidth={3} />}
+      </button>
+
       <div className="relative aspect-video w-full overflow-hidden bg-black/40">
         {thumb ? (
           <img
@@ -117,18 +215,22 @@ function ShotCard({
             sem keyframe
           </div>
         )}
-        <span
-          className={cn(
-            'tabular absolute bottom-1 right-1 rounded px-1.5 py-0.5 text-[10px] font-semibold',
-            conf >= 0.9
-              ? 'bg-primary/85 text-primary-foreground'
-              : conf >= 0.8
-                ? 'bg-surface/90 text-foreground'
-                : 'bg-warning/85 text-warning-foreground'
-          )}
-        >
-          {conf.toFixed(2)}
-        </span>
+        {/* Sem selo na visão de todas as cenas: confiança pertence ao par
+            (cena, personagem), e ali a cena pode ter vários ou nenhum. */}
+        {conf !== null && (
+          <span
+            className={cn(
+              'tabular absolute bottom-1 right-1 rounded px-1.5 py-0.5 text-[10px] font-semibold',
+              conf >= 0.9
+                ? 'bg-primary/85 text-primary-foreground'
+                : conf >= 0.8
+                  ? 'bg-surface/90 text-foreground'
+                  : 'bg-warning/85 text-warning-foreground'
+            )}
+          >
+            {conf.toFixed(2)}
+          </span>
+        )}
       </div>
       <div className="flex items-center justify-between px-2 py-1.5">
         <span className="tabular text-[11px] text-muted-foreground">
@@ -138,6 +240,6 @@ function ShotCard({
           {shot.duration.toFixed(1)}s
         </span>
       </div>
-    </button>
+    </div>
   )
 }
