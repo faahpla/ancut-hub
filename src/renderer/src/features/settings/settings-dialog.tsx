@@ -5,6 +5,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Field, Input } from '@/components/ui/field'
 import { Panel } from '@/components/ui/panel'
 import { UpdateCheckButton } from '@/features/update/update-check-button'
+import { useEpisodeStore } from '@/stores/episode-store'
 import type { AppInfo, AppSettings, RenderExportMode } from '@shared/types'
 
 /**
@@ -83,6 +84,16 @@ export function SettingsDialog({
         ...persistiveis
       } = settings
       await window.ancut.settings.set(persistiveis)
+
+      // O formulário da aba Analisar hidrata das configurações UMA vez, na
+      // abertura do app. Sem reempurrar aqui, trocar o formato e analisar na
+      // mesma sessão rodaria no valor antigo — a opção pareceria salva (e
+      // está, no disco) mas a análise sairia no formato errado, calada.
+      useEpisodeStore.getState().set({
+        outputDir: settings.outputDir,
+        useDanbooru: settings.useDanbooru,
+        renderExportMode: settings.renderExportMode
+      })
       onOpenChange(false)
     } finally {
       setSaving(false)
