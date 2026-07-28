@@ -65,15 +65,24 @@ export function SettingsDialog({
     if (!settings) return
     setSaving(true)
     try {
-      await window.ancut.settings.set({
-        outputDir: settings.outputDir,
-        navyaiApiKey: settings.navyaiApiKey,
-        navyaiModel: settings.navyaiModel,
-        navyaiBaseUrl: settings.navyaiBaseUrl,
-        geminiApiKey: settings.geminiApiKey,
-        geminiModel: settings.geminiModel,
-        useDanbooru: settings.useDanbooru
-      })
+      // Lista o que NÃO se persiste, e manda o resto. Ao contrário de listar o
+      // que entra: assim um campo novo é gravado por padrão, em vez de sumir
+      // calado no Salvar (foi exatamente o que aconteceu com o formato dos
+      // clipes — a opção mudava na tela e nunca chegava ao disco).
+      //
+      // Os de fora pertencem à aba Analisar, não a esta janela: preset e
+      // params saem do seletor de modo, o último episódio é gravado ao rodar
+      // a análise, e skipCreditShots é heurística frágil que fica sempre OFF.
+      const {
+        preset: _preset,
+        params: _params,
+        skipCreditShots: _skip,
+        lastAnime: _anime,
+        lastSeason: _season,
+        lastEpisode: _episode,
+        ...persistiveis
+      } = settings
+      await window.ancut.settings.set(persistiveis)
       onOpenChange(false)
     } finally {
       setSaving(false)
