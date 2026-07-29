@@ -223,6 +223,12 @@ export interface MergeResult {
   seconds: number
 }
 
+export interface DeleteResult {
+  deletedCount: number
+  /** Arquivos removidos do disco: clipe + hardlinks + keyframe. */
+  files: number
+}
+
 // -------------------------------------------------------------- settings
 
 export interface AppSettings {
@@ -363,6 +369,12 @@ export interface AnCutBridge {
      * desfazer a cadência constante na emenda.
      */
     merge(episodeId: number, shotIds: number[]): Promise<MergeResult | null>
+    /**
+     * Apaga as cenas DE VEZ: o clipe, os hardlinks em by_character/by_pair e
+     * o keyframe. Sem volta — os hardlinks precisam ir junto, senão o arquivo
+     * sobrevive escondido ocupando espaço sem aparecer em lugar nenhum.
+     */
+    remove(episodeId: number, shotIds: number[]): Promise<DeleteResult | null>
     /**
      * Libera a pasta do episódio pro esquema media:// e devolve o prefixo de
      * URL. Sem isto o renderer não consegue exibir keyframe nem tocar clipe.

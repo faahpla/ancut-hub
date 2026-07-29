@@ -32,6 +32,8 @@ export const CH = {
   loadShots: 'results:shots',
   /** Junta várias cenas num clipe só, substituindo os pedaços em shots/. */
   mergeShots: 'results:merge',
+  /** Apaga cenas de vez: clipe, hardlinks e keyframe. */
+  deleteShots: 'results:delete',
   /** Converte caminho do disco em URL media:// (e libera a raiz). */
   mediaUrls: 'results:media-urls',
 

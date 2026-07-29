@@ -1,4 +1,4 @@
-import { Check, Combine, Loader2 } from 'lucide-react'
+import { Check, Combine, Loader2, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -25,9 +25,10 @@ export function ShotGrid(): JSX.Element {
     toggleSelected,
     clearSelection,
     mergeSelected,
+    deleteSelected,
     merging
   } = useResultsStore()
-  const [confirmar, setConfirmar] = useState(false)
+  const [confirmar, setConfirmar] = useState<'mesclar' | 'excluir' | null>(null)
 
   return (
     <div className="panel flex min-h-0 flex-col overflow-hidden">
@@ -62,8 +63,8 @@ export function ShotGrid(): JSX.Element {
           </span>
           <span className="text-[11.5px] text-muted-foreground">
             {selection.length < 2
-              ? 'marque pelo menos duas pra mesclar'
-              : 'viram um clipe só, em ordem cronológica'}
+              ? 'marque mais uma pra poder mesclar'
+              : 'mesclar junta tudo num clipe só, em ordem cronológica'}
           </span>
           <span className="flex-1" />
           <Button size="sm" variant="ghost" onClick={clearSelection} disabled={merging}>
@@ -71,10 +72,20 @@ export function ShotGrid(): JSX.Element {
           </Button>
           <Button
             size="sm"
+            variant="danger"
+            className="gap-1.5"
+            disabled={merging}
+            onClick={() => setConfirmar('excluir')}
+          >
+            <Trash2 />
+            Excluir
+          </Button>
+          <Button
+            size="sm"
             variant="primary"
             className="gap-1.5"
             disabled={selection.length < 2 || merging}
-            onClick={() => setConfirmar(true)}
+            onClick={() => setConfirmar('mesclar')}
           >
             {merging ? <Loader2 className="animate-spin" /> : <Combine />}
             Mesclar
@@ -82,21 +93,21 @@ export function ShotGrid(): JSX.Element {
         </div>
       )}
 
-      <Dialog open={confirmar} onOpenChange={setConfirmar}>
-        {confirmar && (
+      <Dialog open={confirmar !== null} onOpenChange={() => setConfirmar(null)}>
+        {confirmar === 'mesclar' && (
           <DialogContent
             title={`Mesclar ${selection.length} cenas num clipe só?`}
             description="Os pedaços saem da pasta shots e o clipe mesclado toma o lugar deles."
-            onClose={() => setConfirmar(false)}
+            onClose={() => setConfirmar(null)}
             footer={
               <>
-                <Button variant="ghost" onClick={() => setConfirmar(false)}>
+                <Button variant="ghost" onClick={() => setConfirmar(null)}>
                   Cancelar
                 </Button>
                 <Button
                   variant="primary"
                   onClick={() => {
-                    setConfirmar(false)
+                    setConfirmar(null)
                     void mergeSelected()
                   }}
                 >
@@ -108,6 +119,40 @@ export function ShotGrid(): JSX.Element {
             <p className="text-[12.5px] leading-relaxed text-muted-foreground">
               As pastas dos personagens não são tocadas — os pedaços continuam
               lá, então nada se perde de verdade.
+            </p>
+          </DialogContent>
+        )}
+
+        {confirmar === 'excluir' && (
+          <DialogContent
+            title={
+              selection.length === 1
+                ? 'Excluir esta cena?'
+                : `Excluir ${selection.length} cenas?`
+            }
+            description="Sem volta: o clipe é apagado do disco."
+            onClose={() => setConfirmar(null)}
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setConfirmar(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    setConfirmar(null)
+                    void deleteSelected()
+                  }}
+                >
+                  Excluir
+                </Button>
+              </>
+            }
+          >
+            <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+              Some da pasta shots, das pastas dos personagens e das duplas,
+              junto com o keyframe. Só reanalisando o episódio inteiro pra ter
+              de volta.
             </p>
           </DialogContent>
         )}

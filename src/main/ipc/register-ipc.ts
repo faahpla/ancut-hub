@@ -93,6 +93,11 @@ export function registerIpc(
     async (_e, episodeId: number, shotIds: number[]) =>
       python.mergeShots(episodeId, shotIds)
   )
+  ipcMain.handle(
+    CH.deleteShots,
+    async (_e, episodeId: number, shotIds: number[]) =>
+      python.deleteShots(episodeId, shotIds)
+  )
   ipcMain.handle(CH.mediaUrls, async (_e, episodeRoot: string): Promise<string> => {
     // Liberar a raiz é o que autoriza o renderer a ler dali via media://.
     allowMediaRoot(episodeRoot)

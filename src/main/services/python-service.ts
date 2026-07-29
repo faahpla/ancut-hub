@@ -5,6 +5,7 @@ import { app } from 'electron'
 import type {
   AnalysisEvent,
   AnalysisRequest,
+  DeleteResult,
   EpisodeResults,
   MergeResult,
   RecentEpisode,
@@ -282,6 +283,13 @@ export class PythonService {
     return this.runOneShot<MergeResult & { type: string }>(
       ['merge', String(episodeId), ...shotIds.map(String)],
       'merged'
+    )
+  }
+
+  deleteShots(episodeId: number, shotIds: number[]): Promise<DeleteResult | null> {
+    return this.runOneShot<DeleteResult & { type: string }>(
+      ['delete', String(episodeId), ...shotIds.map(String)],
+      'deleted'
     )
   }
 

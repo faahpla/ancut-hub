@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type {
   CharacterSummary,
+  DeleteResult,
   EpisodeResults,
   MergeResult,
   RecentEpisode,
@@ -35,6 +36,7 @@ interface ResultsState {
   toggleSelected: (shotId: number, ate?: boolean) => void
   clearSelection: () => void
   mergeSelected: () => Promise<MergeResult | null>
+  deleteSelected: () => Promise<DeleteResult | null>
   close: () => void
 }
 
@@ -142,18 +144,21 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
     try {
       const r = await window.ancut.results.merge(results.episodeId, selection)
       if (!r) return null
-      // Recarrega da fonte: o merge mexeu no banco (sumiram linhas, entrou
-      // uma), e remendar a lista na mão divergiria do disco.
-      set({ selection: [], activeShot: null })
-      const atual = await window.ancut.results.load(results.episodeId)
-      if (atual) set({ results: atual })
-      if (selectedCharacter) {
-        const shots = await window.ancut.results.shots(
-          results.episodeId,
-          selectedCharacter.id
-        )
-        set({ shots })
-      }
+      await recarregar(set, results.episodeId, selectedCharacter)
+      return r
+    } finally {
+      set({ merging: false })
+    }
+  },
+
+  deleteSelected: async () => {
+    const { results, selection, selectedCharacter } = get()
+    if (!results || selection.length === 0) return null
+    set({ merging: true })
+    try {
+      const r = await window.ancut.results.remove(results.episodeId, selection)
+      if (!r) return null
+      await recarregar(set, results.episodeId, selectedCharacter)
       return r
     } finally {
       set({ merging: false })
@@ -170,6 +175,26 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
       selection: []
     })
 }))
+
+/**
+ * Relê episódio e cenas do backend depois de mexer no acervo.
+ *
+ * Mesclar e excluir alteram o banco (linhas somem, às vezes entra uma), e
+ * remendar a lista em memória divergiria do disco na primeira divergência.
+ * Um só lugar faz isso pras duas operações não se comportarem diferente.
+ */
+async function recarregar(
+  set: (patch: Partial<ResultsState>) => void,
+  episodeId: number,
+  personagem: CharacterSummary | null
+): Promise<void> {
+  set({ selection: [], activeShot: null })
+  const atual = await window.ancut.results.load(episodeId)
+  if (atual) set({ results: atual })
+  if (personagem) {
+    set({ shots: await window.ancut.results.shots(episodeId, personagem.id) })
+  }
+}
 
 /** Monta a URL media:// de um caminho relativo dentro do episódio. */
 export function mediaUrl(prefix: string, relative: string | null): string | null {
