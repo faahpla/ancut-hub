@@ -1,4 +1,13 @@
-import { AlertCircle, Check, CircleSlash, FolderOpen, Loader2 } from 'lucide-react'
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  CircleSlash,
+  FolderOpen,
+  Loader2
+} from 'lucide-react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Panel } from '@/components/ui/panel'
 import { cn, formatClock, formatDuration } from '@/lib/utils'
@@ -8,6 +17,8 @@ import { ProgressRing } from './progress-ring'
 export function ProgressPanel(): JSX.Element {
   const { status, stages, overall, statusText, elapsed, eta, result, error, timings } =
     useAnalysisStore()
+  /** Aberta por padrão: a lista é o que o FAAH acompanha durante a análise. */
+  const [listaAberta, setListaAberta] = useState(true)
 
   const idle = status === 'idle'
   const tone =
@@ -19,10 +30,25 @@ export function ProgressPanel(): JSX.Element {
     Object.entries(timings.stages).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0]
 
   return (
-    // `min-h-0` junto do `flex-1`: sem ele o painel se recusa a encolher
-    // abaixo do próprio conteúdo (é o `min-height: auto` do flex), cresce
-    // além da janela e a borda de baixo sai cortada no rodapé.
-    <Panel step="3" title="Progresso da análise" className="min-h-0 flex-1">
+    // SEM `min-h-0` aqui, de propósito. Com ele o painel encolhe abaixo do
+    // próprio conteúdo e, em janela baixa, a lista de etapas some inteira —
+    // que é justamente o que o FAAH quer ver. Quem dá espaço agora é a
+    // página, que rola (`min-h-full` na AnalyzeView).
+    <Panel
+      step="3"
+      title="Progresso da análise"
+      className="flex-1"
+      action={
+        <button
+          type="button"
+          onClick={() => setListaAberta((v) => !v)}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+        >
+          {listaAberta ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+          {listaAberta ? 'Recolher etapas' : `Etapas (${stages.length})`}
+        </button>
+      }
+    >
       <div className="flex items-center gap-6">
         <ProgressRing
           value={overall}
@@ -94,14 +120,13 @@ export function ProgressPanel(): JSX.Element {
         </div>
       )}
 
-      {/* Mesmo motivo: é esta lista que passa da conta quando a janela é
-          baixa. Com `min-h-0` ela rola por dentro do painel; sem ele o
-          `overflow-y-auto` nunca chega a valer. */}
-      <ul className="scrollbar-thin flex min-h-0 flex-col gap-0.5 overflow-y-auto">
+      {listaAberta && (
+      <ul className="flex flex-col gap-0.5">
         {stages.map((stage) => (
           <StageRow key={stage.id} stage={stage} runFailed={status === 'failed'} />
         ))}
       </ul>
+      )}
     </Panel>
   )
 }

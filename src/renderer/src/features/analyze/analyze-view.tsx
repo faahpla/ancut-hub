@@ -91,7 +91,11 @@ export function AnalyzeView(): JSX.Element {
   }
 
   return (
-    <div className="animate-rise-in mx-auto flex h-full w-full max-w-5xl flex-col gap-3">
+    // `min-h-full` e não `h-full`: com altura FIXA a coluna não pode passar
+    // da janela, e o painel de progresso saía cortado no rodapé. Com mínima,
+    // ela ocupa a tela quando cabe e cresce quando não cabe — aí quem rola é
+    // a página, e a borda de baixo do painel aparece inteira.
+    <div className="animate-rise-in mx-auto flex min-h-full w-full max-w-5xl flex-col gap-3">
       <EpisodeForm disabled={running} />
       <ModeCards disabled={running} />
 
