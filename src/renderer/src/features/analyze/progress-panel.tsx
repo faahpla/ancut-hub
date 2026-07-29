@@ -19,7 +19,10 @@ export function ProgressPanel(): JSX.Element {
     Object.entries(timings.stages).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0]
 
   return (
-    <Panel step="3" title="Progresso da análise" className="flex-1">
+    // `min-h-0` junto do `flex-1`: sem ele o painel se recusa a encolher
+    // abaixo do próprio conteúdo (é o `min-height: auto` do flex), cresce
+    // além da janela e a borda de baixo sai cortada no rodapé.
+    <Panel step="3" title="Progresso da análise" className="min-h-0 flex-1">
       <div className="flex items-center gap-6">
         <ProgressRing
           value={overall}
@@ -91,7 +94,10 @@ export function ProgressPanel(): JSX.Element {
         </div>
       )}
 
-      <ul className="scrollbar-thin flex flex-col gap-0.5 overflow-y-auto">
+      {/* Mesmo motivo: é esta lista que passa da conta quando a janela é
+          baixa. Com `min-h-0` ela rola por dentro do painel; sem ele o
+          `overflow-y-auto` nunca chega a valer. */}
+      <ul className="scrollbar-thin flex min-h-0 flex-col gap-0.5 overflow-y-auto">
         {stages.map((stage) => (
           <StageRow key={stage.id} stage={stage} runFailed={status === 'failed'} />
         ))}

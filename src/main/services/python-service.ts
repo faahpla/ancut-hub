@@ -101,6 +101,17 @@ const BACKEND_MISSING =
   'original: instale o AnCut HUB (versão Qt) ou aponte a variável ' +
   'ANCUT_BACKEND para o CorteCenas.exe.'
 
+/**
+ * Ambiente dos processos do motor.
+ *
+ * `PYTHONIOENCODING` não é enfeite: sem ele o Python abre a saída na
+ * codificação do Windows em português (cp1252) e escreve "análise" como
+ * `61 6E E1`, enquanto este lado sempre leu UTF-8. Resultado: todo acento
+ * chegava na tela como "" — "Preparando ambiente de anlise (s na primeira
+ * vez)". Vale pro canal de eventos e pros logs.
+ */
+const ENGINE_ENV: NodeJS.ProcessEnv = { ...process.env, PYTHONIOENCODING: 'utf-8' }
+
 /** Converte a requisição da UI no JSON que o app.headless espera. */
 function toWireRequest(req: AnalysisRequest): Record<string, unknown> {
   return {
@@ -201,7 +212,8 @@ export class PythonService {
 
       const child = spawn(backend.cmd, [...backend.args, ...args], {
         cwd: backend.cwd,
-        windowsHide: true
+        windowsHide: true,
+        env: ENGINE_ENV
       })
       child.stdout.on('data', (d: Buffer) => {
         out += d.toString('utf-8')
@@ -313,7 +325,8 @@ export class PythonService {
       let resultado: HarvestDone | null = null
       const child = spawn(backend.cmd, [...backend.args, 'harvest', String(episodeId)], {
         cwd: backend.cwd,
-        windowsHide: true
+        windowsHide: true,
+        env: ENGINE_ENV
       })
       const reader = new LineReader((line) => {
         let parsed: { type?: string }
@@ -358,7 +371,8 @@ export class PythonService {
     const runId = `run-${Date.now()}`
     const child = spawn(backend.cmd, [...backend.args, 'run'], {
       cwd: backend.cwd,
-      windowsHide: true
+      windowsHide: true,
+      env: ENGINE_ENV
     })
     this.current = child
 
