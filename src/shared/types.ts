@@ -223,6 +223,31 @@ export interface MergeResult {
   seconds: number
 }
 
+/** Progresso do reforço de refs: um evento por personagem. */
+export interface HarvestProgress {
+  type: 'harvest-progress'
+  name: string
+  done: number
+  /** 0 enquanto os modelos carregam (ainda não dá pra saber o total). */
+  total: number
+}
+
+export interface HarvestDone {
+  type: 'harvest-done'
+  /** nome do personagem → quantas refs entraram. */
+  added: Record<string, number>
+  total: number
+  characters: number
+  refsDir: string | null
+}
+
+export interface HarvestFailed {
+  type: 'failed'
+  message: string
+}
+
+export type HarvestEvent = HarvestProgress | HarvestDone | HarvestFailed
+
 export interface DeleteResult {
   deletedCount: number
   /** Arquivos removidos do disco: clipe + hardlinks + keyframe. */
@@ -375,6 +400,12 @@ export interface AnCutBridge {
      * sobrevive escondido ocupando espaço sem aparecer em lugar nenhum.
      */
     remove(episodeId: number, shotIds: number[]): Promise<DeleteResult | null>
+    /**
+     * Reforça as refs do anime com os rostos deste episódio. Só adiciona —
+     * nada é sobrescrito nem apagado do banco de referências.
+     */
+    harvest(episodeId: number): Promise<HarvestDone | null>
+    onHarvestEvent(handler: (event: HarvestEvent) => void): () => void
     /**
      * Libera a pasta do episódio pro esquema media:// e devolve o prefixo de
      * URL. Sem isto o renderer não consegue exibir keyframe nem tocar clipe.

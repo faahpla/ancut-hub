@@ -34,6 +34,10 @@ export const CH = {
   mergeShots: 'results:merge',
   /** Apaga cenas de vez: clipe, hardlinks e keyframe. */
   deleteShots: 'results:delete',
+  /** Reforça as refs do anime com os rostos deste episódio. */
+  harvestStart: 'results:harvest',
+  /** Main → renderer: progresso do reforço, um evento por personagem. */
+  harvestEvent: 'results:harvest-event',
   /** Converte caminho do disco em URL media:// (e libera a raiz). */
   mediaUrls: 'results:media-urls',
 

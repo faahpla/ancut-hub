@@ -98,6 +98,9 @@ export function registerIpc(
     async (_e, episodeId: number, shotIds: number[]) =>
       python.deleteShots(episodeId, shotIds)
   )
+  ipcMain.handle(CH.harvestStart, async (_e, episodeId: number) =>
+    python.harvest(episodeId, (event) => windows.send(CH.harvestEvent, event))
+  )
   ipcMain.handle(CH.mediaUrls, async (_e, episodeRoot: string): Promise<string> => {
     // Liberar a raiz é o que autoriza o renderer a ler dali via media://.
     allowMediaRoot(episodeRoot)

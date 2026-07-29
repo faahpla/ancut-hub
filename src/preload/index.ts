@@ -6,6 +6,7 @@ import type {
   AnCutBridge,
   AppInfo,
   AppSettings,
+  HarvestEvent,
   UpdateStatus
 } from '../shared/types'
 
@@ -49,6 +50,14 @@ const bridge: AnCutBridge = {
       ipcRenderer.invoke(CH.mergeShots, episodeId, shotIds),
     remove: (episodeId: number, shotIds: number[]) =>
       ipcRenderer.invoke(CH.deleteShots, episodeId, shotIds),
+    harvest: (episodeId: number) => ipcRenderer.invoke(CH.harvestStart, episodeId),
+    onHarvestEvent: (handler: (event: HarvestEvent) => void) => {
+      const listener = (_e: unknown, payload: HarvestEvent): void => handler(payload)
+      ipcRenderer.on(CH.harvestEvent, listener)
+      return () => {
+        ipcRenderer.off(CH.harvestEvent, listener)
+      }
+    },
     grantMedia: (episodeRoot: string) => ipcRenderer.invoke(CH.mediaUrls, episodeRoot)
   },
   settings: {

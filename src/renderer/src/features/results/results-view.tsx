@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { useResultsStore } from '@/stores/results-store'
 import { CharacterList } from './character-list'
+import { HarvestButton } from './harvest-button'
 import { PreviewPlayer } from './preview-player'
 import { ShotGrid } from './shot-grid'
 
@@ -30,6 +31,7 @@ export function ResultsView(): JSX.Element {
           {results.totalShots} cenas · {results.characters.length} personagens
         </span>
         <span className="flex-1" />
+        <HarvestButton episodeId={results.episodeId} />
         {results.refsDir && (
           <Button
             size="sm"

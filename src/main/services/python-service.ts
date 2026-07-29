@@ -7,6 +7,8 @@ import type {
   AnalysisRequest,
   DeleteResult,
   EpisodeResults,
+  HarvestDone,
+  HarvestEvent,
   MergeResult,
   RecentEpisode,
   ShotRow
@@ -291,6 +293,45 @@ export class PythonService {
       ['delete', String(episodeId), ...shotIds.map(String)],
       'deleted'
     )
+  }
+
+  /**
+   * Reforça as refs do anime com este episódio.
+   *
+   * Não usa `runOneShot`: aquele bufferiza tudo até o processo fechar e tem
+   * timeout de segurança, e o harvest carrega CLIP + YOLO antes de varrer as
+   * cenas — o timeout mataria no meio e o progresso não chegaria.
+   */
+  harvest(
+    episodeId: number,
+    onEvent: (event: HarvestEvent) => void
+  ): Promise<HarvestDone | null> {
+    const backend = resolveBackend()
+    if (!backend) return Promise.resolve(null)
+
+    return new Promise((resolve) => {
+      let resultado: HarvestDone | null = null
+      const child = spawn(backend.cmd, [...backend.args, 'harvest', String(episodeId)], {
+        cwd: backend.cwd,
+        windowsHide: true
+      })
+      const reader = new LineReader((line) => {
+        let parsed: { type?: string }
+        try {
+          parsed = JSON.parse(line) as { type?: string }
+        } catch {
+          return
+        }
+        if (parsed.type === 'harvest-done') resultado = parsed as HarvestDone
+        onEvent(parsed as HarvestEvent)
+      })
+      child.stdout.setEncoding('utf-8')
+      child.stdout.on('data', (chunk: string) => reader.push(chunk))
+      child.stderr.setEncoding('utf-8')
+      child.stderr.on('data', (chunk: string) => process.stderr.write(chunk))
+      child.on('error', () => resolve(null))
+      child.on('close', () => resolve(resultado))
+    })
   }
 
   loadResults(episodeId: number): Promise<EpisodeResults | null> {
