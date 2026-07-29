@@ -1,6 +1,7 @@
 import { Clapperboard, FolderOpen, History, Images, Loader2, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { episodeLabel } from '@/lib/utils'
 import { useResultsStore } from '@/stores/results-store'
 import { CharacterList } from './character-list'
 import { HarvestButton } from './harvest-button'
@@ -23,8 +24,7 @@ export function ResultsView(): JSX.Element {
         <h1 className="truncate text-[15px] font-bold">
           {results.animeTitle}
           <span className="ml-2 font-medium text-muted-foreground">
-            S{String(results.season).padStart(2, '0')}E
-            {String(results.episode).padStart(2, '0')}
+            {episodeLabel(results.season, results.episode, results.kind)}
           </span>
         </h1>
         <span className="text-[12px] text-muted-foreground">
@@ -120,8 +120,7 @@ function EpisodePicker(): JSX.Element {
                 {ep.animeTitle}
               </span>
               <span className="tabular shrink-0 text-[12px] text-muted-foreground">
-                S{String(ep.season).padStart(2, '0')}E
-                {String(ep.episode).padStart(2, '0')}
+                {episodeLabel(ep.season, ep.episode, ep.kind)}
               </span>
               <span className="tabular w-20 shrink-0 text-right text-[12px] text-muted-foreground/70">
                 {ep.shotCount} cenas

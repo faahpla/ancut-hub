@@ -5,6 +5,7 @@ import type {
   AnalysisRequest,
   AnalysisResult,
   DiscoveryReadyEvent,
+  EpisodeKind,
   MatchParams,
   NeedsInputEvent,
   PresetKey,
@@ -248,6 +249,7 @@ export function buildRequest(form: {
   anime: string
   season: number
   episode: number
+  kind: EpisodeKind
   outputDir: string
   skipHeadSeconds: number
   skipTailSeconds: number

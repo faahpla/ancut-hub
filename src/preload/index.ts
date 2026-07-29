@@ -6,6 +6,7 @@ import type {
   AnCutBridge,
   AppInfo,
   AppSettings,
+  EpisodeKind,
   HarvestEvent,
   UpdateStatus
 } from '../shared/types'
@@ -38,8 +39,13 @@ const bridge: AnCutBridge = {
   episode: {
     parseFilename: (path: string) => ipcRenderer.invoke(CH.parseFilename, path),
     skipRanges: (anime: string) => ipcRenderer.invoke(CH.skipRanges, anime),
-    hasAnalysis: (source: string, anime: string, season: number, episode: number) =>
-      ipcRenderer.invoke(CH.hasAnalysis, source, anime, season, episode)
+    hasAnalysis: (
+      source: string,
+      anime: string,
+      season: number,
+      episode: number,
+      kind: EpisodeKind
+    ) => ipcRenderer.invoke(CH.hasAnalysis, source, anime, season, episode, kind)
   },
   results: {
     recent: () => ipcRenderer.invoke(CH.recentEpisodes),

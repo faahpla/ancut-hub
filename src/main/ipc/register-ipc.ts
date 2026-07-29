@@ -95,8 +95,14 @@ export function registerIpc(
   ipcMain.handle(CH.skipRanges, async (_e, anime: string) => python.skipRanges(anime))
   ipcMain.handle(
     CH.hasAnalysis,
-    async (_e, source: string, anime: string, season: number, episode: number) =>
-      python.hasAnalysis(source, anime, season, episode)
+    async (
+      _e,
+      source: string,
+      anime: string,
+      season: number,
+      episode: number,
+      kind: string
+    ) => python.hasAnalysis(source, anime, season, episode, kind)
   )
 
   // -------------------------------------------------------- resultados

@@ -5,8 +5,23 @@ import { Field, Input } from '@/components/ui/field'
 import { Panel } from '@/components/ui/panel'
 import { useEpisodeStore } from '@/stores/episode-store'
 import { cn } from '@/lib/utils'
+import type { EpisodeKind } from '@shared/types'
 
 const VIDEO_RE = /\.(mp4|mkv|mov|avi|webm|ts|m2ts)$/i
+
+const TIPOS: { valor: EpisodeKind; rotulo: string; dica: string }[] = [
+  { valor: '', rotulo: 'Episódio', dica: 'Um episódio comum da temporada.' },
+  {
+    valor: 'OP',
+    rotulo: 'Abertura',
+    dica: 'Vai pra pasta S02-OP1, separada do episódio 1 da temporada.'
+  },
+  {
+    valor: 'ED',
+    rotulo: 'Encerramento',
+    dica: 'Vai pra pasta S02-ED1, separada do episódio 1 da temporada.'
+  }
+]
 
 export function EpisodeForm({ disabled }: { disabled: boolean }): JSX.Element {
   const ep = useEpisodeStore()
@@ -69,6 +84,31 @@ export function EpisodeForm({ disabled }: { disabled: boolean }): JSX.Element {
         </Button>
       </div>
 
+      {/* O tipo vem ANTES dos números porque é ele que dá sentido a eles:
+          com "Abertura" marcado, o campo ao lado deixa de ser o episódio e
+          passa a ser qual abertura da temporada. */}
+      <Field label="O que é este arquivo">
+        <div className="flex gap-1.5">
+          {TIPOS.map((t) => (
+            <button
+              key={t.valor}
+              type="button"
+              disabled={disabled}
+              onClick={() => ep.set({ kind: t.valor })}
+              title={t.dica}
+              className={cn(
+                'flex-1 rounded-md border px-3 py-1.5 text-[12.5px] font-medium transition-colors disabled:opacity-50',
+                ep.kind === t.valor
+                  ? 'border-primary bg-primary/[0.12] text-primary'
+                  : 'border-border text-muted-foreground hover:bg-surface-hover hover:text-foreground'
+              )}
+            >
+              {t.rotulo}
+            </button>
+          ))}
+        </div>
+      </Field>
+
       <div className="grid grid-cols-[1fr_110px_110px] gap-2.5">
         <Field label="Anime">
           <Input
@@ -100,7 +140,11 @@ export function EpisodeForm({ disabled }: { disabled: boolean }): JSX.Element {
             onChange={(e) => ep.set({ season: Number(e.target.value) || 1 })}
           />
         </Field>
-        <Field label="Episódio">
+        <Field
+          label={
+            ep.kind === 'OP' ? 'Nº da abertura' : ep.kind === 'ED' ? 'Nº do encerr.' : 'Episódio'
+          }
+        >
           <Input
             type="number"
             min={1}

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { MatchParams, PresetKey, RenderExportMode } from '@shared/types'
+import type { EpisodeKind, MatchParams, PresetKey, RenderExportMode } from '@shared/types'
 import { PRESETS } from './analysis-store'
 
 /**
@@ -14,6 +14,8 @@ interface EpisodeState {
   anime: string
   season: number
   episode: number
+  /** '' = episódio, 'OP' = abertura, 'ED' = encerramento. */
+  kind: EpisodeKind
   outputDir: string
   /** Guardados como texto "mm:ss" — é o que o usuário digita. */
   skipHead: string
@@ -56,6 +58,7 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
   anime: '',
   season: 1,
   episode: 1,
+  kind: '',
   outputDir: '',
   skipHead: '',
   skipTail: '',
@@ -78,8 +81,15 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
       anime: parsed.anime,
       season: parsed.season,
       episode: parsed.episode,
-      skipHead: formatMmss(parsed.skipHeadSeconds),
-      skipTail: formatMmss(parsed.skipTailSeconds)
+      // O motor reconhece NCOP/NCED no nome do arquivo, então arrastar uma
+      // abertura já marca o tipo — sem depender de o usuário lembrar.
+      kind: parsed.kind,
+      // Os campos de pular dizem ONDE a abertura fica DENTRO de um episódio.
+      // Num arquivo que É a abertura eles não significam nada — preencher com
+      // o 01:30 salvo do anime cortaria o arquivo inteiro e não sobraria cena
+      // nenhuma. Ficam vazios, mas seguem editáveis: quem manda é você.
+      skipHead: parsed.kind ? '' : formatMmss(parsed.skipHeadSeconds),
+      skipTail: parsed.kind ? '' : formatMmss(parsed.skipTailSeconds)
     })
   },
 

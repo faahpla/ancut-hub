@@ -53,7 +53,8 @@ export function AnalyzeView(): JSX.Element {
         ep.videoPath,
         ep.anime.trim(),
         ep.season,
-        ep.episode
+        ep.episode,
+        ep.kind
       )
       if (exists) {
         const choice = await askReanalyze()
@@ -69,6 +70,7 @@ export function AnalyzeView(): JSX.Element {
         anime: ep.anime.trim(),
         season: ep.season,
         episode: ep.episode,
+        kind: ep.kind,
         outputDir: ep.outputDir.trim(),
         skipHeadSeconds: parseMmss(ep.skipHead),
         skipTailSeconds: parseMmss(ep.skipTail),

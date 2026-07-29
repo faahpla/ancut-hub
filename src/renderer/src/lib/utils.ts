@@ -26,3 +26,19 @@ export function formatClock(seconds: number): string {
     ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
     : `${m}:${String(sec).padStart(2, '0')}`
 }
+
+/**
+ * Rótulo curto do episódio: "S02E01", "S02 · OP1", "S02 · ED2".
+ *
+ * Um lugar só, usado pelo cabeçalho dos resultados e pelo histórico. Duas
+ * cópias divergiriam na primeira vez que alguém mudasse o formato num só.
+ */
+export function episodeLabel(
+  season: number,
+  episode: number,
+  kind: '' | 'OP' | 'ED'
+): string {
+  const s = `S${String(season).padStart(2, '0')}`
+  if (kind) return `${s} · ${kind}${episode}`
+  return `${s}E${String(episode).padStart(2, '0')}`
+}

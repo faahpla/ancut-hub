@@ -19,11 +19,21 @@ export interface MatchParams {
   credit: number
 }
 
+/**
+ * O que este arquivo É dentro do anime.
+ *
+ * Não é enfeite de exibição: entra na IDENTIDADE do episódio. A abertura da
+ * 2ª temporada não é o episódio 1 dela, e sem esta distinção as duas
+ * dividiam a mesma vaga no banco — uma apagava as cenas da outra.
+ */
+export type EpisodeKind = '' | 'OP' | 'ED'
+
 export interface AnalysisRequest {
   videoPath: string
   anime: string
   season: number
   episode: number
+  kind: EpisodeKind
   outputDir: string
   /** Segundos de OP/ED a ignorar. */
   skipHeadSeconds: number
@@ -102,6 +112,7 @@ export interface AnalysisResult {
   animeTitle: string
   season: number
   episode: number
+  kind: EpisodeKind
 }
 
 export interface DoneEvent {
@@ -176,6 +187,7 @@ export interface RecentEpisode {
   animeTitle: string
   season: number
   episode: number
+  kind: EpisodeKind
   episodeRoot: string
   shotCount: number
   processedAt: string | null
@@ -192,6 +204,7 @@ export interface EpisodeResults {
   animeTitle: string
   season: number
   episode: number
+  kind: EpisodeKind
   episodeRoot: string
   totalShots: number
   characters: CharacterSummary[]
@@ -344,6 +357,7 @@ export interface ParsedFilename extends SkipRanges {
   anime: string
   season: number
   episode: number
+  kind: EpisodeKind
 }
 
 // ------------------------------------------------------- ponte do preload
@@ -378,7 +392,9 @@ export interface AnCutBridge {
       source: string,
       anime: string,
       season: number,
-      episode: number
+      episode: number,
+      /** Abertura e episódio 1 são coisas diferentes — a pergunta muda. */
+      kind: EpisodeKind
     ): Promise<boolean>
   }
   results: {

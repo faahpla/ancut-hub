@@ -119,6 +119,7 @@ function toWireRequest(req: AnalysisRequest): Record<string, unknown> {
     anime: req.anime,
     season: req.season,
     episode: req.episode,
+    kind: req.kind,
     outputDir: req.outputDir,
     skipHeadSeconds: req.skipHeadSeconds,
     skipTailSeconds: req.skipTailSeconds,
@@ -278,10 +279,11 @@ export class PythonService {
     source: string,
     anime: string,
     season: number,
-    episode: number
+    episode: number,
+    kind: string
   ): Promise<boolean> {
     const r = await this.runOneShot<{ exists: boolean }>(
-      ['has-analysis', source, anime, String(season), String(episode)],
+      ['has-analysis', source, anime, String(season), String(episode), kind],
       'has-analysis'
     )
     return r?.exists ?? false
