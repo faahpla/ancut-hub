@@ -24,9 +24,6 @@ export function AnalyzeView(): JSX.Element {
 
   useEffect(() => {
     void ep.hydrate()
-    // Assina o stream do backend UMA vez, no mount da aba. A assinatura
-    // precisa sobreviver a re-renders, por isso o array de deps vazio.
-    return window.ancut.analysis.onEvent(apply)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

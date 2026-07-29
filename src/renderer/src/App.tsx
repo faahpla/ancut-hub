@@ -18,12 +18,21 @@ export default function App(): JSX.Element {
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const result = useAnalysisStore((s) => s.result)
+  const apply = useAnalysisStore((s) => s.apply)
   const openEpisode = useResultsStore((s) => s.openEpisode)
   const jaAberto = useRef<AnalysisResult | null>(null)
 
   useEffect(() => {
     void window.ancut.app.info().then(setInfo)
   }, [])
+
+  // A assinatura do stream mora AQUI, e não na aba Analisar.
+  //
+  // Enquanto morou lá, trocar de aba no meio de uma análise desmontava a aba
+  // e cancelava a assinatura: todo evento seguinte se perdia — inclusive o
+  // `done`, e aí a análise terminava sem levar ninguém a lugar nenhum. A App
+  // nunca desmonta, então o stream sobrevive à navegação.
+  useEffect(() => window.ancut.analysis.onEvent(apply), [apply])
 
   // Análise terminou: abre o resultado em vez de deixar o usuário caçá-lo no
   // histórico. A navegação mora aqui, e não no store da análise, porque é a
@@ -33,10 +42,17 @@ export default function App(): JSX.Element {
   // mesmo episódio produz um result novo com o mesmo id, e comparar id
   // deixaria de reabrir justamente na reanálise. `begin()` zera o result, então
   // cada execução traz um objeto novo.
+  //
+  // A troca de aba vem no `finally`: carregar o episódio pode falhar (backend
+  // fora do ar, banco travado) e mesmo assim o usuário TEM que sair da tela de
+  // progresso. Preso no `then`, uma falha de leitura deixava a análise
+  // terminada sem levar ninguém a lugar nenhum.
   useEffect(() => {
     if (!result || jaAberto.current === result) return
     jaAberto.current = result
-    void openEpisode(result.episodeId).then(() => setTab('results'))
+    void openEpisode(result.episodeId)
+      .catch((e) => console.error('[resultados] falha ao abrir o episódio:', e))
+      .finally(() => setTab('results'))
   }, [result, openEpisode])
 
   return (

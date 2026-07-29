@@ -113,6 +113,20 @@ export function CharacterList(): JSX.Element {
             </li>
           )
         })}
+
+        {/* Nenhum personagem com cenas suficientes. Sem esta explicação a
+            tela parece um erro — o usuário batizou gente no Modo Descoberta e
+            não vê ninguém aqui. */}
+        {results && characters.length === 0 && (
+          <li className="mt-2 rounded-md border border-border bg-surface-sunken px-2.5 py-2">
+            <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+              Ninguém alcançou o <strong className="font-semibold">mínimo de
+              cenas por personagem</strong>. As {results.totalShots} cenas estão
+              todas em "Todas as cenas" — pra ver os personagens, baixe o mínimo
+              em Configurações e analise de novo.
+            </p>
+          </li>
+        )}
       </ul>
     </div>
   )

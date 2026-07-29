@@ -85,8 +85,16 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
       shots: [],
       activeShot: null
     })
-    const first = results.characters[0]
-    if (first) await get().selectCharacter(first)
+    // Sem personagem nenhum a tela abriria VAZIA, mesmo com as cenas todas
+    // ali. Acontece de verdade: numa abertura curta, ninguém alcança o mínimo
+    // de cenas por personagem e o episódio inteiro fica só em "Todas as
+    // cenas". Cair nela é melhor do que não cair em nada.
+    const first = results.characters[0] ?? {
+      id: TODAS_AS_CENAS,
+      name: 'Todas as cenas',
+      shotCount: results.totalShots
+    }
+    await get().selectCharacter(first)
   },
 
   selectCharacter: async (character) => {
