@@ -83,7 +83,9 @@ const bridge: AnCutBridge = {
   },
   shell: {
     reveal: (path: string) => ipcRenderer.invoke(CH.revealPath, path),
-    open: (path: string) => ipcRenderer.invoke(CH.openPath, path)
+    open: (path: string) => ipcRenderer.invoke(CH.openPath, path),
+    startDrag: (files: string[], icon?: string | null) =>
+      ipcRenderer.send(CH.startDrag, files, icon ?? null)
   },
   window: {
     minimize: () => ipcRenderer.send(CH.winMinimize),

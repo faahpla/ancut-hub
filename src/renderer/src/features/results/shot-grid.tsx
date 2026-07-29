@@ -1,8 +1,9 @@
-import { Check, Combine, Loader2, Trash2 } from 'lucide-react'
+import { Check, Combine, FolderOpen, Loader2, PlayCircle, SquareCheck, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { ContextMenu } from '@/components/ui/context-menu'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { mediaUrl, useResultsStore } from '@/stores/results-store'
+import { diskPath, mediaUrl, useResultsStore } from '@/stores/results-store'
 import { cn } from '@/lib/utils'
 import type { ShotRow } from '@shared/types'
 
@@ -15,6 +16,7 @@ export function ShotGrid(): JSX.Element {
   const {
     shots,
     loadingShots,
+    results,
     selectedCharacter,
     mediaPrefix,
     activeShot,
@@ -29,6 +31,28 @@ export function ShotGrid(): JSX.Element {
     merging
   } = useResultsStore()
   const [confirmar, setConfirmar] = useState<'mesclar' | 'excluir' | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; shot: ShotRow } | null>(null)
+
+  const raiz = results?.episodeRoot ?? ''
+
+  /**
+   * Arrasta o clipe pra fora do app.
+   *
+   * Se a cena estiver marcada, vão TODAS as marcadas — arrastar uma de um
+   * grupo que você acabou de selecionar quase nunca é o que se quer, e a
+   * seleção já é o gesto de "estas aqui" no resto da tela.
+   */
+  const arrastar = (shot: ShotRow): void => {
+    const alvos =
+      selection.includes(shot.id) && selection.length > 1
+        ? shots.filter((s) => selection.includes(s.id))
+        : [shot]
+    const arquivos = alvos
+      .map((s) => diskPath(raiz, s.file))
+      .filter((p): p is string => p !== null)
+    if (arquivos.length === 0) return
+    window.ancut.shell.startDrag(arquivos, diskPath(raiz, shot.keyframe))
+  }
 
   return (
     <div className="panel flex min-h-0 flex-col overflow-hidden">
@@ -183,11 +207,44 @@ export function ShotGrid(): JSX.Element {
                 marcada={selection.includes(shot.id)}
                 onSelect={() => setActiveShot(shot)}
                 onToggle={(faixa) => toggleSelected(shot.id, faixa)}
+                onDrag={() => arrastar(shot)}
+                onMenu={(x, y) => setMenu({ x, y, shot })}
               />
             ))}
           </div>
         )}
       </div>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              label: 'Ir para a pasta',
+              icon: FolderOpen,
+              onSelect: () => {
+                const p = diskPath(raiz, menu.shot.file)
+                if (p) void window.ancut.shell.reveal(p)
+              }
+            },
+            {
+              label: 'Abrir no player',
+              icon: PlayCircle,
+              onSelect: () => {
+                const p = diskPath(raiz, menu.shot.file)
+                if (p) void window.ancut.shell.open(p)
+              }
+            },
+            {
+              label: selection.includes(menu.shot.id) ? 'Desmarcar' : 'Marcar',
+              icon: SquareCheck,
+              onSelect: () => toggleSelected(menu.shot.id)
+            }
+          ]}
+        />
+      )}
     </div>
   )
 }
@@ -198,7 +255,9 @@ function ShotCard({
   active,
   marcada,
   onSelect,
-  onToggle
+  onToggle,
+  onDrag,
+  onMenu
 }: {
   shot: ShotRow
   prefix: string
@@ -207,6 +266,8 @@ function ShotCard({
   onSelect: () => void
   /** `faixa` = shift pressionado: marca do último marcado até aqui. */
   onToggle: (faixa: boolean) => void
+  onDrag: () => void
+  onMenu: (x: number, y: number) => void
 }): JSX.Element {
   const thumb = mediaUrl(prefix, shot.keyframe)
   const conf = shot.confidence
@@ -217,6 +278,18 @@ function ShotCard({
       tabIndex={0}
       onClick={onSelect}
       onKeyDown={(e) => e.key === 'Enter' && onSelect()}
+      draggable
+      // O `preventDefault` é o ponto: mata o arrasto do HTML (que só carregaria
+      // texto) pra o do Windows entrar no lugar, carregando o arquivo de
+      // verdade. Sem ele os dois disputam o mesmo gesto e nada sai do app.
+      onDragStart={(e) => {
+        e.preventDefault()
+        onDrag()
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onMenu(e.clientX, e.clientY)
+      }}
       className={cn(
         'group relative cursor-pointer overflow-hidden rounded-md border bg-surface-sunken text-left transition-all',
         marcada

@@ -1,4 +1,5 @@
-import { app, dialog, ipcMain, shell } from 'electron'
+import { app, dialog, ipcMain, nativeImage, shell } from 'electron'
+import { join } from 'node:path'
 import { CH } from '../../shared/channels'
 import type { AnalysisRequest, AppInfo, AppSettings } from '../../shared/types'
 import { allowMediaRoot, mediaUrlPrefix } from '../register-protocol'
@@ -8,6 +9,26 @@ import { SettingsStore } from '../store/settings-store'
 import type { WindowManager } from '../windows/window-manager'
 
 const VIDEO_EXTS = ['mp4', 'mkv', 'mov', 'avi', 'webm', 'ts', 'm2ts']
+
+/** Guardado entre arrastos: ler e redimensionar o PNG toda vez é desperdício. */
+let iconeReserva: Electron.NativeImage | null = null
+
+/**
+ * O que o cursor carrega durante o arrasto. O Windows EXIGE um ícone não
+ * vazio — sem ele o `startDrag` lança e o arrasto nem começa.
+ */
+function dragIcon(keyframe: string | null): Electron.NativeImage {
+  if (keyframe) {
+    const img = nativeImage.createFromPath(keyframe)
+    // 128px porque o keyframe é um frame inteiro (1920px): arrastar a imagem
+    // em tamanho real cobriria a tela.
+    if (!img.isEmpty()) return img.resize({ width: 128 })
+  }
+  iconeReserva ??= nativeImage
+    .createFromPath(join(__dirname, '../../resources/icon.png'))
+    .resize({ width: 64 })
+  return iconeReserva
+}
 
 export function registerIpc(
   windows: WindowManager,
@@ -113,6 +134,20 @@ export function registerIpc(
   })
   ipcMain.handle(CH.openPath, async (_e, path: string): Promise<void> => {
     await shell.openPath(path)
+  })
+
+  // `on` e não `handle`: o arrasto tem que começar DENTRO do gesto de mouse
+  // que o sistema já está acompanhando. Um `invoke` devolveria a promessa
+  // depois, e o Windows já teria desistido do arrasto.
+  ipcMain.on(CH.startDrag, (event, files: string[], icon: string | null) => {
+    if (!Array.isArray(files) || files.length === 0) return
+    try {
+      event.sender.startDrag({ file: files[0], files, icon: dragIcon(icon) })
+    } catch (err) {
+      // Ícone vazio faz o startDrag lançar. Melhor perder o arrasto do que
+      // derrubar o processo principal com o app inteiro junto.
+      console.error('[drag] não consegui iniciar o arrasto:', err)
+    }
   })
 
   // ---------------------------------------------------- janela frameless

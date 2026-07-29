@@ -1,8 +1,8 @@
-import { ExternalLink, Pause, Play, Repeat, Volume2, VolumeX } from 'lucide-react'
+import { ExternalLink, FolderOpen, Pause, Play, Repeat, Volume2, VolumeX } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { mediaUrl, useResultsStore } from '@/stores/results-store'
+import { diskPath, mediaUrl, useResultsStore } from '@/stores/results-store'
 
 /**
  * Player da prévia. Um `<video>` do HTML5 — sem plugin de mídia pra empacotar,
@@ -22,6 +22,8 @@ export function PreviewPlayer(): JSX.Element {
   const [duration, setDuration] = useState(0)
 
   const src = mediaUrl(mediaPrefix, activeShot?.file ?? null)
+  /** Caminho no disco — o media:// serve pro <video>, não pro Windows. */
+  const arquivo = diskPath(results?.episodeRoot ?? '', activeShot?.file ?? null)
 
   // Fonte nova: volta pro início e toca (a cena selecionada deve animar
   // sozinha, é o comportamento de "prévia" que o usuário espera).
@@ -75,7 +77,19 @@ export function PreviewPlayer(): JSX.Element {
             muted={muted}
             loop={loop}
             playsInline
-            className="size-full object-contain"
+            draggable
+            // Arrastar daqui pra fora, igual à grade: quando você já está
+            // assistindo é onde a vontade de tirar o clipe aparece.
+            onDragStart={(e) => {
+              e.preventDefault()
+              if (arquivo) {
+                window.ancut.shell.startDrag(
+                  [arquivo],
+                  diskPath(results?.episodeRoot ?? '', activeShot?.keyframe ?? null)
+                )
+              }
+            }}
+            className="size-full cursor-grab object-contain active:cursor-grabbing"
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
             onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
@@ -148,11 +162,17 @@ export function PreviewPlayer(): JSX.Element {
 
         <IconToggle
           on={false}
-          disabled={!activeShot || !results}
-          onClick={() => {
-            if (!activeShot || !results) return
-            void window.ancut.shell.open(`${results.episodeRoot}\\${activeShot.file}`)
-          }}
+          disabled={!arquivo}
+          onClick={() => arquivo && void window.ancut.shell.reveal(arquivo)}
+          title="Ir para a pasta"
+        >
+          <FolderOpen />
+        </IconToggle>
+
+        <IconToggle
+          on={false}
+          disabled={!arquivo}
+          onClick={() => arquivo && void window.ancut.shell.open(arquivo)}
           title="Abrir no player do sistema"
         >
           <ExternalLink />

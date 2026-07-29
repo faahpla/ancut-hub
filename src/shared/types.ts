@@ -435,6 +435,15 @@ export interface AnCutBridge {
   shell: {
     reveal(path: string): Promise<void>
     open(path: string): Promise<void>
+    /**
+     * Começa a arrastar arquivos pra FORA do app. Só funciona chamado de
+     * dentro de um `dragstart` do DOM (é a mesma gesto de mouse que o Windows
+     * já está acompanhando); `event.preventDefault()` antes, pra o arrasto
+     * nativo substituir o do HTML.
+     *
+     * `icon` é o que o cursor carrega — o keyframe da cena, quando existe.
+     */
+    startDrag(files: string[], icon?: string | null): void
   }
   window: {
     minimize(): void

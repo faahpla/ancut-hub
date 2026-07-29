@@ -196,6 +196,20 @@ async function recarregar(
   }
 }
 
+/**
+ * Caminho REAL no disco de um arquivo do episódio.
+ *
+ * O `media://` serve pra exibir e tocar dentro do app; pra arrastar pra fora
+ * ou abrir no Explorer, quem recebe é o Windows, e ele só entende o caminho
+ * de verdade. O separador sai do próprio `episodeRoot` em vez de ser fixo:
+ * é ele que diz como a máquina que analisou escreve caminho.
+ */
+export function diskPath(episodeRoot: string, relative: string | null): string | null {
+  if (!episodeRoot || !relative) return null
+  const sep = episodeRoot.includes('\\') ? '\\' : '/'
+  return episodeRoot.replace(/[\\/]+$/, '') + sep + relative
+}
+
 /** Monta a URL media:// de um caminho relativo dentro do episódio. */
 export function mediaUrl(prefix: string, relative: string | null): string | null {
   if (!prefix || !relative) return null

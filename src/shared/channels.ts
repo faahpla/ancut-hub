@@ -59,6 +59,8 @@ export const CH = {
   /** Renderer → main: abre caminho no Explorer / player do sistema. */
   revealPath: 'shell:reveal',
   openPath: 'shell:open',
+  /** Arrastar clipe pra fora do app (Explorer, editor, o que for). */
+  startDrag: 'shell:start-drag',
 
   /** Controles da janela (ela é frameless — a barra de título é nossa). */
   winMinimize: 'win:minimize',
