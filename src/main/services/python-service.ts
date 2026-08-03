@@ -181,6 +181,10 @@ export interface ProbeInfo {
   version: string
   gpuName: string | null
   ffmpeg: boolean
+  /** A segunda opinião (CCIP) está de pé? Ela falha em silêncio de
+   *  propósito — a análise segue com o CLIP —, então tem que ser visível
+   *  em algum lugar, senão ninguém saberia que nunca entrou. */
+  ccip: boolean
 }
 
 export interface ParsedFilename {
@@ -264,7 +268,8 @@ export class PythonService {
       this.probeCache = {
         version: info.version,
         gpuName: info.gpuName ?? null,
-        ffmpeg: info.ffmpeg
+        ffmpeg: info.ffmpeg,
+        ccip: Boolean(info.ccip)
       }
     }
     return this.probeCache

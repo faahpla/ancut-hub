@@ -16,6 +16,11 @@
  *
  * Bandeiras:
  *   --engine     inclui o motor Python (use quando o código em app/ mudou)
+ *   --engine-extra <pasta>
+ *                acrescenta uma pasta de _internal/ ao pacote do motor. Use
+ *                quando uma DEPENDÊNCIA nova aparecer: o pacote normal leva
+ *                só _internal/app (nosso código), então uma biblioteca nova
+ *                nunca chegaria na máquina de quem já tem o app instalado.
  *   --full-ui    empacota o win-unpacked inteiro em vez de só o app.asar.
  *                OBRIGATÓRIO quando a versão do Electron muda: o app.asar
  *                sozinho deixaria o Chromium velho com código novo.
@@ -41,6 +46,16 @@ const valueOf = (flag) => {
   const i = argv.indexOf(flag)
   return i >= 0 ? argv[i + 1] : null
 }
+
+/**
+ * Pastas extras de `_internal` que entram no pacote do motor.
+ *
+ * Uso: --engine-extra onnxruntime --engine-extra outra
+ */
+const ENGINE_EXTRAS = argv.reduce((acc, a, i) => {
+  if (a === '--engine-extra' && argv[i + 1]) acc.push(argv[i + 1])
+  return acc
+}, [])
 
 const CI = has('--ci')
 const DRY = has('--dry-run')
@@ -101,6 +116,19 @@ if (WITH_ENGINE) {
     cpSync(join(ENGINE_DIST, '_internal', 'app'), join(dest, '_internal', 'app'), {
       recursive: true
     })
+    // Bibliotecas NOVAS precisam vir junto uma vez. `_internal/app` é só o
+    // nosso código: uma dependência que passou a existir mora ao lado dele e
+    // ficaria de fora para sempre. Foi o caso do onnxruntime na 1.9.0 — sem
+    // isto o CCIP diria "indisponível" na máquina do usuário e em nenhuma
+    // outra, o que é o pior tipo de bug pra achar.
+    for (const extra of ENGINE_EXTRAS) {
+      const from = join(ENGINE_DIST, '_internal', extra)
+      if (!existsSync(from)) {
+        fail(`--engine-extra ${extra}: não achei ${from}`)
+      }
+      cpSync(from, join(dest, '_internal', extra), { recursive: true })
+      log(`  + _internal/${extra}`)
+    }
   })
 }
 
