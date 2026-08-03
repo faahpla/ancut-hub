@@ -5,6 +5,7 @@ import { ContextMenu } from '@/components/ui/context-menu'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { diskPath, mediaUrl, useResultsStore } from '@/stores/results-store'
 import { cn } from '@/lib/utils'
+import { HoverPreview } from './hover-preview'
 import type { ShotRow } from '@shared/types'
 
 /**
@@ -339,19 +340,7 @@ function ShotCard({
       </button>
 
       <div className="relative aspect-video w-full overflow-hidden bg-black/40">
-        {thumb ? (
-          <img
-            src={thumb}
-            alt=""
-            loading="lazy"
-            draggable={false}
-            className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-          />
-        ) : (
-          <div className="grid size-full place-items-center text-[11px] text-muted-foreground">
-            sem keyframe
-          </div>
-        )}
+        <HoverPreview thumb={thumb} clip={mediaUrl(prefix, shot.file)} />
         {/* Sem selo na visão de todas as cenas: confiança pertence ao par
             (cena, personagem), e ali a cena pode ter vários ou nenhum. */}
         {conf !== null && (

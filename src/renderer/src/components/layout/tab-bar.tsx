@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
-export type TabKey = 'analyze' | 'results'
+export type TabKey = 'analyze' | 'library' | 'results'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'analyze', label: 'Analisar' },
+  { key: 'library', label: 'Biblioteca' },
   { key: 'results', label: 'Resultados' }
 ]
 

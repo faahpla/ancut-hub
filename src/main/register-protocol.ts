@@ -84,7 +84,18 @@ export function serveProtocols(rendererDir: string): void {
     if (!target || !isAllowed(target)) {
       return new Response('forbidden', { status: 403 })
     }
-    return net.fetch(pathToFileURL(target).toString())
+    // O `Range` do pedido tem que ATRAVESSAR até o file://.
+    //
+    // `stream: true` lá em cima só autoriza o esquema a responder em partes;
+    // quem de fato responde é o carregador de file://, e ele só devolve 206
+    // se receber o cabeçalho. Buscar a URL como texto puro descartava o
+    // `Range` calado: o <video> pedia o segundo 4, levava o arquivo inteiro
+    // do zero com 200, e o Chromium desistia do seek voltando pro início.
+    const range = request.headers.get('range')
+    return net.fetch(
+      pathToFileURL(target).toString(),
+      range ? { headers: { range } } : undefined
+    )
   })
 }
 

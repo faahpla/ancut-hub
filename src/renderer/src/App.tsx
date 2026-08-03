@@ -8,6 +8,7 @@ import { TabBar, type TabKey } from '@/components/layout/tab-bar'
 import { TitleBar } from '@/components/layout/title-bar'
 import { Button } from '@/components/ui/button'
 import { AnalyzeView } from '@/features/analyze/analyze-view'
+import { LibraryView } from '@/features/library/library-view'
 import { ResultsView } from '@/features/results/results-view'
 import { SettingsDialog } from '@/features/settings/settings-dialog'
 import { UpdateBadge, UpdateDialogHost } from '@/features/update/update-badge'
@@ -77,7 +78,22 @@ export default function App(): JSX.Element {
       </div>
 
       <main className="scrollbar-thin flex-1 overflow-y-auto px-4 pb-4">
-        {tab === 'analyze' ? <AnalyzeView /> : <ResultsView />}
+        {tab === 'analyze' ? (
+          <AnalyzeView />
+        ) : tab === 'library' ? (
+          // A Biblioteca escolhe; a aba Resultados trabalha. Abrir daqui leva
+          // pra lá porque o episódio aberto ocupa a tela inteira — mostrá-lo
+          // dentro da árvore empurraria a árvore pra fora do alcance.
+          <LibraryView
+            onOpen={(episodeId) => {
+              void openEpisode(episodeId)
+                .catch((e) => console.error('[biblioteca] falha ao abrir:', e))
+                .finally(() => setTab('results'))
+            }}
+          />
+        ) : (
+          <ResultsView onBrowse={() => setTab('library')} />
+        )}
       </main>
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} info={info} />

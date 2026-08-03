@@ -20,6 +20,53 @@ export function PreviewPlayer(): JSX.Element {
   const [volume, setVolume] = useState(0.8)
   const [position, setPosition] = useState(0)
   const [duration, setDuration] = useState(0)
+  /**
+   * Está com o dedo na barra AGORA.
+   *
+   * O `<video>` avisa a posição uma 4x por segundo, e esse aviso mandava no
+   * valor da barra — então, no meio do arrasto, o quadro que o vídeo ainda
+   * estava exibindo puxava o marcador de volta. Enquanto o dedo está na
+   * barra, quem manda é o dedo.
+   *
+   * Ref, e não estado: o aviso do vídeo chega por um manipulador criado numa
+   * renderização anterior, e ele leria o valor congelado daquela vez.
+   */
+  const arrastando = useRef(false)
+  /** Estava tocando quando o arrasto começou (pra retomar ao soltar). */
+  const retomar = useRef(false)
+
+  /**
+   * Pegar a barra PAUSA; soltar retoma se estava tocando.
+   *
+   * Este é o bug de verdade que o usuário relatou como "arrasto a barra e
+   * volta pro início". O seek nunca esteve quebrado — as cenas têm 2 a 8
+   * segundos e o player abre em LOOP. Arrastar pro segundo 4,8 de um clipe
+   * de 5 acertava em cheio, o clipe acabava 200ms depois e o loop devolvia
+   * pro zero. Medido: seek pra 1,98s num clipe de 2,23s, e 400ms depois o
+   * vídeo estava em 0,02s.
+   *
+   * Parar enquanto o dedo está na barra é o que qualquer editor de vídeo faz,
+   * e resolve pela raiz: o quadro fica parado onde você largou, dando tempo
+   * de olhar. O loop continua existindo — só não atropela mais o gesto.
+   */
+  const iniciarArrasto = (): void => {
+    const v = videoRef.current
+    if (!v || arrastando.current) return
+    arrastando.current = true
+    retomar.current = !v.paused
+    v.pause()
+  }
+
+  const terminarArrasto = (): void => {
+    if (!arrastando.current) return
+    arrastando.current = false
+    if (retomar.current) {
+      retomar.current = false
+      void videoRef.current?.play().catch(() => {
+        /* sem autoplay o botão continua ali */
+      })
+    }
+  }
 
   const src = mediaUrl(mediaPrefix, activeShot?.file ?? null)
   /** Caminho no disco — o media:// serve pro <video>, não pro Windows. */
@@ -32,6 +79,11 @@ export function PreviewPlayer(): JSX.Element {
     if (!v || !src) return
     v.currentTime = 0
     setPosition(0)
+    // Zera a duração junto: mantê-la faria a barra do clipe novo abrir com a
+    // régua do clipe anterior, e arrastar antes dos metadados chegarem
+    // apontaria pra um segundo que talvez nem exista neste.
+    setDuration(0)
+    arrastando.current = false
     void v.play().catch(() => {
       /* autoplay pode ser negado; o botão continua disponível */
     })
@@ -41,6 +93,22 @@ export function PreviewPlayer(): JSX.Element {
     const v = videoRef.current
     if (v) v.volume = volume
   }, [volume])
+
+  // Soltar o botão do mouse é ouvido na JANELA, não na barra.
+  //
+  // Arrastar até o fim e soltar com o ponteiro já fora da barra é o gesto
+  // normal, e nesse caso o `pointerup` não passa pelo input. Preso em
+  // `arrastando`, o marcador ignoraria o vídeo pelo resto da sessão.
+  useEffect(() => {
+    const soltar = (): void => terminarArrasto()
+    window.addEventListener('pointerup', soltar)
+    window.addEventListener('pointercancel', soltar)
+    return () => {
+      window.removeEventListener('pointerup', soltar)
+      window.removeEventListener('pointercancel', soltar)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const toggle = (): void => {
     const v = videoRef.current
@@ -52,8 +120,23 @@ export function PreviewPlayer(): JSX.Element {
   const seek = (value: number): void => {
     const v = videoRef.current
     if (!v) return
-    v.currentTime = value
-    setPosition(value)
+    // Limitado à duração de verdade: um clipe de 5s com `max` errado aceitaria
+    // 9s, e o vídeo trata posição fora do fim voltando pro zero.
+    const alvo = Math.min(Math.max(0, value), duration || 0)
+    v.currentTime = alvo
+    setPosition(alvo)
+  }
+
+  /**
+   * A duração só é confiável quando for um número finito e positivo.
+   *
+   * Em clipe recém-aberto ela chega como `NaN`, e a primeira versão disto
+   * escrevia `max={duration || 0}` — barra de 0 a 0. Qualquer arrasto ali
+   * resolve pra 0, que é exatamente "voltou pro início".
+   */
+  const pronto = Number.isFinite(duration) && duration > 0
+  const anotarDuracao = (v: HTMLVideoElement): void => {
+    setDuration(Number.isFinite(v.duration) && v.duration > 0 ? v.duration : 0)
   }
 
   return (
@@ -92,8 +175,16 @@ export function PreviewPlayer(): JSX.Element {
             className="size-full cursor-grab object-contain active:cursor-grabbing"
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
-            onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
-            onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
+            onTimeUpdate={(e) => {
+              if (!arrastando.current) setPosition(e.currentTarget.currentTime)
+            }}
+            // `seeked` mesmo arrastando: é a confirmação de que o vídeo
+            // chegou onde foi mandado, e sem ela o marcador ficaria adivinhando.
+            onSeeked={(e) => setPosition(e.currentTarget.currentTime)}
+            onLoadedMetadata={(e) => anotarDuracao(e.currentTarget)}
+            // Em MP4 gravado em streaming a duração só aparece depois dos
+            // metadados; sem escutar isto a barra ficava morta nesses clipes.
+            onDurationChange={(e) => anotarDuracao(e.currentTarget)}
             onClick={toggle}
           />
         ) : (
@@ -103,16 +194,33 @@ export function PreviewPlayer(): JSX.Element {
         )}
       </div>
 
-      {/* Scrubber ocupando a largura toda; transporte embaixo. */}
+      {/* Scrubber ocupando a largura toda; transporte embaixo.
+          A altura é 12px pra ter onde pegar, mas o trilho desenhado continua
+          com 6px — a área de clique cresce sem a barra engordar. */}
       <input
         type="range"
         min={0}
-        max={duration || 0}
+        max={pronto ? duration : 1}
         step={0.02}
         value={position}
-        disabled={!src}
+        disabled={!src || !pronto}
+        onPointerDown={iniciarArrasto}
+        onKeyDown={iniciarArrasto}
+        onKeyUp={terminarArrasto}
         onChange={(e) => seek(Number(e.target.value))}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary disabled:opacity-40"
+        style={
+          {
+            '--pct': `${pronto ? (position / duration) * 100 : 0}%`
+          } as React.CSSProperties
+        }
+        className={cn(
+          'h-3 w-full cursor-pointer appearance-none bg-transparent disabled:cursor-default disabled:opacity-40',
+          '[&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full',
+          '[&::-webkit-slider-runnable-track]:bg-[linear-gradient(to_right,hsl(var(--primary))_var(--pct),hsl(var(--muted))_var(--pct))]',
+          '[&::-webkit-slider-thumb]:mt-[-3px] [&::-webkit-slider-thumb]:size-3',
+          '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full',
+          '[&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow'
+        )}
       />
 
       <div className="flex items-center gap-1.5">
