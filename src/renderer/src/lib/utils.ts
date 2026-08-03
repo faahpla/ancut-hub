@@ -28,6 +28,22 @@ export function formatClock(seconds: number): string {
 }
 
 /**
+ * Nome da PASTA do episódio no disco: "S02E01", "S02-OP1", "S02-ED2".
+ *
+ * Espelha `EpisodeInfo.slug` do motor. Diferente do rótulo de tela abaixo:
+ * este vai virar caminho, então nada de ponto do meio nem espaço.
+ */
+export function episodeSlug(
+  season: number,
+  episode: number,
+  kind: '' | 'OP' | 'ED'
+): string {
+  const s = `S${String(season).padStart(2, '0')}`
+  if (kind) return `${s}-${kind}${episode}`
+  return `${s}E${String(episode).padStart(2, '0')}`
+}
+
+/**
  * Rótulo curto do episódio: "S02E01", "S02 · OP1", "S02 · ED2".
  *
  * Um lugar só, usado pelo cabeçalho dos resultados e pelo histórico. Duas

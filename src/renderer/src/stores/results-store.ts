@@ -3,7 +3,9 @@ import type {
   CharacterSummary,
   DeleteResult,
   EpisodeResults,
+  ExplorerChanges,
   MergeResult,
+  OrphanEpisode,
   RecentEpisode,
   ShotRow
 } from '@shared/types'
@@ -11,6 +13,9 @@ import type {
 interface ResultsState {
   recent: RecentEpisode[]
   loadingRecent: boolean
+  /** Pastas completas no disco que o histórico não conhece. */
+  orphans: OrphanEpisode[]
+  restoring: string
 
   results: EpisodeResults | null
   /** Prefixo media:// da pasta do episódio — vazio até liberar a raiz. */
@@ -23,11 +28,24 @@ interface ResultsState {
   /** Largura do card na grade, em px (o controle de escala). */
   cardWidth: number
 
+  /** Faxina do Explorer detectada ao abrir o episódio. */
+  explorer: ExplorerChanges | null
+  /**
+   * Última pasta de lixeira criada nesta sessão. Existe só pra a tela
+   * poder oferecer "abrir" logo depois de excluir — que é o momento em
+   * que a pessoa percebe que errou.
+   */
+  lastTrashDir: string
   /** Cenas marcadas pra mesclar, por id. */
   selection: number[]
   merging: boolean
 
   loadRecent: () => Promise<void>
+  /** Reconstrói uma pasta esquecida e já a traz pro histórico. */
+  restoreOrphan: (root: string) => Promise<void>
+  /** Aplica a faxina do Explorer. `charIds` = pastas confirmadas. */
+  applyExplorer: (charIds: number[]) => Promise<void>
+  dismissExplorer: () => void
   openEpisode: (episodeId: number) => Promise<void>
   selectCharacter: (character: CharacterSummary) => Promise<void>
   setActiveShot: (shot: ShotRow | null) => void
@@ -51,6 +69,8 @@ export const TODAS_AS_CENAS = 0
 export const useResultsStore = create<ResultsState>((set, get) => ({
   recent: [],
   loadingRecent: false,
+  orphans: [],
+  restoring: '',
   results: null,
   mediaPrefix: '',
   selectedCharacter: null,
@@ -60,6 +80,8 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
   // 180px cabe em 3 colunas na largura padrão da janela. Acima disso a grade
   // cai pra 2 e a revisão fica lenta — o pedido original era "3 ou mais".
   cardWidth: 180,
+  explorer: null,
+  lastTrashDir: '',
   selection: [],
   merging: false,
 
@@ -67,8 +89,24 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
     set({ loadingRecent: true })
     try {
       set({ recent: await window.ancut.results.recent() })
+      // Depois do histórico, e sem travar a tela: a varredura lê o disco e
+      // só interessa quando a lista já está lá pra comparar.
+      set({ orphans: await window.ancut.results.orphans() })
     } finally {
       set({ loadingRecent: false })
+    }
+  },
+
+  restoreOrphan: async (root) => {
+    set({ restoring: root })
+    try {
+      const r = await window.ancut.results.restore(root)
+      if (!r) return
+      // Recarrega em vez de remendar a lista na mão: o episódio restaurado
+      // precisa entrar no lugar certo da ordenação por data.
+      await get().loadRecent()
+    } finally {
+      set({ restoring: '' })
     }
   },
 
@@ -83,7 +121,9 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
       mediaPrefix,
       selectedCharacter: null,
       shots: [],
-      activeShot: null
+      activeShot: null,
+      explorer: null,
+      lastTrashDir: ''
     })
     // Sem personagem nenhum a tela abriria VAZIA, mesmo com as cenas todas
     // ali. Acontece de verdade: numa abertura curta, ninguém alcança o mínimo
@@ -95,6 +135,21 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
       shotCount: results.totalShots
     }
     await get().selectCharacter(first)
+
+    // A varredura do disco vem por último, sem bloquear a abertura: ela lê
+    // centenas de arquivos e o episódio já está utilizável sem ela.
+    const explorer = await window.ancut.results.explorerScan(episodeId)
+    // Só avisa se ainda for o mesmo episódio e se houver algo pra dizer.
+    if (get().results?.episodeId !== episodeId) return
+    if (
+      explorer &&
+      explorer.safe &&
+      (explorer.missingClips > 0 ||
+        explorer.unlinkedPairs.length > 0 ||
+        explorer.missingFolders.length > 0)
+    ) {
+      set({ explorer })
+    }
   },
 
   selectCharacter: async (character) => {
@@ -166,6 +221,7 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
     try {
       const r = await window.ancut.results.remove(results.episodeId, selection)
       if (!r) return null
+      set({ lastTrashDir: r.trashDir ?? '' })
       await recarregar(set, results.episodeId, selectedCharacter)
       return r
     } finally {
@@ -173,9 +229,21 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
     }
   },
 
+  applyExplorer: async (charIds) => {
+    const { results, selectedCharacter } = get()
+    if (!results) return
+    await window.ancut.results.explorerApply(results.episodeId, charIds)
+    set({ explorer: null })
+    await recarregar(set, results.episodeId, selectedCharacter)
+  },
+
+  dismissExplorer: () => set({ explorer: null }),
+
   close: () =>
     set({
       results: null,
+      explorer: null,
+      lastTrashDir: '',
       mediaPrefix: '',
       selectedCharacter: null,
       shots: [],

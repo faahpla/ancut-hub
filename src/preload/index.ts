@@ -39,6 +39,7 @@ const bridge: AnCutBridge = {
   episode: {
     parseFilename: (path: string) => ipcRenderer.invoke(CH.parseFilename, path),
     skipRanges: (anime: string) => ipcRenderer.invoke(CH.skipRanges, anime),
+    animeFolder: (anime: string) => ipcRenderer.invoke(CH.animeFolder, anime),
     hasAnalysis: (
       source: string,
       anime: string,
@@ -49,6 +50,11 @@ const bridge: AnCutBridge = {
   },
   results: {
     recent: () => ipcRenderer.invoke(CH.recentEpisodes),
+    explorerScan: (episodeId: number) => ipcRenderer.invoke(CH.explorerScan, episodeId),
+    explorerApply: (episodeId: number, characterIds: number[]) =>
+      ipcRenderer.invoke(CH.explorerApply, episodeId, characterIds),
+    orphans: () => ipcRenderer.invoke(CH.orphanScan),
+    restore: (root: string) => ipcRenderer.invoke(CH.orphanRestore, root),
     load: (episodeId: number) => ipcRenderer.invoke(CH.loadResults, episodeId),
     shots: (episodeId: number, characterId: number) =>
       ipcRenderer.invoke(CH.loadShots, episodeId, characterId),
@@ -64,6 +70,8 @@ const bridge: AnCutBridge = {
         ipcRenderer.off(CH.harvestEvent, listener)
       }
     },
+    markBenchmark: (episodeId: number, label = '') =>
+      ipcRenderer.invoke(CH.benchmarkAdd, episodeId, label),
     grantMedia: (episodeRoot: string) => ipcRenderer.invoke(CH.mediaUrls, episodeRoot)
   },
   settings: {

@@ -1,9 +1,11 @@
-import { Clapperboard, FolderOpen, History, Images, Loader2, X } from 'lucide-react'
+import { Clapperboard, FolderOpen, FolderSearch, History, Images, Loader2, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { episodeLabel } from '@/lib/utils'
 import { useResultsStore } from '@/stores/results-store'
 import { CharacterList } from './character-list'
+import { ExplorerSyncBar } from './explorer-sync-bar'
+import { BenchmarkButton } from './benchmark-button'
 import { HarvestButton } from './harvest-button'
 import { PreviewPlayer } from './preview-player'
 import { ShotGrid } from './shot-grid'
@@ -31,6 +33,10 @@ export function ResultsView(): JSX.Element {
           {results.totalShots} cenas · {results.characters.length} personagens
         </span>
         <span className="flex-1" />
+        <BenchmarkButton
+          episodeId={results.episodeId}
+          label={`${results.animeTitle} ${episodeLabel(results.season, results.episode, results.kind)}`}
+        />
         <HarvestButton episodeId={results.episodeId} />
         {results.refsDir && (
           <Button
@@ -57,6 +63,8 @@ export function ResultsView(): JSX.Element {
         </Button>
       </header>
 
+      <ExplorerSyncBar />
+
       <div className="grid min-h-0 flex-1 grid-cols-[210px_1fr_330px] gap-2.5">
         <CharacterList />
         <ShotGrid />
@@ -74,7 +82,8 @@ export function ResultsView(): JSX.Element {
  * saída fica gravada no banco e o resultado reabre na hora.
  */
 function EpisodePicker(): JSX.Element {
-  const { recent, loadingRecent, openEpisode } = useResultsStore()
+  const { recent, loadingRecent, openEpisode, orphans, restoring, restoreOrphan } =
+    useResultsStore()
 
   if (loadingRecent) {
     return (
@@ -84,7 +93,7 @@ function EpisodePicker(): JSX.Element {
     )
   }
 
-  if (recent.length === 0) {
+  if (recent.length === 0 && orphans.length === 0) {
     return (
       <div className="grid h-full place-items-center">
         <div className="flex max-w-[320px] flex-col items-center gap-2 text-center">
@@ -129,6 +138,47 @@ function EpisodePicker(): JSX.Element {
           </li>
         ))}
       </ul>
+
+      {orphans.length > 0 && (
+        <section className="mt-2 flex flex-col gap-1.5">
+          <header className="flex items-center gap-2 px-1">
+            <FolderSearch className="size-4 text-muted-foreground" />
+            <h2 className="text-[14px] font-semibold">Pastas encontradas na saída</h2>
+            <span className="text-[12px] text-muted-foreground">({orphans.length})</span>
+          </header>
+          <p className="px-1 text-[12px] leading-relaxed text-muted-foreground">
+            Episódios que já foram analisados e continuam completos no disco,
+            mas sumiram do histórico. Trazer de volta é leitura de arquivo —
+            nada é cortado de novo.
+          </p>
+          {orphans.map((o) => (
+            <div
+              key={o.root}
+              className="panel flex items-center gap-3 px-3.5 py-2.5"
+              title={o.root}
+            >
+              <FolderSearch className="size-4 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
+                {o.anime}
+              </span>
+              <span className="tabular shrink-0 text-[12px] text-muted-foreground">
+                {episodeLabel(o.season, o.episode, o.kind)}
+              </span>
+              <span className="tabular w-20 shrink-0 text-right text-[12px] text-muted-foreground/70">
+                {o.shots} cenas
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={restoring !== ''}
+                onClick={() => void restoreOrphan(o.root)}
+              >
+                {restoring === o.root ? 'Trazendo…' : 'Trazer de volta'}
+              </Button>
+            </div>
+          ))}
+        </section>
+      )}
     </div>
   )
 }

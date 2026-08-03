@@ -28,6 +28,7 @@ export function ShotGrid(): JSX.Element {
     clearSelection,
     mergeSelected,
     deleteSelected,
+    lastTrashDir,
     merging
   } = useResultsStore()
   const [confirmar, setConfirmar] = useState<'mesclar' | 'excluir' | null>(null)
@@ -154,7 +155,7 @@ export function ShotGrid(): JSX.Element {
                 ? 'Excluir esta cena?'
                 : `Excluir ${selection.length} cenas?`
             }
-            description="Sem volta: o clipe é apagado do disco."
+            description="O clipe sai das pastas e vai pra lixeira do episódio."
             onClose={() => setConfirmar(null)}
             footer={
               <>
@@ -168,19 +169,37 @@ export function ShotGrid(): JSX.Element {
                     void deleteSelected()
                   }}
                 >
-                  Excluir
+                  Mandar pra lixeira
                 </Button>
               </>
             }
           >
             <p className="text-[12.5px] leading-relaxed text-muted-foreground">
               Some da pasta shots, das pastas dos personagens e das duplas,
-              junto com o keyframe. Só reanalisando o episódio inteiro pra ter
-              de volta.
+              junto com o keyframe. O arquivo em si não é destruído: vai pra
+              uma pasta <span className="font-medium">_lixeira</span> datada,
+              dentro do episódio — dá pra arrastar de volta pelo Explorer se
+              você mudar de ideia.
             </p>
           </DialogContent>
         )}
       </Dialog>
+
+      {lastTrashDir && (
+        <div className="mx-3 mb-2 flex items-center gap-2 rounded-md border border-border bg-surface-hover/50 px-3 py-1.5">
+          <Trash2 className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="flex-1 truncate text-[12px] text-muted-foreground">
+            As cenas excluídas foram pra lixeira do episódio.
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void window.ancut.shell.reveal(lastTrashDir)}
+          >
+            Abrir lixeira
+          </Button>
+        </div>
+      )}
 
       <div className="scrollbar-thin flex-1 overflow-y-auto px-3 pb-3">
         {loadingShots ? (

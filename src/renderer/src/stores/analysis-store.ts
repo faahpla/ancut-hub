@@ -253,10 +253,11 @@ export function buildRequest(form: {
   outputDir: string
   skipHeadSeconds: number
   skipTailSeconds: number
+  outputFolder: string
   params: MatchParams
   useDanbooru: boolean
   skipCreditShots: boolean
   renderExportMode: RenderExportMode
-}): Omit<AnalysisRequest, 'aiReview' | 'discovery' | 'mergePrevious'> {
+}): Omit<AnalysisRequest, 'aiReview' | 'cutOnly' | 'discovery' | 'mergePrevious'> {
   return { ...form }
 }

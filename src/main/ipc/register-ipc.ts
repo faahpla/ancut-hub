@@ -93,6 +93,8 @@ export function registerIpc(
     python.parseFilename(path)
   )
   ipcMain.handle(CH.skipRanges, async (_e, anime: string) => python.skipRanges(anime))
+
+  ipcMain.handle(CH.animeFolder, async (_e, anime: string) => python.animeFolder(anime))
   ipcMain.handle(
     CH.hasAnalysis,
     async (
@@ -107,6 +109,16 @@ export function registerIpc(
 
   // -------------------------------------------------------- resultados
   ipcMain.handle(CH.recentEpisodes, async () => python.recentEpisodes())
+  ipcMain.handle(CH.explorerScan, async (_e, episodeId: number) =>
+    python.explorerScan(episodeId)
+  )
+  ipcMain.handle(
+    CH.explorerApply,
+    async (_e, episodeId: number, characterIds: number[]) =>
+      python.explorerApply(episodeId, characterIds)
+  )
+  ipcMain.handle(CH.orphanScan, async () => python.orphanEpisodes())
+  ipcMain.handle(CH.orphanRestore, async (_e, root: string) => python.restoreEpisode(root))
   ipcMain.handle(CH.loadResults, async (_e, episodeId: number) =>
     python.loadResults(episodeId)
   )
@@ -125,6 +137,10 @@ export function registerIpc(
     async (_e, episodeId: number, shotIds: number[]) =>
       python.deleteShots(episodeId, shotIds)
   )
+  ipcMain.handle(CH.benchmarkAdd, async (_e, episodeId: number, label: string) =>
+    python.markBenchmark(episodeId, label ?? '')
+  )
+
   ipcMain.handle(CH.harvestStart, async (_e, episodeId: number) =>
     python.harvest(episodeId, (event) => windows.send(CH.harvestEvent, event))
   )

@@ -7,9 +7,15 @@ import type {
   AnalysisRequest,
   DeleteResult,
   EpisodeResults,
+  ExplorerApplied,
+  ExplorerChanges,
+  AnimeFolderInfo,
+  BenchmarkCase,
   HarvestDone,
   HarvestEvent,
   MergeResult,
+  OrphanEpisode,
+  RestoreResult,
   RecentEpisode,
   ShotRow
 } from '../../shared/types'
@@ -121,6 +127,7 @@ function toWireRequest(req: AnalysisRequest): Record<string, unknown> {
     episode: req.episode,
     kind: req.kind,
     outputDir: req.outputDir,
+    outputFolder: req.outputFolder,
     skipHeadSeconds: req.skipHeadSeconds,
     skipTailSeconds: req.skipTailSeconds,
     params: {
@@ -132,6 +139,7 @@ function toWireRequest(req: AnalysisRequest): Record<string, unknown> {
     },
     aiReview: req.aiReview,
     discovery: req.discovery,
+    cutOnly: req.cutOnly,
     mergePrevious: req.mergePrevious,
     skipCreditShots: req.skipCreditShots,
     useDanbooru: req.useDanbooru,
@@ -274,6 +282,11 @@ export class PythonService {
     return this.runOneShot(['skip-ranges', anime], 'skip-ranges')
   }
 
+  /** Em que subpasta este anime cai, e o que já existe na saída. */
+  animeFolder(anime: string): Promise<AnimeFolderInfo | null> {
+    return this.runOneShot<AnimeFolderInfo>(['anime-folder', anime], 'anime-folder')
+  }
+
   /** Este episódio já tem resultado salvo? */
   async hasAnalysis(
     source: string,
@@ -293,6 +306,30 @@ export class PythonService {
   async recentEpisodes(): Promise<RecentEpisode[]> {
     const r = await this.runOneShot<{ episodes: RecentEpisode[] }>(['recent'], 'recent')
     return r?.episodes ?? []
+  }
+
+  explorerScan(episodeId: number): Promise<ExplorerChanges | null> {
+    return this.runOneShot<ExplorerChanges>(
+      ['explorer-scan', String(episodeId)],
+      'explorer-changes'
+    )
+  }
+
+  explorerApply(episodeId: number, characterIds: number[]): Promise<ExplorerApplied | null> {
+    return this.runOneShot<ExplorerApplied>(
+      ['explorer-apply', String(episodeId), ...characterIds.map(String)],
+      'explorer-applied'
+    )
+  }
+
+  /** Pastas de episódio completas que o banco não conhece. */
+  async orphanEpisodes(): Promise<OrphanEpisode[]> {
+    const r = await this.runOneShot<{ episodes: OrphanEpisode[] }>(['orphans'], 'orphans')
+    return r?.episodes ?? []
+  }
+
+  restoreEpisode(root: string): Promise<RestoreResult | null> {
+    return this.runOneShot<RestoreResult>(['restore', root], 'restored')
   }
 
   mergeShots(episodeId: number, shotIds: number[]): Promise<MergeResult | null> {
@@ -347,6 +384,13 @@ export class PythonService {
       child.on('error', () => resolve(null))
       child.on('close', () => resolve(resultado))
     })
+  }
+
+  markBenchmark(episodeId: number, label: string): Promise<BenchmarkCase | null> {
+    return this.runOneShot<BenchmarkCase>(
+      ['bench-add', String(episodeId), label],
+      'benchmark-case'
+    )
   }
 
   loadResults(episodeId: number): Promise<EpisodeResults | null> {

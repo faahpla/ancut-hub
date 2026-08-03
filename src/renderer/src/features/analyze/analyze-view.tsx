@@ -1,4 +1,4 @@
-import { Sparkles, Wand2, X } from 'lucide-react'
+import { Scissors, Sparkles, Wand2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useAnalysisStore } from '@/stores/analysis-store'
@@ -36,7 +36,11 @@ export function AnalyzeView(): JSX.Element {
       })
     })
 
-  const start = async (opts: { aiReview?: boolean; discovery?: boolean }): Promise<void> => {
+  const start = async (opts: {
+    aiReview?: boolean
+    discovery?: boolean
+    cutOnly?: boolean
+  }): Promise<void> => {
     setStartError(null)
     const problem = validate(ep, Boolean(opts.discovery))
     if (problem) {
@@ -48,7 +52,7 @@ export function AnalyzeView(): JSX.Element {
     // que a análise anterior identificou. Não vale pro Modo Descoberta, que
     // tem fluxo próprio.
     let mergePrevious = false
-    if (!opts.discovery) {
+    if (!opts.discovery && !opts.cutOnly) {
       const exists = await window.ancut.episode.hasAnalysis(
         ep.videoPath,
         ep.anime.trim(),
@@ -72,11 +76,13 @@ export function AnalyzeView(): JSX.Element {
         episode: ep.episode,
         kind: ep.kind,
         outputDir: ep.outputDir.trim(),
+        outputFolder: ep.animeFolder,
         skipHeadSeconds: parseMmss(ep.skipHead),
         skipTailSeconds: parseMmss(ep.skipTail),
         params: ep.params,
         aiReview: Boolean(opts.aiReview),
         discovery: Boolean(opts.discovery),
+        cutOnly: Boolean(opts.cutOnly),
         mergePrevious,
         skipCreditShots: ep.skipCreditShots,
         useDanbooru: ep.useDanbooru,
@@ -120,6 +126,15 @@ export function AnalyzeView(): JSX.Element {
           </Button>
         ) : (
           <>
+            <Button
+              variant="ghost"
+              className="gap-1.5"
+              onClick={() => void start({ cutOnly: true })}
+              title="Pica o episódio em cenas e para. Não usa internet nem identifica ninguém — e as cenas ficam em cache, então analisar depois começa daqui."
+            >
+              <Scissors />
+              Só cortar
+            </Button>
             <Button
               variant="secondary"
               className="gap-1.5"

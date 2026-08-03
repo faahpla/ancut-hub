@@ -35,6 +35,13 @@ export interface AnalysisRequest {
   episode: number
   kind: EpisodeKind
   outputDir: string
+  /**
+   * Subpasta do anime dentro de `outputDir`. Vazio = o motor decide
+   * (memória de pastas → nome digitado). Existe pra o usuário poder mandar
+   * um episódio pra uma pasta que ele já tem, mesmo escrevendo o nome de
+   * outro jeito.
+   */
+  outputFolder: string
   /** Segundos de OP/ED a ignorar. */
   skipHeadSeconds: number
   skipTailSeconds: number
@@ -43,6 +50,13 @@ export interface AnalysisRequest {
   aiReview: boolean
   /** Modo Descoberta: agrupa rostos e o usuário batiza. */
   discovery: boolean
+  /**
+   * Só picar o episódio em cenas: sem internet e sem identificação.
+   * Serve pra quando as fontes estão fora do ar (o corte nunca dependeu
+   * delas) ou pra quem só quer as cenas pra escolher a olho. Nada é
+   * perdido: analisar depois começa do corte já pronto.
+   */
+  cutOnly: boolean
   /** Reanálise: somar por cima em vez de substituir. */
   mergePrevious: boolean
   skipCreditShots: boolean
@@ -261,10 +275,91 @@ export interface HarvestFailed {
 
 export type HarvestEvent = HarvestProgress | HarvestDone | HarvestFailed
 
+/**
+ * O que mudou na pasta do episódio desde a última vez que o app olhou.
+ *
+ * Apagar clipes no Explorer é curadoria: o usuário está dizendo que aquelas
+ * cenas não são daquele personagem. Só que apagar é ambíguo demais em dois
+ * casos, e por isso eles são tratados à parte — pasta inteira sumida vira
+ * pergunta, e pasta cujos arquivos não reconhecemos fica de fora.
+ */
+export interface ExplorerChanges {
+  type: 'explorer-changes'
+  /** false = disco em estado que não dá pra ler (HD fora, pasta movida). */
+  safe: boolean
+  reason: string
+  /** Cenas cujo clipe sumiu de shots/ — a cena inteira foi descartada. */
+  missingClips: number
+  /** (cena, personagem) cujo link sumiu, com a cena ainda viva. */
+  unlinkedPairs: { shotIdx: number; character: string }[]
+  /** Personagens cuja pasta inteira sumiu. Isto é pergunta, não decisão. */
+  missingFolders: { id: number; character: string; shots: number }[]
+  /** Pastas existentes cujos arquivos não batem (renomeados, copiados). */
+  unreadableFolders: string[]
+}
+
+export interface ExplorerApplied {
+  type: 'explorer-applied'
+  clips: number
+  pairs: number
+  characters: number
+}
+
+/**
+ * Pasta de episódio completa no disco que o banco não conhece.
+ *
+ * Acontece quando o banco é recriado, quando a análise morre antes de
+ * gravar, ou quando a pasta veio de outra instalação. Os clipes e o
+ * `metadata` continuam lá — só a entrada do histórico sumiu.
+ */
+export interface OrphanEpisode {
+  root: string
+  anime: string
+  season: number
+  episode: number
+  kind: EpisodeKind
+  shots: number
+  characters: string[]
+}
+
+export interface RestoreResult {
+  type: 'restored'
+  episodeId: number
+  shots: number
+  assignments: number
+  /** Nomes citados nas cenas que não estavam no elenco gravado. */
+  ignored: string[]
+}
+
+/** Onde este anime vai parar no disco, decidido antes de rodar. */
+export interface AnimeFolderInfo {
+  type: 'anime-folder'
+  /** Nome da subpasta que vai receber o episódio. */
+  folder: string
+  /** true = veio de uma escolha guardada; false = é o nome digitado. */
+  remembered: boolean
+  /** Pastas de anime que já existem na saída. */
+  existing: string[]
+}
+
+/** Retorno de "marcar como gabarito": o estado congelado do episódio. */
+export interface BenchmarkCase {
+  type: 'benchmark-case'
+  label: string
+  /** Cenas do episódio — o universo em que a nota é calculada. */
+  shots: number
+  /** Identificações que passam a valer como resposta certa. */
+  truth: number
+  /** Quantos gabaritos existem no total depois deste. */
+  total: number
+}
+
 export interface DeleteResult {
   deletedCount: number
-  /** Arquivos removidos do disco: clipe + hardlinks + keyframe. */
+  /** Arquivos que foram parar na lixeira: clipe + keyframe. */
   files: number
+  /** Pasta datada dentro do episódio onde os arquivos ficaram. */
+  trashDir?: string
 }
 
 // -------------------------------------------------------------- settings
@@ -387,6 +482,11 @@ export interface AnCutBridge {
     parseFilename(path: string): Promise<ParsedFilename | null>
     /** OP/ED salvos pra um anime. */
     skipRanges(anime: string): Promise<SkipRanges | null>
+    /**
+     * Em qual subpasta este anime vai cair. Consulta local (memória de
+     * pastas + listagem da saída), então pode ser chamada enquanto digita.
+     */
+    animeFolder(anime: string): Promise<AnimeFolderInfo | null>
     /** Já existe resultado salvo? (decide o diálogo substituir/somar). */
     hasAnalysis(
       source: string,
@@ -400,6 +500,20 @@ export interface AnCutBridge {
   results: {
     /** Episódios já analisados, pra reabrir sem reprocessar. */
     recent(): Promise<RecentEpisode[]>
+    /** O que o usuário mexeu na pasta do episódio pelo Explorer. */
+    explorerScan(episodeId: number): Promise<ExplorerChanges | null>
+    /**
+     * Aplica a faxina. `characterIds` são as pastas inteiras que o usuário
+     * CONFIRMOU remover — sem confirmação elas ficam de fora.
+     */
+    explorerApply(episodeId: number, characterIds: number[]): Promise<ExplorerApplied | null>
+    /** Pastas de episódio na saída que o histórico não conhece. */
+    orphans(): Promise<OrphanEpisode[]>
+    /**
+     * Reconstrói o episódio no banco a partir do `metadata` da pasta. É
+     * leitura de arquivo, não reanálise: nenhum clipe é recortado.
+     */
+    restore(root: string): Promise<RestoreResult | null>
     load(episodeId: number): Promise<EpisodeResults | null>
     /** `characterId` 0 (ou negativo) traz TODAS as cenas do episódio. */
     shots(episodeId: number, characterId: number): Promise<ShotRow[]>
@@ -422,6 +536,12 @@ export interface AnCutBridge {
      */
     harvest(episodeId: number): Promise<HarvestDone | null>
     onHarvestEvent(handler: (event: HarvestEvent) => void): () => void
+    /**
+     * Congela este episódio como gabarito: o estado atual — inclusive a
+     * curadoria manual — vira a resposta certa contra a qual as próximas
+     * versões do reconhecimento são medidas.
+     */
+    markBenchmark(episodeId: number, label?: string): Promise<BenchmarkCase | null>
     /**
      * Libera a pasta do episódio pro esquema media:// e devolve o prefixo de
      * URL. Sem isto o renderer não consegue exibir keyframe nem tocar clipe.

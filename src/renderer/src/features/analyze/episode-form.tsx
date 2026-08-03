@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { Panel } from '@/components/ui/panel'
 import { useEpisodeStore } from '@/stores/episode-store'
-import { cn } from '@/lib/utils'
+import { cn, episodeSlug } from '@/lib/utils'
 import type { EpisodeKind } from '@shared/types'
 
 const VIDEO_RE = /\.(mp4|mkv|mov|avi|webm|ts|m2ts)$/i
@@ -116,9 +116,11 @@ export function EpisodeForm({ disabled }: { disabled: boolean }): JSX.Element {
             disabled={disabled}
             placeholder="Nome do anime"
             onChange={(e) => ep.set({ anime: e.target.value })}
+            list="pastas-de-anime"
             onBlur={async () => {
               // Ao digitar o nome na mão, recupera o OP/ED salvo desse anime.
               if (!ep.anime.trim()) return
+              void ep.refreshFolder()
               const r = await window.ancut.episode.skipRanges(ep.anime.trim())
               if (!r) return
               if (r.skipHeadSeconds || r.skipTailSeconds) {
@@ -129,6 +131,14 @@ export function EpisodeForm({ disabled }: { disabled: boolean }): JSX.Element {
               }
             }}
           />
+          {/* Escolher da lista é a forma mais barata de não inventar a 15ª
+              grafia do mesmo anime — que foi como o acervo dele acabou com
+              14 pastas pra 6 animes. */}
+          <datalist id="pastas-de-anime">
+            {ep.existingFolders.map((f) => (
+              <option key={f} value={f} />
+            ))}
+          </datalist>
         </Field>
         <Field label="Temporada">
           <Input
@@ -168,6 +178,17 @@ export function EpisodeForm({ disabled }: { disabled: boolean }): JSX.Element {
             Escolher
           </Button>
         </div>
+        {ep.animeFolder && (
+          <p className="mt-1 truncate text-[11.5px] text-muted-foreground">
+            Vai pra{' '}
+            <span className="font-medium text-foreground">
+              {ep.animeFolder}\{episodeSlug(ep.season, ep.episode, ep.kind)}
+            </span>
+            {ep.folderRemembered && ep.animeFolder !== ep.anime.trim() && (
+              <span className="text-primary"> · pasta já usada para este anime</span>
+            )}
+          </p>
+        )}
       </Field>
 
       <div className="grid grid-cols-2 gap-2.5">

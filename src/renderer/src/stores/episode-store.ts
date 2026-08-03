@@ -17,6 +17,16 @@ interface EpisodeState {
   /** '' = episódio, 'OP' = abertura, 'ED' = encerramento. */
   kind: EpisodeKind
   outputDir: string
+  /**
+   * Subpasta do anime dentro de `outputDir`. Quem responde é o motor: ele
+   * guarda a pasta já combinada pra cada jeito de escrever o nome. Vazio
+   * enquanto ninguém digitou nada.
+   */
+  animeFolder: string
+  /** true = a pasta veio de uma escolha guardada, não do nome digitado. */
+  folderRemembered: boolean
+  /** Pastas de anime que já existem na saída — sugestão do campo. */
+  existingFolders: string[]
   /** Guardados como texto "mm:ss" — é o que o usuário digita. */
   skipHead: string
   skipTail: string
@@ -31,6 +41,8 @@ interface EpisodeState {
   choosePreset: (key: PresetKey) => void
   /** Preenche a partir de um arquivo escolhido/arrastado. */
   applyFile: (path: string) => Promise<void>
+  /** Pergunta ao motor em que pasta o nome atual cairia. */
+  refreshFolder: () => Promise<void>
   hydrate: () => Promise<void>
 }
 
@@ -60,6 +72,9 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
   episode: 1,
   kind: '',
   outputDir: '',
+  animeFolder: '',
+  folderRemembered: false,
+  existingFolders: [],
   skipHead: '',
   skipTail: '',
   preset: 'auto',
@@ -90,6 +105,25 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
       // nenhuma. Ficam vazios, mas seguem editáveis: quem manda é você.
       skipHead: parsed.kind ? '' : formatMmss(parsed.skipHeadSeconds),
       skipTail: parsed.kind ? '' : formatMmss(parsed.skipTailSeconds)
+    })
+    await get().refreshFolder()
+  },
+
+  refreshFolder: async () => {
+    const anime = get().anime.trim()
+    if (!anime) {
+      set({ animeFolder: '', folderRemembered: false })
+      return
+    }
+    const r = await window.ancut.episode.animeFolder(anime)
+    if (!r) return
+    // Corrida: se o nome mudou enquanto a resposta vinha, ela é de outro
+    // anime e não pode sobrescrever o campo.
+    if (get().anime.trim() !== anime) return
+    set({
+      animeFolder: r.folder,
+      folderRemembered: r.remembered,
+      existingFolders: r.existing
     })
   },
 

@@ -40,6 +40,18 @@ export const CH = {
   harvestEvent: 'results:harvest-event',
   /** Converte caminho do disco em URL media:// (e libera a raiz). */
   mediaUrls: 'results:media-urls',
+  /** Congela este episódio como gabarito da régua de reconhecimento. */
+  benchmarkAdd: 'results:benchmark-add',
+  /** O que o usuário mexeu na pasta do episódio pelo Explorer. */
+  explorerScan: 'results:explorer-scan',
+  /** Aplica a faxina do Explorer como curadoria lembrada. */
+  explorerApply: 'results:explorer-apply',
+  /** Pastas de episódio na saída que o histórico não conhece. */
+  orphanScan: 'results:orphans',
+  /** Devolve uma pasta esquecida pro histórico, sem reanalisar. */
+  orphanRestore: 'results:restore',
+  /** Em que pasta de anime este nome cai, e quais pastas já existem. */
+  animeFolder: 'episode:anime-folder',
 
   /** Renderer → main: lê/grava as configurações persistidas. */
   settingsGet: 'settings:get',
