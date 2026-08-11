@@ -26,9 +26,12 @@ em pastas por personagem — automático.
 > o app. Rodar o `CorteCenas.exe` de dentro deles dá
 > `failed to start embedded python interpreter`.
 
-Pra instalar pela primeira vez você precisa do **instalador completo**
-(~2 GB, um arquivo `.exe` chamado `AnCut-HUB-<versão>-Completo.exe`). Ele não
-fica no GitHub porque passa do limite de anexo — **peça o link ao FAAH**.
+Pra instalar pela primeira vez, baixe o **instalador completo**:
+
+**[AnCut-HUB-1.10.1-Completo.exe](https://github.com/faahpla/ancut-hub/releases/download/v1.10.1/AnCut-HUB-1.10.1-Completo.exe)** (~2 GB)
+
+Ele leva tudo: interface, motor Python, torch e CUDA. Instala pro usuário
+atual, sem pedir administrador.
 
 Depois de instalado, as atualizações são automáticas e pequenas (1 MB quando
 só a interface muda): **Configurações → Procurar atualizações**.

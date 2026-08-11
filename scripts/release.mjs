@@ -144,7 +144,23 @@ for (const [name, p] of Object.entries(packages)) {
 
 // --------------------------------------------------------------- publica
 
-const assets = [manifestPath, ...Object.values(packages).map((p) => join(WORK, p.file))]
+const instaladorPath = join(ROOT, 'release', `AnCut-HUB-${version}-Completo.exe`)
+const temInstalador = existsSync(instaladorPath)
+
+// O instalador completo entra na release quando existe. Anexá-lo à mão foi o
+// que faltou nas versões anteriores, e é por isso que a página ficou só com
+// pacotes de atualização — sem nada que uma pessoa nova pudesse instalar.
+const assets = [
+  manifestPath,
+  ...Object.values(packages).map((p) => join(WORK, p.file)),
+  ...(temInstalador ? [instaladorPath] : [])
+]
+if (temInstalador) {
+  const gb = statSync(instaladorPath).size / 1024 ** 3
+  log('')
+  log(`instalador completo: ${gb.toFixed(2)} GiB (o limite do GitHub é 2 GiB)`)
+  if (gb >= 2) fail('o instalador passou de 2 GiB — o GitHub vai recusar o anexo')
+}
 
 if (DRY) {
   log('')
@@ -168,17 +184,32 @@ if (DRY) {
  * notas está pensando no que mudou — não em quem vai chegar à página sem o
  * app instalado.
  */
+/**
+ * O instalador completo só é reconstruído quando o motor muda — a maioria
+ * das versões é só interface. Então o aviso NÃO pode chutar um link:
+ * `releases/latest/download/AnCut-HUB-<v>-Completo.exe` daria 404 em toda
+ * release que não tivesse um, que é justamente quando alguém perdido mais
+ * precisa dele.
+ *
+ * Se o .exe está em `release/`, ele sobe junto e o link aponta pra esta tag.
+ * Se não está, o aviso manda pra lista de releases dizendo o que procurar.
+ */
+const REPO_URL = 'https://github.com/faahpla/ancut-hub'
+
+const comoInstalar = temInstalador
+  ? `> [\`AnCut-HUB-${version}-Completo.exe\`](${REPO_URL}/releases/download/v${version}/AnCut-HUB-${version}-Completo.exe) (~2 GB), aqui embaixo.`
+  : `> Pegue o \`*-Completo.exe\` mais recente em **[Releases](${REPO_URL}/releases?q=Completo)**.` +
+    ' Esta versão aqui não traz um: só o motor mudando exige instalador novo.'
+
 const AVISO = [
   '> [!IMPORTANT]',
-  '> **Primeira instalação? Os arquivos aqui embaixo NÃO servem.**',
+  '> **Primeira instalação? Você precisa do instalador completo.**',
+  comoInstalar,
   '>',
-  '> Os `.zip` desta página são pacotes de **atualização**, e o app instalado',
-  '> baixa sozinho (Configurações → Procurar atualizações). Eles não trazem o',
-  '> Python nem as bibliotecas de vídeo — rodar o `CorteCenas.exe` de dentro',
-  '> deles dá `failed to start embedded python interpreter`.',
-  '>',
-  '> Para instalar pela primeira vez você precisa do **instalador completo**',
-  '> (~2 GB). Peça o link ao FAAH.',
+  '> Os `.zip` desta página são pacotes de **atualização** — o app já instalado',
+  '> os busca sozinho (Configurações → Procurar atualizações). Eles não trazem',
+  '> o Python nem as bibliotecas de vídeo, então rodar o `CorteCenas.exe` de',
+  '> dentro deles dá `failed to start embedded python interpreter`.',
   ''
 ].join('\n')
 
