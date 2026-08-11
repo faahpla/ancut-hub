@@ -15,14 +15,21 @@
 ; ============================================================
 
 #define AppName        "AnCut HUB"
-#define AppVersion     "1.0.0"
+; Versão vem da linha de comando: ISCC /DAppVersion=1.10.1 installer-unified.iss
+; O padrão só existe pra rodar sem argumento. Ficava fixo em 1.0.0, e por isso
+; qualquer instalador construído depois saía carimbado com a versão errada.
+#ifndef AppVersion
+  #define AppVersion   "1.0.0"
+#endif
 #define AppPublisher   "FAAH"
 #define AppExeName     "AnCut HUB.exe"
 ; AppId NOVO: este pacote substitui os dois anteriores.
 #define AppId          "{{2E7A94C1-8D3F-4B60-9E15-A6C48F072B93}"
 
 ; Pastas de origem
-#define UiDir      "release\1.0.0\win-unpacked"
+; Sai da versão: era fixo em 1.0.0 e empacotaria uma interface velha em
+; silêncio — o instalador construído hoje sairia com o app do mês passado.
+#define UiDir      "release\" + AppVersion + "\win-unpacked"
 #define EngineDir  "..\AnCut HUB\dist\CorteCenas"
 
 [Setup]

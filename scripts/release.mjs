@@ -152,8 +152,38 @@ if (DRY) {
   process.exit(0)
 }
 
+/**
+ * Aviso no TOPO de toda release, sempre.
+ *
+ * Custou um amigo do FAAH travado. Ele foi ao GitHub baixar "o app", achou
+ * um `.zip` com `CorteCenas.exe` dentro, rodou, e levou "failed to start
+ * embedded python interpreter".
+ *
+ * Ele não errou: a página não tinha nada instalável. Estes zips são pedaços
+ * de ATUALIZAÇÃO — de propósito não levam Python, torch nem CUDA, porque
+ * esses 5 GB já estão na máquina de quem tem o app. Avulsos, não rodam, e o
+ * erro do carregador do PyInstaller não explica nada disso.
+ *
+ * O aviso mora aqui, e não no texto de cada versão, porque quem escreve as
+ * notas está pensando no que mudou — não em quem vai chegar à página sem o
+ * app instalado.
+ */
+const AVISO = [
+  '> [!IMPORTANT]',
+  '> **Primeira instalação? Os arquivos aqui embaixo NÃO servem.**',
+  '>',
+  '> Os `.zip` desta página são pacotes de **atualização**, e o app instalado',
+  '> baixa sozinho (Configurações → Procurar atualizações). Eles não trazem o',
+  '> Python nem as bibliotecas de vídeo — rodar o `CorteCenas.exe` de dentro',
+  '> deles dá `failed to start embedded python interpreter`.',
+  '>',
+  '> Para instalar pela primeira vez você precisa do **instalador completo**',
+  '> (~2 GB). Peça o link ao FAAH.',
+  ''
+].join('\n')
+
 const notesPath = join(WORK, 'notes.md')
-writeFileSync(notesPath, `${notes}\n`, 'utf-8')
+writeFileSync(notesPath, `${AVISO}\n${notes}\n`, 'utf-8')
 
 run('gh', [
   'release',

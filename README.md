@@ -17,6 +17,24 @@ em pastas por personagem — automático.
 
 ---
 
+## Instalação
+
+> [!IMPORTANT]
+> **Não baixe os `.zip` da aba Releases pra instalar.** Eles são pacotes de
+> *atualização*, que o app já instalado busca sozinho. De propósito eles não
+> levam Python, torch nem CUDA — esses ~5 GB já estão na máquina de quem tem
+> o app. Rodar o `CorteCenas.exe` de dentro deles dá
+> `failed to start embedded python interpreter`.
+
+Pra instalar pela primeira vez você precisa do **instalador completo**
+(~2 GB, um arquivo `.exe` chamado `AnCut-HUB-<versão>-Completo.exe`). Ele não
+fica no GitHub porque passa do limite de anexo — **peça o link ao FAAH**.
+
+Depois de instalado, as atualizações são automáticas e pequenas (1 MB quando
+só a interface muda): **Configurações → Procurar atualizações**.
+
+---
+
 ## Créditos
 
 O AnCut HUB é um **fork do [Corte Cenas](https://github.com/leviclementino1-creator/corte-cenas)**,
