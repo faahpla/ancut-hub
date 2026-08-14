@@ -1,6 +1,7 @@
 import {
   ChevronRight,
   Clapperboard,
+  Combine,
   FolderOpen,
   FolderSearch,
   Library,
@@ -14,6 +15,7 @@ import { episodeLabel } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { useResultsStore } from '@/stores/results-store'
 import { agruparPorAnime, filtrar, type Anime } from './group-episodes'
+import { MergeAnimeDialog } from './merge-anime-dialog'
 import type { RecentEpisode } from '@shared/types'
 
 /**
@@ -36,6 +38,8 @@ export function LibraryView({
     useResultsStore()
   const [busca, setBusca] = useState('')
   const [abertos, setAbertos] = useState<string[]>([])
+  /** Anime que o usuário quer fazer sumir dentro de outro. */
+  const [juntando, setJuntando] = useState<Anime | null>(null)
 
   useEffect(() => {
     void loadRecent()
@@ -125,10 +129,26 @@ export function LibraryView({
                 aberto={expandido(anime)}
                 onAlternar={() => alternar(anime.pasta)}
                 onOpen={onOpen}
+                onJuntar={() => setJuntando(anime)}
+                podeJuntar={animes.length > 1}
               />
             </li>
           ))}
         </ul>
+      )}
+
+      {juntando && (
+        <MergeAnimeDialog
+          origem={juntando}
+          animes={animes}
+          onClose={() => setJuntando(null)}
+          onDone={() => {
+            setJuntando(null)
+            // Relê do backend em vez de remendar a lista: pasta, histórico e
+            // memória de nomes mudaram todos de uma vez.
+            void loadRecent()
+          }}
+        />
       )}
 
       {orphans.length > 0 && (
@@ -179,12 +199,16 @@ function AnimeCard({
   anime,
   aberto,
   onAlternar,
-  onOpen
+  onOpen,
+  onJuntar,
+  podeJuntar
 }: {
   anime: Anime
   aberto: boolean
   onAlternar: () => void
   onOpen: (episodeId: number) => void
+  onJuntar: () => void
+  podeJuntar: boolean
 }): JSX.Element {
   const temporadas = anime.temporadas.length
 
@@ -226,6 +250,16 @@ function AnimeCard({
             {anime.cenas.toLocaleString('pt-BR')} cenas
           </span>
         </button>
+        {podeJuntar && (
+          <Button
+            size="sm"
+            variant="ghost"
+            title={`Juntar "${anime.nome}" com outra pasta — o mesmo anime em duas pastas`}
+            onClick={onJuntar}
+          >
+            <Combine />
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"

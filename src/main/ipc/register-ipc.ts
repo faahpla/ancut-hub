@@ -119,6 +119,12 @@ export function registerIpc(
   )
   ipcMain.handle(CH.orphanScan, async () => python.orphanEpisodes())
   ipcMain.handle(CH.orphanRestore, async (_e, root: string) => python.restoreEpisode(root))
+  ipcMain.handle(CH.mergeAnimePlan, async (_e, origem: string, destino: string) =>
+    python.mergeAnimePlan(origem, destino)
+  )
+  ipcMain.handle(CH.mergeAnimeApply, async (_e, origem: string, destino: string) =>
+    python.mergeAnimeApply(origem, destino)
+  )
   ipcMain.handle(CH.loadResults, async (_e, episodeId: number) =>
     python.loadResults(episodeId)
   )

@@ -207,6 +207,28 @@ export interface RecentEpisode {
   processedAt: string | null
 }
 
+/**
+ * O que aconteceria (ou aconteceu) ao juntar duas pastas de anime.
+ *
+ * `conflitos` são episódios com o mesmo nome dos dois lados — dois S01E01
+ * diferentes. Enquanto houver um, `pode` é false e nada é movido: escolher
+ * qual sobrevive não é decisão do programa.
+ */
+export interface AnimeMergePlan {
+  origem: string
+  destino: string
+  /** Pastas de episódio que vão (ou foram) movidas. */
+  mover: string[]
+  conflitos: string[]
+  /** Linhas do histórico que serão reapontadas. */
+  linhas: number
+  erro: string
+  pode: boolean
+  aplicado: boolean
+  /** Apelidos e franquias que passaram a apontar pro destino. */
+  repontadas: number
+}
+
 export interface CharacterSummary {
   id: number
   name: string
@@ -514,6 +536,10 @@ export interface AnCutBridge {
      * leitura de arquivo, não reanálise: nenhum clipe é recortado.
      */
     restore(root: string): Promise<RestoreResult | null>
+    /** Simula juntar duas pastas de anime — não move nada. */
+    mergeAnimePlan(origem: string, destino: string): Promise<AnimeMergePlan | null>
+    /** Junta de verdade. Só depois de o usuário ver o plano. */
+    mergeAnimeApply(origem: string, destino: string): Promise<AnimeMergePlan | null>
     load(episodeId: number): Promise<EpisodeResults | null>
     /** `characterId` 0 (ou negativo) traz TODAS as cenas do episódio. */
     shots(episodeId: number, characterId: number): Promise<ShotRow[]>

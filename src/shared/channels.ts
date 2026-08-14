@@ -52,6 +52,10 @@ export const CH = {
   orphanRestore: 'results:restore',
   /** Em que pasta de anime este nome cai, e quais pastas já existem. */
   animeFolder: 'episode:anime-folder',
+  /** Simula juntar duas pastas de anime. Não move nada. */
+  mergeAnimePlan: 'results:merge-anime-plan',
+  /** Junta de verdade, depois de o usuário ver o plano. */
+  mergeAnimeApply: 'results:merge-anime-apply',
 
   /** Renderer → main: lê/grava as configurações persistidas. */
   settingsGet: 'settings:get',

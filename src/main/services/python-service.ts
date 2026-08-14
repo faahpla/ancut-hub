@@ -10,6 +10,7 @@ import type {
   ExplorerApplied,
   ExplorerChanges,
   AnimeFolderInfo,
+  AnimeMergePlan,
   BenchmarkCase,
   HarvestDone,
   HarvestEvent,
@@ -335,6 +336,25 @@ export class PythonService {
 
   restoreEpisode(root: string): Promise<RestoreResult | null> {
     return this.runOneShot<RestoreResult>(['restore', root], 'restored')
+  }
+
+  /**
+   * Juntar pastas é em dois tempos de propósito: o plano diz o que vai
+   * acontecer, a tela mostra, e só então o `apply` move. Mover centenas de
+   * clipes sem o usuário ter visto a lista seria decidir por ele.
+   */
+  mergeAnimePlan(origem: string, destino: string): Promise<AnimeMergePlan | null> {
+    return this.runOneShot<AnimeMergePlan>(
+      ['merge-anime', origem, destino],
+      'merge-anime'
+    )
+  }
+
+  mergeAnimeApply(origem: string, destino: string): Promise<AnimeMergePlan | null> {
+    return this.runOneShot<AnimeMergePlan>(
+      ['merge-anime', origem, destino, 'apply'],
+      'merge-anime'
+    )
   }
 
   mergeShots(episodeId: number, shotIds: number[]): Promise<MergeResult | null> {
