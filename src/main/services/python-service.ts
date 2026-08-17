@@ -393,8 +393,8 @@ export class PythonService {
     )
   }
 
-  /** Tira do histórico. A pasta é tratada por quem chama. */
-  deleteEpisodeForget(episodeId: number): Promise<EpisodeDeletePlan | null> {
+  /** Apaga a pasta E tira do histórico. Sem lixeira, sem volta. */
+  deleteEpisodeApply(episodeId: number): Promise<EpisodeDeletePlan | null> {
     return this.runOneShot<EpisodeDeletePlan>(
       ['delete-episode', String(episodeId), 'apply'],
       'delete-episode'

@@ -11,15 +11,15 @@ function gb(bytes: number): string {
 }
 
 /**
- * Excluir um episódio: sai do histórico e a pasta vai pra Lixeira do Windows.
+ * Excluir um episódio: sai do histórico e a pasta é apagada DE VEZ.
  *
- * O tamanho aparece antes do clique de propósito. Um episódio são 2 a 4 GB de
- * clipes, e "excluir" numa lista costuma dar a impressão de tirar uma linha de
- * uma tabela — aqui tira gigabytes do disco.
+ * A primeira versão mandava pra Lixeira do Windows. Levantei que era mais
+ * seguro e o FAAH preferiu direto — é o acervo dele, e ele decidiu com o
+ * tamanho na frente.
  *
- * Vai pra **Lixeira**, não pro nada: dá pra restaurar pelo Windows. Isso
- * mantém a exclusão de episódio no mesmo nível da exclusão de cena, que já vai
- * pra `_lixeira` dentro do episódio.
+ * Justamente por não haver volta, o diálogo mostra o peso ANTES do clique. Um
+ * episódio são 1 a 4 GB de clipes, e "excluir" numa lista costuma dar a
+ * impressão de tirar uma linha de tabela.
  */
 export function DeleteEpisodeDialog({
   episodeId,
@@ -64,7 +64,7 @@ export function DeleteEpisodeDialog({
     <Dialog open onOpenChange={onClose}>
       <DialogContent
         title={`Excluir ${rotulo}?`}
-        description="O episódio sai do histórico e a pasta vai pra Lixeira do Windows."
+        description="A pasta é apagada do disco e o episódio sai do histórico."
         onClose={onClose}
         footer={
           <>
@@ -112,15 +112,24 @@ export function DeleteEpisodeDialog({
                 <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" />
                 <p className="text-[12.5px] leading-relaxed text-danger">
                   {plano.erro || 'a pasta está fora da pasta de saída configurada'}
-                  . Por segurança eu não mando pra lixeira nada que esteja fora
-                  dela — apague pelo Explorer se for isso mesmo que você quer.
+                  . Sem lixeira pra desfazer, esta trava é a única rede: eu não
+                  apago nada que esteja fora do acervo que o app administra.
+                  Apague pelo Explorer se for isso mesmo que você quer.
                 </p>
               </div>
             ) : (
-              <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-                Dá pra restaurar pela Lixeira do Windows depois. O vídeo
-                original não é tocado.
-              </p>
+              <div className="flex gap-2 rounded-md border border-danger/40 bg-danger/[0.08] px-3 py-2">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" />
+                <p className="text-[12.5px] leading-relaxed">
+                  <span className="font-semibold text-danger">
+                    Não vai pra Lixeira e não tem como desfazer.
+                  </span>{' '}
+                  <span className="text-muted-foreground">
+                    O vídeo original não é tocado — dá pra analisar de novo, mas
+                    é recortar tudo outra vez.
+                  </span>
+                </p>
+              </div>
             )}
 
             {falha && (

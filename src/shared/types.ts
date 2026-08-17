@@ -268,8 +268,8 @@ export interface EpisodeDeletePlan {
   bytes: number
   erro: string
   aplicado: boolean
-  /** Só no apply: a pasta foi de fato aceita pela Lixeira? */
-  trashed?: boolean
+  /** Só no apply: a pasta foi de fato removida do disco? */
+  folderDeleted?: boolean
 }
 
 export interface CharacterSummary {
@@ -608,7 +608,7 @@ export interface AnCutBridge {
     setSeasonApply(episodeIds: number[], season: number): Promise<SeasonPlan | null>
     /** O que seria apagado. Não apaga nada. */
     deleteEpisodePlan(episodeId: number): Promise<EpisodeDeletePlan | null>
-    /** Pasta pra Lixeira do Windows + episódio fora do histórico. */
+    /** Apaga a pasta de vez e tira o episódio do histórico. Sem volta. */
     deleteEpisodeApply(episodeId: number): Promise<EpisodeDeletePlan | null>
     load(episodeId: number): Promise<EpisodeResults | null>
     /** `characterId` 0 (ou negativo) traz TODAS as cenas do episódio. */
