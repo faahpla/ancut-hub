@@ -1,6 +1,6 @@
 {
   "name": "ancut-hub",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "description": "AnCut HUB — analisador de cenas de anime.",
   "author": "FAAH",
   "main": "./out/main/index.js",
