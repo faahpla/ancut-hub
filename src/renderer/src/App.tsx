@@ -92,7 +92,10 @@ export default function App(): JSX.Element {
             }}
           />
         ) : (
-          <ResultsView onBrowse={() => setTab('library')} />
+          <ResultsView
+            onBrowse={() => setTab('library')}
+            onAnalyze={() => setTab('analyze')}
+          />
         )}
       </main>
 

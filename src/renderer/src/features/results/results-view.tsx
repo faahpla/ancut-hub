@@ -6,10 +6,18 @@ import { CharacterList } from './character-list'
 import { ExplorerSyncBar } from './explorer-sync-bar'
 import { BenchmarkButton } from './benchmark-button'
 import { HarvestButton } from './harvest-button'
+import { IdentifyButton } from './identify-button'
 import { PreviewPlayer } from './preview-player'
 import { ShotGrid } from './shot-grid'
 
-export function ResultsView({ onBrowse }: { onBrowse: () => void }): JSX.Element {
+export function ResultsView({
+  onBrowse,
+  onAnalyze
+}: {
+  onBrowse: () => void
+  /** Leva pra aba Analisar — é lá que mora a tela de progresso. */
+  onAnalyze: () => void
+}): JSX.Element {
   const { results, close } = useResultsStore()
 
   if (!results) return <SemEpisodio onBrowse={onBrowse} />
@@ -27,6 +35,7 @@ export function ResultsView({ onBrowse }: { onBrowse: () => void }): JSX.Element
           {results.totalShots} cenas · {results.characters.length} personagens
         </span>
         <span className="flex-1" />
+        <IdentifyButton results={results} onStarted={onAnalyze} />
         <BenchmarkButton
           episodeId={results.episodeId}
           label={`${results.animeTitle} ${episodeLabel(results.season, results.episode, results.kind)}`}

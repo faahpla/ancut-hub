@@ -246,6 +246,25 @@ export interface EpisodeResults {
   characters: CharacterSummary[]
   /** Pasta de refs da FRANQUIA (todas as temporadas dividem a mesma). */
   refsDir?: string
+  /**
+   * Vídeo de onde este episódio saiu, e se ele ainda está lá.
+   *
+   * Serve pro "identificar personagens" depois de um Só cortar: sem o
+   * original não há rosto pra reconhecer, e é melhor dizer isso antes do
+   * clique do que falhar no meio.
+   */
+  sourceFile: string
+  sourceExists: boolean
+  /** Nome da pasta do anime em que o episódio JÁ mora. */
+  animeFolder: string
+  /**
+   * Formato em que os clipes FORAM cortados.
+   *
+   * Reidentificar tem que mandar este, não o que está escolhido na tela: o
+   * cortador recorta tudo quando o modo muda, e aí a reidentificação
+   * demoraria igual a uma análise do zero.
+   */
+  cutExportMode: RenderExportMode
 }
 
 export interface ShotRow {
