@@ -46,7 +46,22 @@ export function ContextMenu({
   }, [x, y])
 
   useEffect(() => {
-    const fechar = (): void => onClose()
+    /**
+     * Fecha ao clicar FORA. O "fora" não é detalhe: é o que faz o menu
+     * funcionar.
+     *
+     * Antes isto fechava em qualquer `mousedown`, inclusive nos próprios
+     * itens. Como a seleção acontece no `mouseup` (o botão direito não
+     * dispara `click` no Chromium), a sequência era: mousedown fecha o menu →
+     * o React desmonta o botão → o mouseup cai no vazio. Nenhum item
+     * funcionava, em menu nenhum do app, e sem erro no console: clicar
+     * simplesmente não fazia nada.
+     */
+    const fechar = (e: Event): void => {
+      const alvo = e.target
+      if (alvo instanceof Node && ref.current?.contains(alvo)) return
+      onClose()
+    }
     const tecla = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose()
     }
@@ -54,13 +69,16 @@ export function ContextMenu({
     // cena lá embaixo. A rolagem também fecha: o menu é posicionado em
     // coordenadas de tela e ficaria apontando pro cartão errado.
     window.addEventListener('mousedown', fechar, true)
-    window.addEventListener('resize', fechar)
-    window.addEventListener('scroll', fechar, true)
+    // Rolagem e resize fecham sempre: o menu é posicionado em coordenadas de
+    // tela e ficaria apontando pro item errado.
+    const fecharSempre = (): void => onClose()
+    window.addEventListener('resize', fecharSempre)
+    window.addEventListener('scroll', fecharSempre, true)
     window.addEventListener('keydown', tecla)
     return () => {
       window.removeEventListener('mousedown', fechar, true)
-      window.removeEventListener('resize', fechar)
-      window.removeEventListener('scroll', fechar, true)
+      window.removeEventListener('resize', fecharSempre)
+      window.removeEventListener('scroll', fecharSempre, true)
       window.removeEventListener('keydown', tecla)
     }
   }, [onClose])
