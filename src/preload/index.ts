@@ -59,6 +59,10 @@ const bridge: AnCutBridge = {
       ipcRenderer.invoke(CH.mergeAnimePlan, origem, destino),
     mergeAnimeApply: (origem: string, destino: string) =>
       ipcRenderer.invoke(CH.mergeAnimeApply, origem, destino),
+    setSeasonPlan: (episodeIds: number[], season: number) =>
+      ipcRenderer.invoke(CH.setSeasonPlan, episodeIds, season),
+    setSeasonApply: (episodeIds: number[], season: number) =>
+      ipcRenderer.invoke(CH.setSeasonApply, episodeIds, season),
     load: (episodeId: number) => ipcRenderer.invoke(CH.loadResults, episodeId),
     shots: (episodeId: number, characterId: number) =>
       ipcRenderer.invoke(CH.loadShots, episodeId, characterId),

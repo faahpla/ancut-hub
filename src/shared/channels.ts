@@ -56,6 +56,10 @@ export const CH = {
   mergeAnimePlan: 'results:merge-anime-plan',
   /** Junta de verdade, depois de o usuário ver o plano. */
   mergeAnimeApply: 'results:merge-anime-apply',
+  /** Simula mudar a temporada de episódios. Não renomeia nada. */
+  setSeasonPlan: 'results:set-season-plan',
+  /** Renomeia as pastas e reaponta o histórico. */
+  setSeasonApply: 'results:set-season-apply',
 
   /** Renderer → main: lê/grava as configurações persistidas. */
   settingsGet: 'settings:get',

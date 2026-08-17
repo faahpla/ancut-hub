@@ -13,6 +13,8 @@ import type {
 interface ResultsState {
   recent: RecentEpisode[]
   loadingRecent: boolean
+  /** Episódios no histórico cuja pasta não está mais no disco. */
+  missingRoots: number
   /** Pastas completas no disco que o histórico não conhece. */
   orphans: OrphanEpisode[]
   restoring: string
@@ -69,6 +71,7 @@ export const TODAS_AS_CENAS = 0
 export const useResultsStore = create<ResultsState>((set, get) => ({
   recent: [],
   loadingRecent: false,
+  missingRoots: 0,
   orphans: [],
   restoring: '',
   results: null,
@@ -88,7 +91,8 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
   loadRecent: async () => {
     set({ loadingRecent: true })
     try {
-      set({ recent: await window.ancut.results.recent() })
+      const r = await window.ancut.results.recent()
+      set({ recent: r.episodes, missingRoots: r.missingFolders })
       // Depois do histórico, e sem travar a tela: a varredura lê o disco e
       // só interessa quando a lista já está lá pra comparar.
       set({ orphans: await window.ancut.results.orphans() })

@@ -12,6 +12,7 @@ import type {
   AnimeFolderInfo,
   AnimeMergePlan,
   BenchmarkCase,
+  SeasonPlan,
   HarvestDone,
   HarvestEvent,
   MergeResult,
@@ -309,9 +310,20 @@ export class PythonService {
   }
 
   /** Episódios já analisados (o backend preenche a pasta que faltava). */
-  async recentEpisodes(): Promise<RecentEpisode[]> {
-    const r = await this.runOneShot<{ episodes: RecentEpisode[] }>(['recent'], 'recent')
-    return r?.episodes ?? []
+  /**
+   * O histórico inteiro, sem limite.
+   *
+   * `missingFolders` conta as linhas que o motor pulou porque a pasta não
+   * está mais no disco. Elas não podem ser oferecidas (não abrem), mas
+   * também não podem desaparecer caladas — foi assim que "episódio sumiu do
+   * nada" chegou como suspeita de perda de dado.
+   */
+  async recentEpisodes(): Promise<{ episodes: RecentEpisode[]; missingFolders: number }> {
+    const r = await this.runOneShot<{
+      episodes: RecentEpisode[]
+      missingFolders?: number
+    }>(['recent'], 'recent')
+    return { episodes: r?.episodes ?? [], missingFolders: r?.missingFolders ?? 0 }
   }
 
   explorerScan(episodeId: number): Promise<ExplorerChanges | null> {
@@ -354,6 +366,21 @@ export class PythonService {
     return this.runOneShot<AnimeMergePlan>(
       ['merge-anime', origem, destino, 'apply'],
       'merge-anime'
+    )
+  }
+
+  /** Muda a temporada. Dois tempos, igual à junção de pastas. */
+  setSeasonPlan(ids: number[], season: number): Promise<SeasonPlan | null> {
+    return this.runOneShot<SeasonPlan>(
+      ['set-season', String(season), ids.join(',')],
+      'set-season'
+    )
+  }
+
+  setSeasonApply(ids: number[], season: number): Promise<SeasonPlan | null> {
+    return this.runOneShot<SeasonPlan>(
+      ['set-season', String(season), ids.join(','), 'apply'],
+      'set-season'
     )
   }
 

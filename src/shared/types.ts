@@ -229,6 +229,29 @@ export interface AnimeMergePlan {
   repontadas: number
 }
 
+/**
+ * O que aconteceria (ou aconteceu) ao mudar a temporada de episódios.
+ *
+ * A temporada não é só rótulo: ela forma o nome da pasta (`S04E17`), então
+ * mudá-la renomeia a pasta no disco. `conflitos` são destinos já ocupados —
+ * e enquanto houver um, nada é renomeado.
+ */
+export interface SeasonPlan {
+  mudancas: {
+    episodeId: number
+    de: string
+    para: string
+    deTemporada: number
+    paraTemporada: number
+    episodio: number
+    kind: EpisodeKind
+  }[]
+  conflitos: string[]
+  erro: string
+  pode: boolean
+  aplicado: boolean
+}
+
 export interface CharacterSummary {
   id: number
   name: string
@@ -540,7 +563,7 @@ export interface AnCutBridge {
   }
   results: {
     /** Episódios já analisados, pra reabrir sem reprocessar. */
-    recent(): Promise<RecentEpisode[]>
+    recent(): Promise<{ episodes: RecentEpisode[]; missingFolders: number }>
     /** O que o usuário mexeu na pasta do episódio pelo Explorer. */
     explorerScan(episodeId: number): Promise<ExplorerChanges | null>
     /**
@@ -559,6 +582,10 @@ export interface AnCutBridge {
     mergeAnimePlan(origem: string, destino: string): Promise<AnimeMergePlan | null>
     /** Junta de verdade. Só depois de o usuário ver o plano. */
     mergeAnimeApply(origem: string, destino: string): Promise<AnimeMergePlan | null>
+    /** Simula mudar a temporada — não renomeia nada. */
+    setSeasonPlan(episodeIds: number[], season: number): Promise<SeasonPlan | null>
+    /** Renomeia as pastas e reaponta o histórico. */
+    setSeasonApply(episodeIds: number[], season: number): Promise<SeasonPlan | null>
     load(episodeId: number): Promise<EpisodeResults | null>
     /** `characterId` 0 (ou negativo) traz TODAS as cenas do episódio. */
     shots(episodeId: number, characterId: number): Promise<ShotRow[]>

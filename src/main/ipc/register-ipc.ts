@@ -125,6 +125,12 @@ export function registerIpc(
   ipcMain.handle(CH.mergeAnimeApply, async (_e, origem: string, destino: string) =>
     python.mergeAnimeApply(origem, destino)
   )
+  ipcMain.handle(CH.setSeasonPlan, async (_e, ids: number[], season: number) =>
+    python.setSeasonPlan(ids, season)
+  )
+  ipcMain.handle(CH.setSeasonApply, async (_e, ids: number[], season: number) =>
+    python.setSeasonApply(ids, season)
+  )
   ipcMain.handle(CH.loadResults, async (_e, episodeId: number) =>
     python.loadResults(episodeId)
   )
