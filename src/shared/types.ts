@@ -252,6 +252,26 @@ export interface SeasonPlan {
   aplicado: boolean
 }
 
+/**
+ * O que seria (ou foi) apagado ao excluir um episódio.
+ *
+ * `insideOutput` é a trava: só pasta DENTRO da saída configurada pode ir pra
+ * lixeira. Linha com caminho estranho — banco antigo, saída trocada — não
+ * autoriza o app a mandar pasta nenhuma embora.
+ */
+export interface EpisodeDeletePlan {
+  episodeId: number
+  root: string
+  rootExists: boolean
+  insideOutput: boolean
+  shots: number
+  bytes: number
+  erro: string
+  aplicado: boolean
+  /** Só no apply: a pasta foi de fato aceita pela Lixeira? */
+  trashed?: boolean
+}
+
 export interface CharacterSummary {
   id: number
   name: string
@@ -586,6 +606,10 @@ export interface AnCutBridge {
     setSeasonPlan(episodeIds: number[], season: number): Promise<SeasonPlan | null>
     /** Renomeia as pastas e reaponta o histórico. */
     setSeasonApply(episodeIds: number[], season: number): Promise<SeasonPlan | null>
+    /** O que seria apagado. Não apaga nada. */
+    deleteEpisodePlan(episodeId: number): Promise<EpisodeDeletePlan | null>
+    /** Pasta pra Lixeira do Windows + episódio fora do histórico. */
+    deleteEpisodeApply(episodeId: number): Promise<EpisodeDeletePlan | null>
     load(episodeId: number): Promise<EpisodeResults | null>
     /** `characterId` 0 (ou negativo) traz TODAS as cenas do episódio. */
     shots(episodeId: number, characterId: number): Promise<ShotRow[]>

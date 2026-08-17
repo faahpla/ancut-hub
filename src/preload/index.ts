@@ -63,6 +63,10 @@ const bridge: AnCutBridge = {
       ipcRenderer.invoke(CH.setSeasonPlan, episodeIds, season),
     setSeasonApply: (episodeIds: number[], season: number) =>
       ipcRenderer.invoke(CH.setSeasonApply, episodeIds, season),
+    deleteEpisodePlan: (episodeId: number) =>
+      ipcRenderer.invoke(CH.deleteEpisodePlan, episodeId),
+    deleteEpisodeApply: (episodeId: number) =>
+      ipcRenderer.invoke(CH.deleteEpisodeApply, episodeId),
     load: (episodeId: number) => ipcRenderer.invoke(CH.loadResults, episodeId),
     shots: (episodeId: number, characterId: number) =>
       ipcRenderer.invoke(CH.loadShots, episodeId, characterId),

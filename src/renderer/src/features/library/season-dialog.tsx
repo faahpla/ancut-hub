@@ -20,6 +20,7 @@ export function SeasonDialog({
   episodeIds,
   rotulo,
   temporadaAtual,
+  temporadaDestino,
   onClose,
   onDone
 }: {
@@ -27,10 +28,17 @@ export function SeasonDialog({
   /** Descreve o que está sendo movido, pra o título fazer sentido. */
   rotulo: string
   temporadaAtual: number
+  /** Quando vem de arrasto: onde ele soltou. Já vira o valor do campo. */
+  temporadaDestino?: number
   onClose: () => void
   onDone: () => void
 }): JSX.Element {
-  const [alvo, setAlvo] = useState<string>(String(temporadaAtual))
+  // Arrastou = já disse o destino com o mouse; o campo abre preenchido e o
+  // plano aparece na hora. Pelo botão, abre na temporada atual pra ele
+  // digitar.
+  const [alvo, setAlvo] = useState<string>(
+    String(temporadaDestino ?? temporadaAtual)
+  )
   const [plano, setPlano] = useState<SeasonPlan | null>(null)
   const [carregando, setCarregando] = useState(false)
   const [aplicando, setAplicando] = useState(false)

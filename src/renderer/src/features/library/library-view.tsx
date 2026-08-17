@@ -5,9 +5,12 @@ import {
   FolderOpen,
   FolderSearch,
   Library,
+  FolderOpen as FolderOpenIcon,
   Loader2,
   Move,
+  PlayCircle,
   Search,
+  Trash2,
   X
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -18,6 +21,8 @@ import { useResultsStore } from '@/stores/results-store'
 import { agruparPorAnime, filtrar, type Anime } from './group-episodes'
 import { MergeAnimeDialog } from './merge-anime-dialog'
 import { SeasonDialog } from './season-dialog'
+import { DeleteEpisodeDialog } from './delete-episode-dialog'
+import { ContextMenu } from '@/components/ui/context-menu'
 import type { RecentEpisode } from '@shared/types'
 
 /**
@@ -54,7 +59,17 @@ export function LibraryView({
     ids: number[]
     rotulo: string
     atual: number
+    /** Só quando vem de arrasto: a temporada onde ele soltou. */
+    destino?: number
   } | null>(null)
+  /** Clique direito num episódio: posição e o episódio em questão. */
+  const [menu, setMenu] = useState<{
+    x: number
+    y: number
+    ep: RecentEpisode
+    temporada: number
+  } | null>(null)
+  const [excluindo, setExcluindo] = useState<{ id: number; rotulo: string } | null>(null)
 
   useEffect(() => {
     void loadRecent()
@@ -159,6 +174,7 @@ export function LibraryView({
                 onJuntar={() => setJuntando(anime)}
                 podeJuntar={animes.length > 1}
                 onMudarTemporada={setMudandoTemporada}
+                onMenu={(x, y, ep, temporada) => setMenu({ x, y, ep, temporada })}
               />
             </li>
           ))}
@@ -184,9 +200,62 @@ export function LibraryView({
           episodeIds={mudandoTemporada.ids}
           rotulo={mudandoTemporada.rotulo}
           temporadaAtual={mudandoTemporada.atual}
+          temporadaDestino={mudandoTemporada.destino}
           onClose={() => setMudandoTemporada(null)}
           onDone={() => {
             setMudandoTemporada(null)
+            void loadRecent()
+          }}
+        />
+      )}
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              label: 'Abrir',
+              icon: PlayCircle,
+              onSelect: () => onOpen(menu.ep.episodeId)
+            },
+            {
+              label: 'Abrir a pasta',
+              icon: FolderOpenIcon,
+              onSelect: () => void window.ancut.shell.reveal(menu.ep.episodeRoot)
+            },
+            {
+              label: 'Mudar a temporada…',
+              icon: Move,
+              onSelect: () =>
+                setMudandoTemporada({
+                  ids: [menu.ep.episodeId],
+                  rotulo: episodeLabel(menu.ep.season, menu.ep.episode, menu.ep.kind),
+                  atual: menu.temporada
+                })
+            },
+            {
+              label: 'Excluir…',
+              icon: Trash2,
+              danger: true,
+              onSelect: () =>
+                setExcluindo({
+                  id: menu.ep.episodeId,
+                  rotulo: episodeLabel(menu.ep.season, menu.ep.episode, menu.ep.kind)
+                })
+            }
+          ]}
+        />
+      )}
+
+      {excluindo && (
+        <DeleteEpisodeDialog
+          episodeId={excluindo.id}
+          rotulo={excluindo.rotulo}
+          onClose={() => setExcluindo(null)}
+          onDone={() => {
+            setExcluindo(null)
             void loadRecent()
           }}
         />
@@ -243,7 +312,8 @@ function AnimeCard({
   onOpen,
   onJuntar,
   podeJuntar,
-  onMudarTemporada
+  onMudarTemporada,
+  onMenu
 }: {
   anime: Anime
   aberto: boolean
@@ -251,7 +321,13 @@ function AnimeCard({
   onOpen: (episodeId: number) => void
   onJuntar: () => void
   podeJuntar: boolean
-  onMudarTemporada: (alvo: { ids: number[]; rotulo: string; atual: number }) => void
+  onMudarTemporada: (alvo: {
+    ids: number[]
+    rotulo: string
+    atual: number
+    destino?: number
+  }) => void
+  onMenu: (x: number, y: number, ep: RecentEpisode, temporada: number) => void
 }): JSX.Element {
   /** Temporada cujo cabeçalho está sob o episódio sendo arrastado. */
   const [alvoArrasto, setAlvoArrasto] = useState<number | null>(null)
@@ -344,7 +420,12 @@ function AnimeCard({
                   onMudarTemporada({
                     ids: [info.id],
                     rotulo: info.rotulo,
-                    atual: info.season
+                    atual: info.season,
+                    // O destino é a temporada em que ele SOLTOU. Sem mandar
+                    // isto, o diálogo abria com o número da origem e o
+                    // arrasto não adiantava nada — ele teria que digitar o
+                    // destino que acabou de apontar com o mouse.
+                    destino: t.numero
                   })
                 }}
               >
@@ -377,7 +458,12 @@ function AnimeCard({
               <ul className="grid gap-1 sm:grid-cols-2">
                 {t.episodios.map((ep) => (
                   <li key={ep.episodeId}>
-                    <EpisodeRow ep={ep} onOpen={onOpen} temporada={t.numero} />
+                    <EpisodeRow
+                      ep={ep}
+                      onOpen={onOpen}
+                      temporada={t.numero}
+                      onMenu={onMenu}
+                    />
                   </li>
                 ))}
               </ul>
@@ -392,11 +478,13 @@ function AnimeCard({
 function EpisodeRow({
   ep,
   onOpen,
-  temporada
+  temporada,
+  onMenu
 }: {
   ep: RecentEpisode
   onOpen: (episodeId: number) => void
   temporada: number
+  onMenu: (x: number, y: number, ep: RecentEpisode, temporada: number) => void
 }): JSX.Element {
   const rotulo = episodeLabel(ep.season, ep.episode, ep.kind)
   return (
@@ -409,6 +497,10 @@ function EpisodeRow({
       // é um arrasto interno da tela (mover de temporada), não um arrasto de
       // arquivo pro Windows. Tipo próprio pra a área de soltar saber que o
       // que vem é um episódio, e não qualquer coisa arrastada de fora.
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onMenu(e.clientX, e.clientY, ep, temporada)
+      }}
       onDragStart={(e) => {
         e.dataTransfer.setData(
           'application/x-ancut-episodio',

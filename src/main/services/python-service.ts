@@ -12,6 +12,7 @@ import type {
   AnimeFolderInfo,
   AnimeMergePlan,
   BenchmarkCase,
+  EpisodeDeletePlan,
   SeasonPlan,
   HarvestDone,
   HarvestEvent,
@@ -381,6 +382,22 @@ export class PythonService {
     return this.runOneShot<SeasonPlan>(
       ['set-season', String(season), ids.join(','), 'apply'],
       'set-season'
+    )
+  }
+
+  /** O que seria apagado. Não apaga nada. */
+  deleteEpisodePlan(episodeId: number): Promise<EpisodeDeletePlan | null> {
+    return this.runOneShot<EpisodeDeletePlan>(
+      ['delete-episode', String(episodeId)],
+      'delete-episode'
+    )
+  }
+
+  /** Tira do histórico. A pasta é tratada por quem chama. */
+  deleteEpisodeForget(episodeId: number): Promise<EpisodeDeletePlan | null> {
+    return this.runOneShot<EpisodeDeletePlan>(
+      ['delete-episode', String(episodeId), 'apply'],
+      'delete-episode'
     )
   }
 

@@ -131,6 +131,50 @@ export function registerIpc(
   ipcMain.handle(CH.setSeasonApply, async (_e, ids: number[], season: number) =>
     python.setSeasonApply(ids, season)
   )
+
+  ipcMain.handle(CH.deleteEpisodePlan, async (_e, episodeId: number) =>
+    python.deleteEpisodePlan(episodeId)
+  )
+
+  /**
+   * Excluir episódio: a PASTA vai pra Lixeira do Windows, e só depois o
+   * episódio sai do histórico.
+   *
+   * Essa ordem é o ponto. Se a lixeira recusar (pasta em uso, permissão,
+   * unidade sem lixeira), o histórico fica intacto e o episódio continua
+   * abrindo — o usuário vê um erro em vez de perder a entrada e ficar com uma
+   * pasta órfã que ele não sabe que existe.
+   *
+   * `shell.trashItem`, e não `rm -rf`: são 2 a 4 GB de clipes por episódio e
+   * ele consegue restaurar pela Lixeira. Excluir na Biblioteca não deveria
+   * ser mais destrutivo do que excluir uma cena, que já vai pra `_lixeira`.
+   */
+  ipcMain.handle(CH.deleteEpisodeApply, async (_e, episodeId: number) => {
+    const plano = await python.deleteEpisodePlan(episodeId)
+    if (!plano) return null
+    if (plano.erro) return plano
+    if (plano.rootExists && !plano.insideOutput) {
+      return { ...plano, erro: 'a pasta está fora da pasta de saída configurada' }
+    }
+
+    let trashed = false
+    if (plano.rootExists) {
+      try {
+        await shell.trashItem(plano.root)
+        trashed = true
+      } catch (e) {
+        return {
+          ...plano,
+          erro: `não consegui mandar a pasta pra Lixeira: ${
+            e instanceof Error ? e.message : String(e)
+          }`
+        }
+      }
+    }
+
+    const fim = await python.deleteEpisodeForget(episodeId)
+    return { ...(fim ?? plano), trashed }
+  })
   ipcMain.handle(CH.loadResults, async (_e, episodeId: number) =>
     python.loadResults(episodeId)
   )

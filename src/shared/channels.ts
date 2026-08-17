@@ -60,6 +60,10 @@ export const CH = {
   setSeasonPlan: 'results:set-season-plan',
   /** Renomeia as pastas e reaponta o histórico. */
   setSeasonApply: 'results:set-season-apply',
+  /** O que seria apagado ao excluir um episódio. Não apaga nada. */
+  deleteEpisodePlan: 'results:delete-episode-plan',
+  /** Manda a pasta pra Lixeira do Windows e tira do histórico. */
+  deleteEpisodeApply: 'results:delete-episode-apply',
 
   /** Renderer → main: lê/grava as configurações persistidas. */
   settingsGet: 'settings:get',
