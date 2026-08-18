@@ -12,6 +12,8 @@ import type {
   AnimeFolderInfo,
   AnimeMergePlan,
   BenchmarkCase,
+  CharacterIndex,
+  CharacterShot,
   EpisodeDeletePlan,
   SeasonPlan,
   HarvestDone,
@@ -382,6 +384,23 @@ export class PythonService {
     return this.runOneShot<SeasonPlan>(
       ['set-season', String(season), ids.join(','), 'apply'],
       'set-season'
+    )
+  }
+
+  /** Personagens do acervo inteiro, já agrupados por identidade. */
+  characters(termo: string): Promise<CharacterIndex | null> {
+    return this.runOneShot<CharacterIndex>(
+      termo ? ['characters', termo] : ['characters'],
+      'characters'
+    )
+  }
+
+  characterShots(
+    ids: number[]
+  ): Promise<{ shots: CharacterShot[]; outputDir: string } | null> {
+    return this.runOneShot<{ shots: CharacterShot[]; outputDir: string }>(
+      ['character-shots', ids.join(',')],
+      'character-shots'
     )
   }
 

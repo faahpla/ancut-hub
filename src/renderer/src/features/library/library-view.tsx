@@ -10,6 +10,7 @@ import {
   Move,
   PlayCircle,
   Search,
+  Users,
   Trash2,
   X
 } from 'lucide-react'
@@ -22,6 +23,7 @@ import { agruparPorAnime, filtrar, type Anime } from './group-episodes'
 import { MergeAnimeDialog } from './merge-anime-dialog'
 import { SeasonDialog } from './season-dialog'
 import { DeleteEpisodeDialog } from './delete-episode-dialog'
+import { CharactersView } from './characters-view'
 import { ContextMenu } from '@/components/ui/context-menu'
 import type { RecentEpisode } from '@shared/types'
 
@@ -50,6 +52,15 @@ export function LibraryView({
     restoreOrphan,
     missingRoots
   } = useResultsStore()
+  /**
+   * Dois jeitos de olhar o MESMO acervo.
+   *
+   * Por anime é como o material entra (anime → temporada → episódio). Por
+   * personagem é como ele costuma ser pedido: "tudo que eu tenho do Rimuru",
+   * que atravessa episódios e temporadas. Duas abas separadas dariam a
+   * impressão de dois acervos; aqui é um, visto de dois ângulos.
+   */
+  const [modo, setModo] = useState<'anime' | 'personagem'>('anime')
   const [busca, setBusca] = useState('')
   const [abertos, setAbertos] = useState<string[]>([])
   /** Anime que o usuário quer fazer sumir dentro de outro. */
@@ -120,30 +131,48 @@ export function LibraryView({
       <header className="flex items-center gap-2 px-1">
         <Library className="size-4 text-muted-foreground" />
         <h1 className="text-[14px] font-semibold">Biblioteca</h1>
-        <span className="text-[12px] text-muted-foreground">
-          {animes.length} {animes.length === 1 ? 'anime' : 'animes'} ·{' '}
-          {recent.length} {recent.length === 1 ? 'episódio' : 'episódios'}
-        </span>
+        {modo === 'anime' && (
+          <span className="text-[12px] text-muted-foreground">
+            {animes.length} {animes.length === 1 ? 'anime' : 'animes'} ·{' '}
+            {recent.length} {recent.length === 1 ? 'episódio' : 'episódios'}
+          </span>
+        )}
         <span className="flex-1" />
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Procurar anime…"
-            className="h-8 w-52 rounded-md border border-border bg-surface-sunken pl-8 pr-7 text-[12.5px] outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
+        <div className="flex items-center gap-0.5 rounded-md border border-border bg-surface-sunken p-0.5">
+          <ModoBotao
+            ativo={modo === 'anime'}
+            onClick={() => setModo('anime')}
+            icone={Library}
+            rotulo="Por anime"
           />
-          {busca && (
-            <button
-              type="button"
-              onClick={() => setBusca('')}
-              aria-label="Limpar busca"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="size-3.5" />
-            </button>
-          )}
+          <ModoBotao
+            ativo={modo === 'personagem'}
+            onClick={() => setModo('personagem')}
+            icone={Users}
+            rotulo="Por personagem"
+          />
         </div>
+        {modo === 'anime' && (
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Procurar anime…"
+              className="h-8 w-52 rounded-md border border-border bg-surface-sunken pl-8 pr-7 text-[12.5px] outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
+            />
+            {busca && (
+              <button
+                type="button"
+                onClick={() => setBusca('')}
+                aria-label="Limpar busca"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
       {missingRoots > 0 && (
@@ -158,7 +187,9 @@ export function LibraryView({
         </p>
       )}
 
-      {visiveis.length === 0 ? (
+      {modo === 'personagem' ? (
+        <CharactersView />
+      ) : visiveis.length === 0 ? (
         <p className="px-1 py-6 text-center text-[12.5px] text-muted-foreground">
           Nada com “{busca}”.
         </p>
@@ -261,7 +292,7 @@ export function LibraryView({
         />
       )}
 
-      {orphans.length > 0 && (
+      {modo === 'anime' && orphans.length > 0 && (
         <section className="mt-2 flex flex-col gap-1.5">
           <header className="flex items-center gap-2 px-1">
             <FolderSearch className="size-4 text-muted-foreground" />
@@ -302,6 +333,37 @@ export function LibraryView({
         </section>
       )}
     </div>
+  )
+}
+
+/** Botão do alternador de modo. Pílula, no padrão das abas do topo. */
+function ModoBotao({
+  ativo,
+  onClick,
+  icone: Icone,
+  rotulo
+}: {
+  ativo: boolean
+  onClick: () => void
+  icone: typeof Library
+  rotulo: string
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={rotulo}
+      aria-pressed={ativo}
+      className={cn(
+        'flex items-center gap-1.5 rounded px-2 py-1 text-[12px] font-medium transition-colors',
+        ativo
+          ? 'bg-surface-hover text-foreground'
+          : 'text-muted-foreground hover:text-foreground'
+      )}
+    >
+      <Icone className="size-3.5" />
+      {rotulo}
+    </button>
   )
 }
 

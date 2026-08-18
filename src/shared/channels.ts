@@ -60,6 +60,10 @@ export const CH = {
   setSeasonPlan: 'results:set-season-plan',
   /** Renomeia as pastas e reaponta o histórico. */
   setSeasonApply: 'results:set-season-apply',
+  /** Personagens do acervo INTEIRO, com contagem de cenas. */
+  characters: 'results:characters',
+  /** Todas as cenas de um personagem, atravessando episódios. */
+  characterShots: 'results:character-shots',
   /** O que seria apagado ao excluir um episódio. Não apaga nada. */
   deleteEpisodePlan: 'results:delete-episode-plan',
   /** Manda a pasta pra Lixeira do Windows e tira do histórico. */

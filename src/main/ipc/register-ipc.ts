@@ -132,6 +132,23 @@ export function registerIpc(
     python.setSeasonApply(ids, season)
   )
 
+  /**
+   * A grade de um personagem mistura episódios de vários animes, então a raiz
+   * liberada pro `media://` é a pasta de SAÍDA inteira — um prefixo por
+   * episódio não cobriria a lista.
+   */
+  ipcMain.handle(CH.characters, async (_e, termo: string) => {
+    const r = await python.characters(termo)
+    if (r?.outputDir) allowMediaRoot(r.outputDir)
+    return r ? { ...r, mediaPrefix: mediaUrlPrefix(r.outputDir) } : null
+  })
+
+  ipcMain.handle(CH.characterShots, async (_e, ids: number[]) => {
+    const r = await python.characterShots(ids)
+    if (r?.outputDir) allowMediaRoot(r.outputDir)
+    return r?.shots ?? []
+  })
+
   ipcMain.handle(CH.deleteEpisodePlan, async (_e, episodeId: number) =>
     python.deleteEpisodePlan(episodeId)
   )

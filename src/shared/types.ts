@@ -272,6 +272,52 @@ export interface EpisodeDeletePlan {
   folderDeleted?: boolean
 }
 
+/**
+ * Um personagem no acervo INTEIRO, já com as grafias unificadas.
+ *
+ * O mesmo personagem existe no banco escrito de vários jeitos — cada
+ * temporada resolve o elenco por conta, e a fonte alterna o formato
+ * ("Tempest, Rimuru" e "Rimuru Tempest"). `ids` traz TODAS as linhas que são
+ * essa pessoa; `aliases`, as outras grafias, pra a busca por texto achar por
+ * qualquer uma delas.
+ */
+export interface CharacterEntry {
+  name: string
+  ids: number[]
+  aliases: string[]
+  shots: number
+  episodes: number
+  /** Pastas de anime em que ele aparece. */
+  animes: string[]
+  /** Keyframe (relativo à saída) pra ilustrar a linha. */
+  sample: string
+}
+
+export interface CharacterIndex {
+  outputDir: string
+  characters: CharacterEntry[]
+  /** Prefixo `media://` da pasta de SAÍDA — cobre todos os episódios. */
+  mediaPrefix: string
+}
+
+/** Uma cena de um personagem, com o episódio de onde ela veio. */
+export interface CharacterShot {
+  id: number
+  idx: number
+  /** Caminho relativo à pasta de saída. */
+  file: string
+  keyframe: string
+  /** Caminho no disco — pro arrasto pro Windows e pro Explorer. */
+  absolute: string
+  duration: number
+  confidence: number | null
+  anime: string
+  season: number
+  episode: number
+  kind: EpisodeKind
+  episodeId: number
+}
+
 export interface CharacterSummary {
   id: number
   name: string
@@ -606,6 +652,10 @@ export interface AnCutBridge {
     setSeasonPlan(episodeIds: number[], season: number): Promise<SeasonPlan | null>
     /** Renomeia as pastas e reaponta o histórico. */
     setSeasonApply(episodeIds: number[], season: number): Promise<SeasonPlan | null>
+    /** Personagens do acervo inteiro, agrupados por identidade. */
+    characters(termo?: string): Promise<CharacterIndex | null>
+    /** Todas as cenas desses personagens, atravessando episódios. */
+    characterShots(ids: number[]): Promise<CharacterShot[]>
     /** O que seria apagado. Não apaga nada. */
     deleteEpisodePlan(episodeId: number): Promise<EpisodeDeletePlan | null>
     /** Apaga a pasta de vez e tira o episódio do histórico. Sem volta. */
