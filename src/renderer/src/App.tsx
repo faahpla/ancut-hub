@@ -58,26 +58,32 @@ export default function App(): JSX.Element {
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      <TitleBar>
+      <TitleBar
+        actions={
+          <>
+            <UpdateBadge />
+            <DeviceBadge gpuName={info?.gpuName ?? null} />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings />
+              Configurações
+            </Button>
+          </>
+        }
+      >
         <Brand />
+        {/* Separa identidade de navegação: sem ele, "AnCut HUB" e as abas
+            viram um bloco só de texto e o olho não sabe onde a marca termina
+            e onde começa o que é clicável. */}
+        <span className="h-5 w-px shrink-0 bg-border" />
         <TabBar value={tab} onChange={setTab} />
       </TitleBar>
 
-      <div className="no-drag flex items-center justify-end gap-2 px-4 pb-2">
-        <UpdateBadge />
-        <DeviceBadge gpuName={info?.gpuName ?? null} />
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => setSettingsOpen(true)}
-        >
-          <Settings />
-          Configurações
-        </Button>
-      </div>
-
-      <main className="scrollbar-thin flex-1 overflow-y-auto px-4 pb-4">
+      <main className="scrollbar-thin flex-1 overflow-y-auto px-4 pb-4 pt-3">
         {tab === 'analyze' ? (
           <AnalyzeView />
         ) : tab === 'library' ? (
