@@ -55,8 +55,23 @@ interface ResultsState {
   /** Marca/desmarca uma cena. Com `ate`, marca o intervalo inteiro. */
   toggleSelected: (shotId: number, ate?: boolean) => void
   clearSelection: () => void
+  /**
+   * Marca TODAS as cenas da lista atual, numa atualização só.
+   *
+   * Não dá pra fazer isso com um `forEach(toggleSelected)`: cada chamada é um
+   * `set` do store, e cada `set` re-renderiza a grade inteira. Com 110 cenas
+   * já dava pra sentir; com 573 a tela congelava.
+   */
+  selectAll: () => void
   mergeSelected: () => Promise<MergeResult | null>
-  deleteSelected: () => Promise<DeleteResult | null>
+  /**
+   * Exclui as cenas marcadas — ou as de `ids`, quando vierem.
+   *
+   * O parâmetro existe pro Delete do teclado: apertar Delete com nada marcado
+   * apaga a cena que está no player, e exigir marcar antes tornaria o atalho
+   * inútil justamente no caso mais comum (vi, não presta, apaga).
+   */
+  deleteSelected: (ids?: number[]) => Promise<DeleteResult | null>
   close: () => void
 }
 
@@ -204,6 +219,8 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
 
   clearSelection: () => set({ selection: [] }),
 
+  selectAll: () => set({ selection: get().shots.map((s) => s.id) }),
+
   mergeSelected: async () => {
     const { results, selection, selectedCharacter } = get()
     if (!results || selection.length < 2) return null
@@ -218,12 +235,13 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
     }
   },
 
-  deleteSelected: async () => {
+  deleteSelected: async (ids) => {
     const { results, selection, selectedCharacter } = get()
-    if (!results || selection.length === 0) return null
+    const alvos = ids && ids.length > 0 ? ids : selection
+    if (!results || alvos.length === 0) return null
     set({ merging: true })
     try {
-      const r = await window.ancut.results.remove(results.episodeId, selection)
+      const r = await window.ancut.results.remove(results.episodeId, alvos)
       if (!r) return null
       set({ lastTrashDir: r.trashDir ?? '' })
       await recarregar(set, results.episodeId, selectedCharacter)

@@ -1,5 +1,5 @@
 import { Check, Combine, FolderOpen, Loader2, PlayCircle, SquareCheck, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ContextMenu } from '@/components/ui/context-menu'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -27,6 +27,7 @@ export function ShotGrid(): JSX.Element {
     selection,
     toggleSelected,
     clearSelection,
+    selectAll,
     mergeSelected,
     deleteSelected,
     lastTrashDir,
@@ -36,6 +37,65 @@ export function ShotGrid(): JSX.Element {
   const [menu, setMenu] = useState<{ x: number; y: number; shot: ShotRow } | null>(null)
 
   const raiz = results?.episodeRoot ?? ''
+
+  /**
+   * O que o Delete apaga: o marcado, ou — se nada estiver marcado — a cena que
+   * está no player.
+   *
+   * Sem essa segunda metade o atalho seria inútil no caso mais comum: clicar
+   * na cena, ver que não presta, apagar. Exigir marcar antes transformaria um
+   * gesto em três.
+   */
+  const alvosDoDelete = (): number[] =>
+    selection.length > 0 ? selection : activeShot ? [activeShot.id] : []
+
+  /**
+   * Atalhos de teclado da grade.
+   *
+   * No `window`, e não num container com foco: a pessoa acabou de clicar num
+   * card, e o foco pode estar em qualquer lugar. O guarda de digitação é o que
+   * torna isso seguro — sem ele, apertar "m" no campo de busca abriria o
+   * diálogo de mesclar.
+   */
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent): void => {
+      const alvo = e.target as HTMLElement | null
+      const digitando =
+        alvo instanceof HTMLElement &&
+        (alvo.isContentEditable ||
+          ['INPUT', 'TEXTAREA', 'SELECT'].includes(alvo.tagName))
+      // Com um diálogo aberto, quem manda é ele: Delete ali dentro não pode
+      // abrir um segundo diálogo por cima do primeiro.
+      if (digitando || confirmar !== null || merging) return
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (alvosDoDelete().length === 0) return
+        e.preventDefault()
+        setConfirmar('excluir')
+        return
+      }
+      if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.altKey) {
+        if (selection.length < 2) return
+        e.preventDefault()
+        setConfirmar('mesclar')
+        return
+      }
+      if (e.key === 'Escape' && selection.length > 0) {
+        e.preventDefault()
+        clearSelection()
+        return
+      }
+      if (e.key === 'a' && e.ctrlKey) {
+        e.preventDefault()
+        // Marca tudo que está na lista atual — a do personagem aberto, não o
+        // episódio inteiro. Numa atualização só: ver `selectAll` no store.
+        selectAll()
+      }
+    }
+    window.addEventListener('keydown', tecla)
+    return () => window.removeEventListener('keydown', tecla)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection, activeShot, shots, confirmar, merging])
 
   /**
    * Arrasta o clipe pra fora do app.
@@ -68,6 +128,16 @@ export function ShotGrid(): JSX.Element {
           )}
         </h2>
         <span className="flex-1" />
+        {/* Atalho que ninguém sabe que existe não serve. Fica discreto, mas
+            fica — é o único lugar onde a pessoa vai passar o olho. */}
+        {shots.length > 0 && (
+          <span className="hidden items-center gap-2 text-[10.5px] text-muted-foreground/60 lg:flex">
+            <Atalho tecla="Del" oque="excluir" />
+            <Atalho tecla="M" oque="mesclar" />
+            <Atalho tecla="Ctrl+A" oque="marcar tudo" />
+            <Atalho tecla="Esc" oque="limpar" />
+          </span>
+        )}
         <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
           Escala
           <input
@@ -152,9 +222,9 @@ export function ShotGrid(): JSX.Element {
         {confirmar === 'excluir' && (
           <DialogContent
             title={
-              selection.length === 1
+              alvosDoDelete().length === 1
                 ? 'Excluir esta cena?'
-                : `Excluir ${selection.length} cenas?`
+                : `Excluir ${alvosDoDelete().length} cenas?`
             }
             description="O clipe sai das pastas e vai pra lixeira do episódio."
             onClose={() => setConfirmar(null)}
@@ -166,8 +236,9 @@ export function ShotGrid(): JSX.Element {
                 <Button
                   variant="danger"
                   onClick={() => {
+                    const alvos = alvosDoDelete()
                     setConfirmar(null)
-                    void deleteSelected()
+                    void deleteSelected(alvos)
                   }}
                 >
                   Mandar pra lixeira
@@ -261,11 +332,40 @@ export function ShotGrid(): JSX.Element {
               label: selection.includes(menu.shot.id) ? 'Desmarcar' : 'Marcar',
               icon: SquareCheck,
               onSelect: () => toggleSelected(menu.shot.id)
+            },
+            {
+              // Clique direito age NESTA cena, não na seleção — a menos que
+              // ela já esteja marcada. Apagar 40 cenas porque o menu abriu
+              // sobre uma delas seria surpresa cara.
+              label: selection.includes(menu.shot.id)
+                ? `Excluir ${selection.length} marcadas…`
+                : 'Excluir esta cena…',
+              icon: Trash2,
+              danger: true,
+              onSelect: () => {
+                if (!selection.includes(menu.shot.id)) {
+                  clearSelection()
+                  setActiveShot(menu.shot)
+                }
+                setConfirmar('excluir')
+              }
             }
           ]}
         />
       )}
     </div>
+  )
+}
+
+/** Um par tecla + o que ela faz, na dica do cabeçalho. */
+function Atalho({ tecla, oque }: { tecla: string; oque: string }): JSX.Element {
+  return (
+    <span className="flex items-center gap-1">
+      <kbd className="rounded border border-border bg-surface-sunken px-1 py-px font-sans text-[10px] text-muted-foreground">
+        {tecla}
+      </kbd>
+      {oque}
+    </span>
   )
 }
 
