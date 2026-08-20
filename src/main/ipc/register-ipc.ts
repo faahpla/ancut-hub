@@ -137,6 +137,17 @@ export function registerIpc(
    * liberada pro `media://` é a pasta de SAÍDA inteira — um prefixo por
    * episódio não cobriria a lista.
    */
+  ipcMain.handle(CH.favToggle, async (_e, shotId: number, characterId: number) =>
+    python.favToggle(shotId, characterId)
+  )
+
+  /** Igual à busca por personagem: a raiz do media:// é a saída inteira. */
+  ipcMain.handle(CH.favorites, async () => {
+    const r = await python.favorites()
+    if (r?.outputDir) allowMediaRoot(r.outputDir)
+    return r ? { ...r, mediaPrefix: mediaUrlPrefix(r.outputDir) } : null
+  })
+
   ipcMain.handle(CH.characters, async (_e, termo: string) => {
     const r = await python.characters(termo)
     if (r?.outputDir) allowMediaRoot(r.outputDir)

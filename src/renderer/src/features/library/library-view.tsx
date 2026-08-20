@@ -10,6 +10,7 @@ import {
   Move,
   PlayCircle,
   Search,
+  Star,
   Users,
   Trash2,
   X
@@ -24,6 +25,7 @@ import { MergeAnimeDialog } from './merge-anime-dialog'
 import { SeasonDialog } from './season-dialog'
 import { DeleteEpisodeDialog } from './delete-episode-dialog'
 import { CharactersView } from './characters-view'
+import { FavoritesView } from './favorites-view'
 import { ContextMenu } from '@/components/ui/context-menu'
 import type { RecentEpisode } from '@shared/types'
 
@@ -60,7 +62,7 @@ export function LibraryView({
    * que atravessa episódios e temporadas. Duas abas separadas dariam a
    * impressão de dois acervos; aqui é um, visto de dois ângulos.
    */
-  const [modo, setModo] = useState<'anime' | 'personagem'>('anime')
+  const [modo, setModo] = useState<'anime' | 'personagem' | 'favorito'>('anime')
   const [busca, setBusca] = useState('')
   const [abertos, setAbertos] = useState<string[]>([])
   /** Anime que o usuário quer fazer sumir dentro de outro. */
@@ -151,6 +153,12 @@ export function LibraryView({
             icone={Users}
             rotulo="Por personagem"
           />
+          <ModoBotao
+            ativo={modo === 'favorito'}
+            onClick={() => setModo('favorito')}
+            icone={Star}
+            rotulo="Favoritos"
+          />
         </div>
         {modo === 'anime' && (
           <div className="relative">
@@ -189,6 +197,8 @@ export function LibraryView({
 
       {modo === 'personagem' ? (
         <CharactersView />
+      ) : modo === 'favorito' ? (
+        <FavoritesView />
       ) : visiveis.length === 0 ? (
         <p className="px-1 py-6 text-center text-[12.5px] text-muted-foreground">
           Nada com “{busca}”.

@@ -1,4 +1,13 @@
-import { Check, Combine, FolderOpen, Loader2, PlayCircle, SquareCheck, Trash2 } from 'lucide-react'
+import {
+  Check,
+  Combine,
+  FolderOpen,
+  Loader2,
+  PlayCircle,
+  SquareCheck,
+  Star,
+  Trash2
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ContextMenu } from '@/components/ui/context-menu'
@@ -28,6 +37,7 @@ export function ShotGrid(): JSX.Element {
     toggleSelected,
     clearSelection,
     selectAll,
+    toggleFavorite,
     mergeSelected,
     deleteSelected,
     lastTrashDir,
@@ -78,6 +88,16 @@ export function ShotGrid(): JSX.Element {
         if (selection.length < 2) return
         e.preventDefault()
         setConfirmar('mesclar')
+        return
+      }
+      if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.altKey) {
+        // Favorita o que estiver marcado; sem marcação, a cena do player —
+        // mesma regra do Delete, pra os dois atalhos não terem lógicas
+        // diferentes de "no que isso age".
+        const alvos = alvosDoDelete()
+        if (alvos.length === 0) return
+        e.preventDefault()
+        alvos.forEach((id) => void toggleFavorite(id))
         return
       }
       if (e.key === 'Escape' && selection.length > 0) {
@@ -133,6 +153,7 @@ export function ShotGrid(): JSX.Element {
         {shots.length > 0 && (
           <span className="hidden items-center gap-2 text-[10.5px] text-muted-foreground/60 lg:flex">
             <Atalho tecla="Del" oque="excluir" />
+            <Atalho tecla="F" oque="favoritar" />
             <Atalho tecla="M" oque="mesclar" />
             <Atalho tecla="Ctrl+A" oque="marcar tudo" />
             <Atalho tecla="Esc" oque="limpar" />
@@ -300,6 +321,7 @@ export function ShotGrid(): JSX.Element {
                 onToggle={(faixa) => toggleSelected(shot.id, faixa)}
                 onDrag={() => arrastar(shot)}
                 onMenu={(x, y) => setMenu({ x, y, shot })}
+                onFavoritar={() => void toggleFavorite(shot.id)}
               />
             ))}
           </div>
@@ -327,6 +349,13 @@ export function ShotGrid(): JSX.Element {
                 const p = diskPath(raiz, menu.shot.file)
                 if (p) void window.ancut.shell.open(p)
               }
+            },
+            {
+              label: menu.shot.favorite
+                ? 'Tirar dos favoritos'
+                : 'Favoritar esta cena',
+              icon: Star,
+              onSelect: () => void toggleFavorite(menu.shot.id)
             },
             {
               label: selection.includes(menu.shot.id) ? 'Desmarcar' : 'Marcar',
@@ -377,7 +406,8 @@ function ShotCard({
   onSelect,
   onToggle,
   onDrag,
-  onMenu
+  onMenu,
+  onFavoritar
 }: {
   shot: ShotRow
   prefix: string
@@ -388,6 +418,7 @@ function ShotCard({
   onToggle: (faixa: boolean) => void
   onDrag: () => void
   onMenu: (x: number, y: number) => void
+  onFavoritar: () => void
 }): JSX.Element {
   const thumb = mediaUrl(prefix, shot.keyframe)
   const conf = shot.confidence
@@ -437,6 +468,27 @@ function ShotCard({
         )}
       >
         {marcada && <Check className="size-3.5" strokeWidth={3} />}
+      </button>
+
+      {/* A estrela fica SEMPRE visível quando ligada, e só no hover quando
+          desligada: favorito é informação, e informação que some não informa.
+          Fora do fluxo de clique do card, como a caixinha de marcar. */}
+      <button
+        type="button"
+        aria-label={shot.favorite ? 'Tirar dos favoritos' : 'Favoritar'}
+        title={shot.favorite ? 'Tirar dos favoritos' : 'Favoritar (F)'}
+        onClick={(e) => {
+          e.stopPropagation()
+          onFavoritar()
+        }}
+        className={cn(
+          'absolute right-1.5 top-1.5 z-10 grid size-5 place-items-center rounded transition-all',
+          shot.favorite
+            ? 'bg-black/50 text-warning'
+            : 'bg-black/50 text-white/70 opacity-0 hover:text-warning group-hover:opacity-100'
+        )}
+      >
+        <Star className="size-3.5" fill={shot.favorite ? 'currentColor' : 'none'} />
       </button>
 
       <div className="relative aspect-video w-full overflow-hidden bg-black/40">

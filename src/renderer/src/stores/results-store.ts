@@ -63,6 +63,14 @@ interface ResultsState {
    * já dava pra sentir; com 573 a tela congelava.
    */
   selectAll: () => void
+  /**
+   * Liga/desliga o favorito de uma cena, no contexto do personagem aberto.
+   *
+   * A resposta do motor é o estado NOVO, e a lista é remendada com ele em vez
+   * de recarregada: recarregar 573 cenas pra acender uma estrela jogaria a
+   * rolagem pro topo a cada clique.
+   */
+  toggleFavorite: (shotId: number) => Promise<void>
   mergeSelected: () => Promise<MergeResult | null>
   /**
    * Exclui as cenas marcadas — ou as de `ids`, quando vierem.
@@ -220,6 +228,17 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
   clearSelection: () => set({ selection: [] }),
 
   selectAll: () => set({ selection: get().shots.map((s) => s.id) }),
+
+  toggleFavorite: async (shotId) => {
+    const { selectedCharacter, shots } = get()
+    // 0 = visão "Todas as cenas": favorito sem personagem em contexto.
+    const cid = selectedCharacter && selectedCharacter.id > 0 ? selectedCharacter.id : 0
+    const r = await window.ancut.results.favToggle(shotId, cid)
+    if (!r) return
+    set({
+      shots: shots.map((x) => (x.id === shotId ? { ...x, favorite: r.favorite } : x))
+    })
+  },
 
   mergeSelected: async () => {
     const { results, selection, selectedCharacter } = get()

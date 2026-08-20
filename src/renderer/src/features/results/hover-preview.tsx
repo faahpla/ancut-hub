@@ -119,11 +119,12 @@ export function HoverPreview({
         />
       )}
 
-      {/* Selo discreto de que aquilo é a cena andando, não a foto. À direita
-          de propósito: a esquerda é da caixinha de marcar, que aparece no
-          mesmo gesto. */}
+      {/* Selo discreto de que aquilo é a cena andando, não a foto.
+          Embaixo à esquerda porque os outros três cantos já têm dono e todos
+          aparecem no mesmo gesto: marcar (cima-esq), favoritar (cima-dir) e a
+          confiança (baixo-dir). */}
       {tocando && (
-        <span className="pointer-events-none absolute right-1.5 top-1.5 rounded bg-black/55 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-white/90">
+        <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/55 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-white/90">
           prévia
         </span>
       )}

@@ -318,6 +318,53 @@ export interface CharacterShot {
   episodeId: number
 }
 
+/** Resposta do liga/desliga do favorito: o estado NOVO. */
+export interface FavToggle {
+  shotId: number
+  characterId: number
+  favorite: boolean
+}
+
+/**
+ * Um clipe favoritado, já com a procedência.
+ *
+ * `characterId` é o personagem que motivou o favorito — 0 quando ele foi
+ * marcado na visão "Todas as cenas", sem personagem em contexto. É esse campo
+ * que permite montar "Favoritos → Mushoku Tensei → Rudeus".
+ */
+export interface FavoriteShot {
+  id: number
+  characterId: number
+  idx: number
+  file: string
+  keyframe: string
+  absolute: string
+  duration: number
+  confidence: number | null
+  season: number
+  episode: number
+  kind: EpisodeKind
+  episodeId: number
+  favoritedAt: string
+}
+
+export interface FavoriteCharacter {
+  character: string
+  shots: FavoriteShot[]
+}
+
+export interface FavoriteAnime {
+  anime: string
+  total: number
+  characters: FavoriteCharacter[]
+}
+
+export interface FavoritesIndex {
+  outputDir: string
+  animes: FavoriteAnime[]
+  mediaPrefix: string
+}
+
 export interface CharacterSummary {
   id: number
   name: string
@@ -358,6 +405,8 @@ export interface EpisodeResults {
 
 export interface ShotRow {
   id: number
+  /** Já está nos favoritos DESTE personagem (ou de "todas as cenas"). */
+  favorite?: boolean
   idx: number
   /** Caminho do clipe, relativo ao episodeRoot. */
   file: string
@@ -652,6 +701,10 @@ export interface AnCutBridge {
     setSeasonPlan(episodeIds: number[], season: number): Promise<SeasonPlan | null>
     /** Renomeia as pastas e reaponta o histórico. */
     setSeasonApply(episodeIds: number[], season: number): Promise<SeasonPlan | null>
+    /** Liga/desliga o favorito. Devolve o estado novo. */
+    favToggle(shotId: number, characterId?: number): Promise<FavToggle | null>
+    /** Favoritos em anime → personagem → cenas. */
+    favorites(): Promise<FavoritesIndex | null>
     /** Personagens do acervo inteiro, agrupados por identidade. */
     characters(termo?: string): Promise<CharacterIndex | null>
     /** Todas as cenas desses personagens, atravessando episódios. */

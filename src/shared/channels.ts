@@ -60,6 +60,10 @@ export const CH = {
   setSeasonPlan: 'results:set-season-plan',
   /** Renomeia as pastas e reaponta o histórico. */
   setSeasonApply: 'results:set-season-apply',
+  /** Liga/desliga o favorito de uma cena. */
+  favToggle: 'results:fav-toggle',
+  /** Favoritos do acervo, em anime → personagem → cenas. */
+  favorites: 'results:favorites',
   /** Personagens do acervo INTEIRO, com contagem de cenas. */
   characters: 'results:characters',
   /** Todas as cenas de um personagem, atravessando episódios. */

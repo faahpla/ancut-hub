@@ -15,6 +15,8 @@ import type {
   CharacterIndex,
   CharacterShot,
   EpisodeDeletePlan,
+  FavToggle,
+  FavoritesIndex,
   SeasonPlan,
   HarvestDone,
   HarvestEvent,
@@ -385,6 +387,17 @@ export class PythonService {
       ['set-season', String(season), ids.join(','), 'apply'],
       'set-season'
     )
+  }
+
+  favToggle(shotId: number, characterId: number): Promise<FavToggle | null> {
+    return this.runOneShot<FavToggle>(
+      ['fav-toggle', String(shotId), String(characterId)],
+      'fav-toggle'
+    )
+  }
+
+  favorites(): Promise<FavoritesIndex | null> {
+    return this.runOneShot<FavoritesIndex>(['favorites'], 'favorites')
   }
 
   /** Personagens do acervo inteiro, já agrupados por identidade. */
