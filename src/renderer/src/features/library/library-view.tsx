@@ -134,24 +134,27 @@ export function LibraryView({
         <Library className="size-4 text-muted-foreground" />
         <h1 className="text-[14px] font-semibold">Biblioteca</h1>
         {modo === 'anime' && (
-          <span className="text-[12px] text-muted-foreground">
+          <span className="truncate text-[12px] text-muted-foreground">
             {animes.length} {animes.length === 1 ? 'anime' : 'animes'} ·{' '}
             {recent.length} {recent.length === 1 ? 'episódio' : 'episódios'}
           </span>
         )}
         <span className="flex-1" />
-        <div className="flex items-center gap-0.5 rounded-md border border-border bg-surface-sunken p-0.5">
+        {/* `shrink-0` e `whitespace-nowrap`: sem os dois, o cabeçalho sem
+            espaço quebrava "Por anime" em duas linhas e o alternador virava um
+            bloco torto de 3 alturas diferentes. */}
+        <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-surface-sunken p-0.5">
           <ModoBotao
             ativo={modo === 'anime'}
             onClick={() => setModo('anime')}
             icone={Library}
-            rotulo="Por anime"
+            rotulo="Anime"
           />
           <ModoBotao
             ativo={modo === 'personagem'}
             onClick={() => setModo('personagem')}
             icone={Users}
-            rotulo="Por personagem"
+            rotulo="Personagem"
           />
           <ModoBotao
             ativo={modo === 'favorito'}
@@ -167,7 +170,7 @@ export function LibraryView({
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Procurar anime…"
-              className="h-8 w-52 rounded-md border border-border bg-surface-sunken pl-8 pr-7 text-[12.5px] outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
+              className="h-8 w-44 rounded-md border border-border bg-surface-sunken pl-8 pr-7 text-[12.5px] outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
             />
             {busca && (
               <button
@@ -365,7 +368,8 @@ function ModoBotao({
       title={rotulo}
       aria-pressed={ativo}
       className={cn(
-        'flex items-center gap-1.5 rounded px-2 py-1 text-[12px] font-medium transition-colors',
+        'flex items-center gap-1.5 whitespace-nowrap rounded px-2 py-1 text-[12px]',
+        'font-medium transition-colors',
         ativo
           ? 'bg-surface-hover text-foreground'
           : 'text-muted-foreground hover:text-foreground'
