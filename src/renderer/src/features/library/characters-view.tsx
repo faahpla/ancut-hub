@@ -1,4 +1,4 @@
-import { ArrowLeft, Clapperboard, FolderOpen, Loader2, Search, Users, X } from 'lucide-react'
+import { ArrowLeft, Clapperboard, FolderOpen, Loader2, Search, Star, Users, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { episodeLabel } from '@/lib/utils'
@@ -57,6 +57,29 @@ export function CharactersView(): JSX.Element {
 
   const url = (rel: string): string | null =>
     prefixo && rel ? prefixo + encodeURIComponent(rel) : null
+
+  /**
+   * Favoritar daqui, sem passar pelo episódio.
+   *
+   * A chave é 0 — "favoritei a cena", não "favoritei a cena por causa deste
+   * personagem". Dá no mesmo pra esta pasta: os Favoritos deduzem o
+   * personagem de quem o reconhecimento achou na cena, e ela só está aqui
+   * porque ele foi achado nela.
+   *
+   * A tela vira NA HORA e não recarrega: são 724 cenas do Rudeus, e uma volta
+   * ao motor a cada estrela seria um piscar de lista a cada clique.
+   */
+  const favoritar = (s: CharacterShot): void => {
+    setCenas((atual) =>
+      (atual ?? []).map((c) => (c.id === s.id ? { ...c, favorite: !c.favorite } : c))
+    )
+    void window.ancut.results.favToggle(s.id, 0).then((r) => {
+      if (!r) return
+      setCenas((atual) =>
+        (atual ?? []).map((c) => (c.id === s.id ? { ...c, favorite: r.favorite } : c))
+      )
+    })
+  }
 
   if (!lista) {
     return (
@@ -129,8 +152,37 @@ export function CharactersView(): JSX.Element {
                     e.preventDefault()
                     void window.ancut.shell.reveal(s.absolute)
                   }}
+                  onKeyDown={(e) => {
+                    // Mesma tecla da grade de cenas. Um atalho que só vale
+                    // numa tela seria mais uma exceção pra decorar.
+                    if (e.key === 'f' || e.key === 'F') {
+                      e.preventDefault()
+                      favoritar(s)
+                    }
+                  }}
                   className="group relative cursor-pointer overflow-hidden rounded-md border border-border bg-surface-sunken text-left transition-all hover:border-muted"
                 >
+                  {/* Sempre visível quando ligada, só no hover quando
+                      desligada: favorito é informação, e informação que some
+                      não informa. Igual à grade de cenas. */}
+                  <button
+                    type="button"
+                    aria-label={s.favorite ? 'Tirar dos favoritos' : 'Favoritar'}
+                    title={s.favorite ? 'Tirar dos favoritos' : 'Favoritar (F)'}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      favoritar(s)
+                    }}
+                    className={cn(
+                      'absolute right-1.5 top-1.5 z-10 grid size-5 place-items-center rounded transition-all',
+                      s.favorite
+                        ? 'bg-black/50 text-warning'
+                        : 'bg-black/50 text-white/70 opacity-0 hover:text-warning group-hover:opacity-100'
+                    )}
+                  >
+                    <Star className="size-3.5" fill={s.favorite ? 'currentColor' : 'none'} />
+                  </button>
+
                   <div className="relative aspect-video w-full overflow-hidden bg-black/40">
                     <HoverPreview thumb={url(s.keyframe)} clip={url(s.file)} />
                     {s.confidence !== null && (

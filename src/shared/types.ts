@@ -316,6 +316,8 @@ export interface CharacterShot {
   episode: number
   kind: EpisodeKind
   episodeId: number
+  /** Já é favorito. Favoritar é da CENA, não da pasta onde ela aparece. */
+  favorite: boolean
 }
 
 /** Resposta do liga/desliga do favorito: o estado NOVO. */
