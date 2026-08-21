@@ -16,6 +16,9 @@ import type { FavoriteAnime, FavoriteShot, FavoritesIndex } from '@shared/types'
  * Rudeus" não seria dedutível depois — a informação de qual deles motivou o
  * favorito só existe no instante do clique.
  */
+/** O balaio do backend (`storage/favoritos.py`), pra a tela poder explicá-lo. */
+const SEM_PERSONAGEM = 'Sem personagem'
+
 export function FavoritesView(): JSX.Element {
   const [dados, setDados] = useState<FavoritesIndex | null>(null)
   const [abertos, setAbertos] = useState<string[]>([])
@@ -31,6 +34,8 @@ export function FavoritesView(): JSX.Element {
     dados?.mediaPrefix && rel ? dados.mediaPrefix + encodeURIComponent(rel) : null
 
   const desfavoritar = async (s: FavoriteShot): Promise<void> => {
+    // Um clique só: desfavoritar apaga a cena dos favoritos inteira, não a
+    // linha de um personagem. Ver `db.toggle_favorite`.
     await window.ancut.results.favToggle(s.id, s.characterId)
     carregar()
   }
@@ -163,6 +168,11 @@ function AnimeCard({
                 <span className="text-[11px] text-muted-foreground/60">
                   {g.shots.length} {g.shots.length === 1 ? 'clipe' : 'clipes'}
                 </span>
+                {g.character === SEM_PERSONAGEM && (
+                  <span className="text-[11px] normal-case text-muted-foreground/50">
+                    — ninguém foi reconhecido nestas cenas
+                  </span>
+                )}
               </div>
               <div
                 className="grid gap-2"
