@@ -31,10 +31,10 @@ const entre = (n: number, min: number, max: number): number => Math.min(max, Mat
  *
  * Três decisões que fazem isto não custar caro:
  *
- * - **`preload="none"` e `src` só depois do atraso.** Sem isso, atravessar a
- *   grade com o mouse deixaria uma trilha de vídeos carregando — cada card
- *   tocado de passagem abriria um arquivo. Com o atraso, só o card onde o
- *   mouse realmente parou chega a abrir alguma coisa.
+ * - **O `<video>` só nasce depois do atraso.** Sem isso, atravessar a grade
+ *   com o mouse deixaria uma trilha de vídeos carregando — cada card tocado
+ *   de passagem abriria um arquivo. Com o atraso, só o card onde o mouse
+ *   realmente parou chega a abrir alguma coisa.
  * - **A imagem NUNCA sai da tela.** Ela fica embaixo do vídeo o tempo todo.
  *   Trocar um pelo outro daria um pisca preto na largada, e é justamente na
  *   largada que o olho está olhando.
@@ -61,6 +61,15 @@ export function HoverPreview({
   const origem = useRef<number | null>(null)
   /** Posição pedida que ainda não deu pra aplicar (o vídeo estava buscando). */
   const pendente = useRef<number | null>(null)
+  /**
+   * O mesmo que `guiando`, em ref.
+   *
+   * O `autoplay` de um clipe frio só começa depois que ele carrega — ou seja,
+   * DEPOIS de o mouse já ter assumido o comando. Sem um valor que os
+   * manipuladores do vídeo possam ler na hora do evento, o vídeo saía tocando
+   * por cima do gesto e o card ignorava o mouse.
+   */
+  const guiandoRef = useRef(false)
 
   const cancelar = (): void => {
     if (timer.current !== null) {
@@ -80,13 +89,28 @@ export function HoverPreview({
     timer.current = window.setTimeout(() => setArmado(true), ATRASO)
   }
 
-  /** Manda o vídeo pra posição pedida assim que ele estiver livre. */
+  /**
+   * Manda o vídeo pra posição pedida assim que ele estiver livre.
+   *
+   * O pedido só é CONSUMIDO quando dá pra cumprir. Consumir antes era o bug
+   * do primeiro hover: com o arquivo frio, `duration` ainda é NaN quando o
+   * mouse começa a andar, e a posição ia pro lixo — o card ficava mudo até
+   * ele sair e voltar (aí o arquivo já estava em cache).
+   *
+   * E a pausa só entra JUNTO com a busca, nunca antes: um vídeo pausado
+   * antes de carregar para de carregar, e ficava em `readyState 0` pra
+   * sempre — parado no quadro zero por mais que o mouse andasse.
+   */
   const aplicar = (): void => {
     const v = videoRef.current
-    if (!v || pendente.current === null || v.seeking) return
+    if (!v) return
+    if (guiandoRef.current && !v.paused) v.pause()
+    if (pendente.current === null) return
+    if (v.seeking || !Number.isFinite(v.duration) || v.duration <= 0) return
     const alvo = pendente.current
     pendente.current = null
-    if (Number.isFinite(v.duration) && v.duration > 0) v.currentTime = alvo * v.duration
+    if (!v.paused) v.pause()
+    v.currentTime = alvo * v.duration
   }
 
   const mover = (e: React.PointerEvent<HTMLDivElement>): void => {
@@ -99,9 +123,8 @@ export function HoverPreview({
     const r = e.currentTarget.getBoundingClientRect()
     const razao = entre((e.clientX - r.left) / r.width, 0, 1)
     if (!guiando) {
+      guiandoRef.current = true
       setGuiando(true)
-      setTocando(true)
-      v.pause()
     }
     setProgresso(razao)
     // Guardar e aplicar quando livre: o mouse anda mais rápido do que o vídeo
@@ -116,6 +139,7 @@ export function HoverPreview({
     setArmado(false)
     setTocando(false)
     setGuiando(false)
+    guiandoRef.current = false
     setProgresso(0)
     origem.current = null
     pendente.current = null
@@ -162,12 +186,26 @@ export function HoverPreview({
           loop
           playsInline
           autoPlay
-          preload="none"
+          // "metadata", não "none": o que segura a enxurrada de vídeos é o
+          // atraso pra MONTAR este elemento — quando ele existe, o clipe já é
+          // pra carregar. Com "none", pausar pra guiar antes do primeiro byte
+          // deixava o card congelado sem nunca buscar nada.
+          preload="metadata"
           // `draggable={false}`: o arrasto pertence ao CARD, que sabe levar o
           // arquivo de verdade pro Windows. Deixar o vídeo capturar o gesto
           // faria o card virar inarrastável só por estar em prévia.
           draggable={false}
+          // O clipe frio começa a tocar quando termina de carregar, e a essa
+          // altura o mouse pode já ter assumido. Quem guia, manda.
+          onPlay={aplicar}
           onPlaying={() => setTocando(true)}
+          // Só aparece quando há quadro pra mostrar: guiando um clipe que
+          // ainda não carregou, trocar a foto por um vídeo vazio daria preto.
+          onLoadedData={() => setTocando(true)}
+          // Chegou a duração: se o mouse já pediu uma posição, ela vale agora.
+          onLoadedMetadata={aplicar}
+          onDurationChange={aplicar}
+          onCanPlay={aplicar}
           // O `seeked` é o que faz a última posição pedida valer: enquanto o
           // mouse corria, ela ficou guardada esperando o vídeo se soltar.
           onSeeked={() => {
