@@ -22,3 +22,6 @@ Thumbs.db
 *.local
 .env
 .env.*
+
+# artefato do tsc --noEmit
+tsconfig.web.tsbuildinfo
