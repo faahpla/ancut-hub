@@ -141,6 +141,12 @@ export function registerIpc(
     python.favToggle(shotId, characterId)
   )
 
+  ipcMain.handle(
+    CH.tagShot,
+    async (_e, shotId: number, characterId: number, remove: boolean) =>
+      python.tagShot(shotId, characterId, remove)
+  )
+
   /** Igual à busca por personagem: a raiz do media:// é a saída inteira. */
   ipcMain.handle(CH.favorites, async () => {
     const r = await python.favorites()

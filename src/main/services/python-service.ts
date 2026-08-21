@@ -16,6 +16,7 @@ import type {
   CharacterShot,
   EpisodeDeletePlan,
   FavToggle,
+  TagShot,
   FavoritesIndex,
   SeasonPlan,
   HarvestDone,
@@ -393,6 +394,13 @@ export class PythonService {
     return this.runOneShot<FavToggle>(
       ['fav-toggle', String(shotId), String(characterId)],
       'fav-toggle'
+    )
+  }
+
+  tagShot(shotId: number, characterId: number, remove: boolean): Promise<TagShot | null> {
+    return this.runOneShot<TagShot>(
+      ['tag-shot', String(shotId), String(characterId), ...(remove ? ['remove'] : [])],
+      'tag-shot'
     )
   }
 

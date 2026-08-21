@@ -320,6 +320,25 @@ export interface CharacterShot {
   favorite: boolean
 }
 
+/** Um personagem preso a uma cena. */
+export interface ShotCharacter {
+  id: number
+  name: string
+  confidence: number | null
+}
+
+/** Resposta da marcação manual: quem a cena tem AGORA. */
+export interface TagShot {
+  shotId: number
+  /** O id que a marcação usou de verdade — o do personagem no anime da cena,
+   *  que pode não ser o id que a tela mandou. */
+  characterId: number
+  character: string
+  tagged: boolean
+  characters: ShotCharacter[]
+  error?: string
+}
+
 /** Resposta do liga/desliga do favorito: o estado NOVO. */
 export interface FavToggle {
   shotId: number
@@ -352,6 +371,10 @@ export interface FavoriteShot {
 
 export interface FavoriteCharacter {
   character: string
+  /** As linhas de `character` que caíram neste grupo. O NOME não serve de
+   *  chave — o grupo pode se chamar "Rudeus" e o índice, "Greyrat, Rudeus".
+   *  Opcional porque um motor anterior à 0.11.2 não manda este campo. */
+  characterIds?: number[]
   shots: FavoriteShot[]
 }
 
@@ -705,6 +728,9 @@ export interface AnCutBridge {
     setSeasonApply(episodeIds: number[], season: number): Promise<SeasonPlan | null>
     /** Liga/desliga o favorito. Devolve o estado novo. */
     favToggle(shotId: number, characterId?: number): Promise<FavToggle | null>
+    /** Marca (ou desmarca) o personagem nesta cena. Mexe no banco, na pasta
+     *  `by_character/` e na decisão que sobrevive à reanálise. */
+    tagShot(shotId: number, characterId: number, remove?: boolean): Promise<TagShot | null>
     /** Favoritos em anime → personagem → cenas. */
     favorites(): Promise<FavoritesIndex | null>
     /** Personagens do acervo inteiro, agrupados por identidade. */

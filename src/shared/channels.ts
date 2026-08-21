@@ -62,6 +62,7 @@ export const CH = {
   setSeasonApply: 'results:set-season-apply',
   /** Liga/desliga o favorito de uma cena. */
   favToggle: 'results:fav-toggle',
+  tagShot: 'results:tag-shot',
   /** Favoritos do acervo, em anime → personagem → cenas. */
   favorites: 'results:favorites',
   /** Personagens do acervo INTEIRO, com contagem de cenas. */
