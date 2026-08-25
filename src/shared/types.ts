@@ -289,6 +289,10 @@ export interface CharacterEntry {
   episodes: number
   /** Pastas de anime em que ele aparece. */
   animes: string[]
+  /** Quanto ele tem em CADA anime. O total acima não serve por seção: o
+   *  Ichigo está em duas pastas de Bleach, e repetir 211 nas duas mentiria
+   *  nas duas. Opcional — motor anterior à 0.11.3 não manda. */
+  byAnime?: { anime: string; shots: number; episodes: number }[]
   /** Keyframe (relativo à saída) pra ilustrar a linha. */
   sample: string
 }
