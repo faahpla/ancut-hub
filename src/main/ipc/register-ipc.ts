@@ -143,8 +143,8 @@ export function registerIpc(
 
   ipcMain.handle(
     CH.tagShot,
-    async (_e, shotId: number, characterId: number, remove: boolean) =>
-      python.tagShot(shotId, characterId, remove)
+    async (_e, shotIds: number | number[], characterId: number, remove: boolean) =>
+      python.tagShot(shotIds, characterId, remove)
   )
 
   ipcMain.handle(CH.removeCharacter, async (_e, episodeId: number, characterId: number) =>

@@ -6,6 +6,7 @@ import {
   PlayCircle,
   SquareCheck,
   Star,
+  Tag,
   Trash2
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -15,7 +16,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { diskPath, mediaUrl, useResultsStore } from '@/stores/results-store'
 import { cn } from '@/lib/utils'
 import { HoverPreview } from './hover-preview'
-import type { ShotRow } from '@shared/types'
+import { TagCharacterDialog } from '@/features/library/tag-character-dialog'
+import type { CharacterEntry, ShotRow } from '@shared/types'
 
 /**
  * Grade de cenas. O controle de escala é uma variável CSS na grade —
@@ -41,10 +43,21 @@ export function ShotGrid(): JSX.Element {
     mergeSelected,
     deleteSelected,
     lastTrashDir,
-    merging
+    merging,
+    refresh
   } = useResultsStore()
   const [confirmar, setConfirmar] = useState<'mesclar' | 'excluir' | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; shot: ShotRow } | null>(null)
+  /** Cenas que vão receber o nome, quando o diálogo está aberto. */
+  const [marcando, setMarcando] = useState<number[] | null>(null)
+  /**
+   * O elenco do acervo, buscado só quando o diálogo abre.
+   *
+   * Não pode vir junto com o episódio: é mais uma abertura do processo do
+   * motor, e o custo apareceria em toda vez que alguém abre um resultado —
+   * inclusive quem nunca vai marcar ninguém.
+   */
+  const [elenco, setElenco] = useState<CharacterEntry[] | null>(null)
 
   const raiz = results?.episodeRoot ?? ''
 
@@ -58,6 +71,32 @@ export function ShotGrid(): JSX.Element {
    */
   const alvosDoDelete = (): number[] =>
     selection.length > 0 ? selection : activeShot ? [activeShot.id] : []
+
+  /**
+   * Abre a escolha de personagem para estas cenas.
+   *
+   * Mesma regra do Excluir: age no que está marcado, e se a cena do menu não
+   * estiver marcada, age só nela — marcar 40 cenas porque o menu abriu sobre
+   * uma delas seria a mesma surpresa cara.
+   */
+  const abrirMarcacao = (shot: ShotRow): void => {
+    setMarcando(selection.includes(shot.id) ? selection : [shot.id])
+    if (elenco === null) {
+      void window.ancut.results.characters().then((r) => setElenco(r?.characters ?? []))
+    }
+  }
+
+  const marcarPersonagem = async (c: CharacterEntry): Promise<void> => {
+    const alvos = marcando ?? []
+    setMarcando(null)
+    if (alvos.length === 0) return
+    // Uma chamada só pras N cenas — ver `python-service.tagShot`.
+    await window.ancut.results.tagShot(alvos, c.ids[0])
+    clearSelection()
+    // Recarrega porque a cena SAI da lista quando ela é a "Sem personagem":
+    // remendar na mão deixaria o card de algo que já não pertence ali.
+    await refresh()
+  }
 
   /**
    * Atalhos de teclado da grade.
@@ -319,6 +358,17 @@ export function ShotGrid(): JSX.Element {
                 marcada={selection.includes(shot.id)}
                 onSelect={() => setActiveShot(shot)}
                 onToggle={(faixa) => toggleSelected(shot.id, faixa)}
+                onCard={(faixa) => {
+                  // Clicar no clipe MARCA — e o player segue junto.
+                  //
+                  // Antes marcar exigia acertar a caixinha de 20px, e a
+                  // faxina de "Sem personagem" é feita aos montes: eram
+                  // centenas de cliques de precisão pra uma decisão que é
+                  // "esta não presta". O player continua acompanhando porque
+                  // é olhando que se decide.
+                  setActiveShot(shot)
+                  toggleSelected(shot.id, faixa)
+                }}
                 onDrag={() => arrastar(shot)}
                 onMenu={(x, y) => setMenu({ x, y, shot })}
                 onFavoritar={() => void toggleFavorite(shot.id)}
@@ -327,6 +377,16 @@ export function ShotGrid(): JSX.Element {
           </div>
         )}
       </div>
+
+      {marcando && (
+        <TagCharacterDialog
+          anime={results?.animeFolder ?? ''}
+          atuais={[]}
+          lista={elenco}
+          onFechar={() => setMarcando(null)}
+          onEscolher={(c) => void marcarPersonagem(c)}
+        />
+      )}
 
       {menu && (
         <ContextMenu
@@ -349,6 +409,13 @@ export function ShotGrid(): JSX.Element {
                 const p = diskPath(raiz, menu.shot.file)
                 if (p) void window.ancut.shell.open(p)
               }
+            },
+            {
+              label: selection.includes(menu.shot.id)
+                ? `Marcar ${selection.length} cenas como…`
+                : 'Marcar personagem…',
+              icon: Tag,
+              onSelect: () => abrirMarcacao(menu.shot)
             },
             {
               label: menu.shot.favorite
@@ -405,6 +472,7 @@ function ShotCard({
   marcada,
   onSelect,
   onToggle,
+  onCard,
   onDrag,
   onMenu,
   onFavoritar
@@ -416,6 +484,8 @@ function ShotCard({
   onSelect: () => void
   /** `faixa` = shift pressionado: marca do último marcado até aqui. */
   onToggle: (faixa: boolean) => void
+  /** Clique no corpo do card: marca e leva pro player. */
+  onCard: (faixa: boolean) => void
   onDrag: () => void
   onMenu: (x: number, y: number) => void
   onFavoritar: () => void
@@ -427,7 +497,7 @@ function ShotCard({
     <div
       role="button"
       tabIndex={0}
-      onClick={onSelect}
+      onClick={(e) => onCard(e.shiftKey)}
       onKeyDown={(e) => e.key === 'Enter' && onSelect()}
       draggable
       // O `preventDefault` é o ponto: mata o arrasto do HTML (que só carregaria
@@ -450,12 +520,13 @@ function ShotCard({
             : 'border-border hover:border-muted'
       )}
     >
-      {/* A caixa fica FORA do fluxo de clique do card: clicar na imagem toca a
-          cena, clicar aqui marca pra mesclar. Misturar os dois faria toda
-          tentativa de assistir virar seleção. */}
+      {/* A caixa continua aqui como ESTADO — o card inteiro já marca, mas um
+          card marcado precisa dizer isso mesmo sem o mouse em cima. Ela
+          também dá o gesto de marcar sem mexer no player. */}
       <button
         type="button"
-        aria-label={marcada ? 'Desmarcar cena' : 'Marcar cena pra mesclar'}
+        aria-label={marcada ? 'Desmarcar cena' : 'Marcar cena'}
+        title="Marcar sem mexer no player (shift = intervalo)"
         onClick={(e) => {
           e.stopPropagation()
           onToggle(e.shiftKey)

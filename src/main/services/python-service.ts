@@ -398,9 +398,16 @@ export class PythonService {
     )
   }
 
-  tagShot(shotId: number, characterId: number, remove: boolean): Promise<TagShot | null> {
+  /** Uma chamada só pra N cenas: cada ida ao motor abre um processo, e o
+   *  primeiro atendimento dele custa segundos. */
+  tagShot(
+    shotIds: number | number[],
+    characterId: number,
+    remove: boolean
+  ): Promise<TagShot | null> {
+    const ids = Array.isArray(shotIds) ? shotIds : [shotIds]
     return this.runOneShot<TagShot>(
-      ['tag-shot', String(shotId), String(characterId), ...(remove ? ['remove'] : [])],
+      ['tag-shot', ids.join(','), String(characterId), ...(remove ? ['remove'] : [])],
       'tag-shot'
     )
   }

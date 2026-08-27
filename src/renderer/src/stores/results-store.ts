@@ -53,6 +53,14 @@ interface ResultsState {
   selectCharacter: (character: CharacterSummary) => Promise<void>
   /** Tira um personagem do episódio (reconhecimento errado). As cenas ficam. */
   removeCharacter: (characterId: number) => Promise<RemoveCharacter | null>
+  /**
+   * Relê episódio e cenas do backend, mantendo a lista aberta.
+   *
+   * Pra depois de marcar personagem: a contagem da lista muda, e na visão
+   * "Sem personagem" a cena marcada SAI — remendar na mão deixaria o card de
+   * algo que já não pertence ali.
+   */
+  refresh: () => Promise<void>
   setActiveShot: (shot: ShotRow | null) => void
   setCardWidth: (w: number) => void
   /** Marca/desmarca uma cena. Com `ate`, marca o intervalo inteiro. */
@@ -93,6 +101,14 @@ interface ResultsState {
  * episódio inteiro. Um id real nunca é 0 (AUTOINCREMENT começa em 1).
  */
 export const TODAS_AS_CENAS = 0
+
+/**
+ * Item "Sem personagem" da lista — as cenas em que ninguém foi reconhecido.
+ *
+ * -2 é combinado com o backend (`SEM_PERSONAGEM_ID` em headless.py). Negativo
+ * porque 0 já significa "todas" e id real é sempre positivo.
+ */
+export const SEM_PERSONAGEM = -2
 
 export const useResultsStore = create<ResultsState>((set, get) => ({
   recent: [],
@@ -290,6 +306,12 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
       shotCount: atual?.totalShots ?? 0
     })
     return r
+  },
+
+  refresh: async () => {
+    const { results, selectedCharacter } = get()
+    if (!results) return
+    await recarregar(set, results.episodeId, selectedCharacter)
   },
 
   applyExplorer: async (charIds) => {

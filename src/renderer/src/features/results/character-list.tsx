@@ -1,9 +1,9 @@
-import { Film, UserMinus } from 'lucide-react'
+import { Film, ImageOff, UserMinus } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ContextMenu } from '@/components/ui/context-menu'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { TODAS_AS_CENAS, useResultsStore } from '@/stores/results-store'
+import { SEM_PERSONAGEM, TODAS_AS_CENAS, useResultsStore } from '@/stores/results-store'
 import { cn } from '@/lib/utils'
 import type { CharacterSummary } from '@shared/types'
 
@@ -125,6 +125,62 @@ export function CharacterList(): JSX.Element {
             </li>
           )
         })}
+
+        {/*
+          A pilha do resto: cenário, plano de objeto, silhueta de costas — e
+          o personagem que o reconhecimento deixou passar. Fica DEPOIS dos
+          personagens porque é para onde se vai depois de conferir quem tem
+          nome: marcar o que foi perdido e jogar fora o que não serve.
+        */}
+        {results && (results.untaggedShots ?? 0) > 0 && (
+          <li>
+            <button
+              type="button"
+              onClick={() =>
+                void selectCharacter({
+                  id: SEM_PERSONAGEM,
+                  name: 'Sem personagem',
+                  shotCount: results.untaggedShots ?? 0
+                })
+              }
+              title="Cenas em que ninguém foi reconhecido — cenário, objetos, e quem passou batido"
+              className={cn(
+                'mt-1 flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-colors',
+                selectedCharacter?.id === SEM_PERSONAGEM
+                  ? 'bg-primary/[0.12]'
+                  : 'hover:bg-surface-hover'
+              )}
+            >
+              <span
+                className={cn(
+                  'h-4 w-[3px] shrink-0 rounded-full transition-colors',
+                  selectedCharacter?.id === SEM_PERSONAGEM ? 'bg-primary' : 'bg-transparent'
+                )}
+              />
+              <ImageOff className="size-3.5 shrink-0 text-muted-foreground" />
+              <span
+                className={cn(
+                  'min-w-0 flex-1 truncate text-[13px]',
+                  selectedCharacter?.id === SEM_PERSONAGEM
+                    ? 'font-semibold text-foreground'
+                    : 'text-muted-foreground'
+                )}
+              >
+                Sem personagem
+              </span>
+              <span
+                className={cn(
+                  'tabular shrink-0 text-[11.5px]',
+                  selectedCharacter?.id === SEM_PERSONAGEM
+                    ? 'text-primary'
+                    : 'text-muted-foreground/60'
+                )}
+              >
+                {results.untaggedShots}
+              </span>
+            </button>
+          </li>
+        )}
 
         {menu && (
           <ContextMenu

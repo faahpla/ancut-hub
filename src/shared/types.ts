@@ -337,6 +337,8 @@ export interface ShotCharacter {
 /** Resposta da marcação manual: quem a cena tem AGORA. */
 export interface TagShot {
   shotId: number
+  /** Quantas cenas foram marcadas de fato (a chamada aceita várias). */
+  count?: number
   /** O id que a marcação usou de verdade — o do personagem no anime da cena,
    *  que pode não ser o id que a tela mandou. */
   characterId: number
@@ -421,6 +423,9 @@ export interface EpisodeResults {
   kind: EpisodeKind
   episodeRoot: string
   totalShots: number
+  /** Quantas cenas ficaram sem ninguém reconhecido. Motor anterior à 0.11.5
+   *  não manda — a lista some em vez de mostrar zero. */
+  untaggedShots?: number
   characters: CharacterSummary[]
   /** Pasta de refs da FRANQUIA (todas as temporadas dividem a mesma). */
   refsDir?: string
@@ -747,7 +752,11 @@ export interface AnCutBridge {
     favToggle(shotId: number, characterId?: number): Promise<FavToggle | null>
     /** Marca (ou desmarca) o personagem nesta cena. Mexe no banco, na pasta
      *  `by_character/` e na decisão que sobrevive à reanálise. */
-    tagShot(shotId: number, characterId: number, remove?: boolean): Promise<TagShot | null>
+    tagShot(
+      shotIds: number | number[],
+      characterId: number,
+      remove?: boolean
+    ): Promise<TagShot | null>
     /** Tira um personagem inteiro do episódio. As cenas ficam. */
     removeCharacter(episodeId: number, characterId: number): Promise<RemoveCharacter | null>
     /** Favoritos em anime → personagem → cenas. */
