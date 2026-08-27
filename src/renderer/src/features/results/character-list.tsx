@@ -1,6 +1,11 @@
-import { Film } from 'lucide-react'
+import { Film, UserMinus } from 'lucide-react'
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { ContextMenu } from '@/components/ui/context-menu'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { TODAS_AS_CENAS, useResultsStore } from '@/stores/results-store'
 import { cn } from '@/lib/utils'
+import type { CharacterSummary } from '@shared/types'
 
 /**
  * Lista de personagens com a contagem numa coluna à direita.
@@ -10,8 +15,11 @@ import { cn } from '@/lib/utils'
  * alinhamento é `justify-between` e acabou.
  */
 export function CharacterList(): JSX.Element {
-  const { results, selectedCharacter, selectCharacter } = useResultsStore()
+  const { results, selectedCharacter, selectCharacter, removeCharacter } = useResultsStore()
   const characters = results?.characters ?? []
+  const [menu, setMenu] = useState<{ x: number; y: number; c: CharacterSummary } | null>(null)
+  const [removendo, setRemovendo] = useState<CharacterSummary | null>(null)
+  const [ocupado, setOcupado] = useState(false)
 
   return (
     <div className="panel flex min-h-0 flex-col overflow-hidden">
@@ -80,6 +88,10 @@ export function CharacterList(): JSX.Element {
               <button
                 type="button"
                 onClick={() => void selectCharacter(c)}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setMenu({ x: e.clientX, y: e.clientY, c })
+                }}
                 title={c.name}
                 className={cn(
                   'group flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-colors',
@@ -114,6 +126,22 @@ export function CharacterList(): JSX.Element {
           )
         })}
 
+        {menu && (
+          <ContextMenu
+            x={menu.x}
+            y={menu.y}
+            onClose={() => setMenu(null)}
+            items={[
+              {
+                label: `Remover ${menu.c.name} deste episódio…`,
+                icon: UserMinus,
+                danger: true,
+                onSelect: () => setRemovendo(menu.c)
+              }
+            ]}
+          />
+        )}
+
         {/* Nenhum personagem com cenas suficientes. Sem esta explicação a
             tela parece um erro — o usuário batizou gente no Modo Descoberta e
             não vê ninguém aqui. */}
@@ -128,6 +156,62 @@ export function CharacterList(): JSX.Element {
           </li>
         )}
       </ul>
+
+      {/* Reconhecimento errado: uma "Kamado, Hanako" com 21 cenas que não é
+          ninguém. Isto tira o VÍNCULO, não as cenas — e é o que faltava pra
+          não ter que reanalisar o episódio inteiro por causa de um engano. */}
+      <Dialog open={!!removendo} onOpenChange={() => !ocupado && setRemovendo(null)}>
+        {removendo && (
+          <DialogContent
+            title={`Remover ${removendo.name} deste episódio?`}
+            description="O reconhecimento errou e este personagem não deveria estar aqui."
+            onClose={() => !ocupado && setRemovendo(null)}
+            footer={
+              <>
+                <Button variant="ghost" disabled={ocupado} onClick={() => setRemovendo(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="danger"
+                  disabled={ocupado}
+                  onClick={async () => {
+                    setOcupado(true)
+                    try {
+                      await removeCharacter(removendo.id)
+                      setRemovendo(null)
+                    } finally {
+                      setOcupado(false)
+                    }
+                  }}
+                >
+                  {ocupado ? 'Removendo…' : 'Remover'}
+                </Button>
+              </>
+            }
+          >
+            <ul className="flex list-disc flex-col gap-1.5 pl-4 text-[12.5px] leading-relaxed text-muted-foreground">
+              <li>
+                As <strong className="font-semibold text-foreground">
+                  {removendo.shotCount} cenas continuam existindo
+                </strong>{' '}
+                — elas só deixam de ser dele, e seguem em "Todas as cenas".
+              </li>
+              <li>
+                A pasta <code className="rounded bg-surface-sunken px-1">
+                  by_character/{removendo.name}/
+                </code>{' '}
+                some. É só atalho pros clipes; nenhum arquivo de verdade é apagado.
+              </li>
+              <li>
+                A correção <strong className="font-semibold text-foreground">
+                  sobrevive a uma nova análise
+                </strong>{' '}
+                deste episódio.
+              </li>
+            </ul>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   )
 }

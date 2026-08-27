@@ -169,6 +169,9 @@ export interface DiscoveryGroup {
   /** Palpite quando o anime já é conhecido ("parece a Eris"). */
   suggestedName: string
   suggestedSim: number
+  /** Figurante: aparece em menos cenas que o piso de relevância. Fica fora
+   *  da lista principal do batismo. Motor anterior à 0.11.4 não manda. */
+  minor?: boolean
 }
 
 export interface DiscoveryReadyEvent {
@@ -340,6 +343,16 @@ export interface TagShot {
   character: string
   tagged: boolean
   characters: ShotCharacter[]
+  error?: string
+}
+
+/** Resposta de tirar um personagem inteiro de um episódio. */
+export interface RemoveCharacter {
+  episodeId: number
+  characterId: number
+  character: string
+  /** Quantas cenas deixaram de ser dele. Elas continuam existindo. */
+  removed: number
   error?: string
 }
 
@@ -735,6 +748,8 @@ export interface AnCutBridge {
     /** Marca (ou desmarca) o personagem nesta cena. Mexe no banco, na pasta
      *  `by_character/` e na decisão que sobrevive à reanálise. */
     tagShot(shotId: number, characterId: number, remove?: boolean): Promise<TagShot | null>
+    /** Tira um personagem inteiro do episódio. As cenas ficam. */
+    removeCharacter(episodeId: number, characterId: number): Promise<RemoveCharacter | null>
     /** Favoritos em anime → personagem → cenas. */
     favorites(): Promise<FavoritesIndex | null>
     /** Personagens do acervo inteiro, agrupados por identidade. */

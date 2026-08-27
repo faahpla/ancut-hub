@@ -17,7 +17,8 @@ export function DialogContent({
   children,
   footer,
   className,
-  onClose
+  onClose,
+  travado = false
 }: {
   title: string
   description?: ReactNode
@@ -25,11 +26,22 @@ export function DialogContent({
   footer?: ReactNode
   className?: string
   onClose?: () => void
+  /**
+   * Trava o fechamento por clique fora e por Esc.
+   *
+   * Para diálogo que guarda TRABALHO: o batismo do Modo Descoberta pode ter
+   * vinte nomes digitados, e um clique torto fora dele jogava a análise
+   * inteira fora sem perguntar. Sai só pelos botões.
+   */
+  travado?: boolean
 }): JSX.Element {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] data-[state=open]:animate-fade-in" />
       <DialogPrimitive.Content
+        onPointerDownOutside={(e) => travado && e.preventDefault()}
+        onInteractOutside={(e) => travado && e.preventDefault()}
+        onEscapeKeyDown={(e) => travado && e.preventDefault()}
         className={cn(
           'fixed left-1/2 top-1/2 z-50 flex max-h-[86vh] w-[min(560px,92vw)]',
           // O translate está nas classes E dentro do keyframe `dialog-in`:

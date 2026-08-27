@@ -1,4 +1,13 @@
-import { ExternalLink, FolderOpen, Pause, Play, Repeat, Volume2, VolumeX } from 'lucide-react'
+import {
+  ExternalLink,
+  FolderOpen,
+  Pause,
+  Play,
+  RectangleVertical,
+  Repeat,
+  Volume2,
+  VolumeX
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -20,6 +29,25 @@ export function PreviewPlayer(): JSX.Element {
   const [volume, setVolume] = useState(0.8)
   const [position, setPosition] = useState(0)
   const [duration, setDuration] = useState(0)
+  /**
+   * Prévia vertical ligada. Nasce ligada porque foi pedida — e a escolha
+   * fica gravada: fechar a cada abertura do app seria pedir de novo.
+   */
+  const [vertical, setVertical] = useState(() => {
+    try {
+      return localStorage.getItem('ancut.previaVertical') !== '0'
+    } catch {
+      return true
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ancut.previaVertical', vertical ? '1' : '0')
+    } catch {
+      /* modo privado, armazenamento bloqueado: a prévia só não lembra */
+    }
+  }, [vertical])
   /**
    * Está com o dedo na barra AGORA.
    *
@@ -285,6 +313,162 @@ export function PreviewPlayer(): JSX.Element {
         >
           <ExternalLink />
         </IconToggle>
+
+        <IconToggle
+          on={vertical}
+          onClick={() => setVertical((v) => !v)}
+          title="Prévia em 9:16 (vertical)"
+        >
+          <RectangleVertical />
+        </IconToggle>
+      </div>
+
+      {vertical && <VerticalPreview videoRef={videoRef} ativo={!!src} />}
+    </div>
+  )
+}
+
+/** Proporção do vertical: 1080x1920. */
+const ALVO = 9 / 16
+/** Tamanho de desenho do canvas (2x o tamanho na tela). Copiar 1080p a cada
+ *  quadro pra mostrar num quadrinho de 94px seria pagar caro por pixel que
+ *  ninguém vê. */
+const CANVAS_W = 216
+const CANVAS_H = 384
+
+/**
+ * Como a cena ficaria em 9:16, ao vivo, junto com o player.
+ *
+ * O corte vertical joga fora dois terços da largura, e qual terço fica é a
+ * decisão inteira: o mesmo clipe funciona ou não dependendo de onde a janela
+ * cai. Ver isso depois de exportar é tarde — daí a prévia aqui, com a régua
+ * pra arrastar a janela e achar o enquadramento antes.
+ *
+ * **Canvas, não um segundo `<video>`.** Dois elementos com o mesmo arquivo
+ * significam dois decodificadores e dois relógios: eles derivam, e o que a
+ * prévia mostra deixa de ser o quadro que está no player. Aqui só existe um
+ * vídeo; o canvas copia o quadro que ELE acabou de apresentar.
+ *
+ * **E o desenho não pode depender só de quadro apresentado.** A primeira
+ * versão usava `requestVideoFrameCallback`, que só dispara quando o vídeo
+ * apresenta um quadro novo — e o player abre PAUSADO. Resultado medido: o
+ * canvas ficava em 300x150 (o tamanho de fábrica), em branco, até alguém
+ * apertar play. Agora quem manda são os eventos de mídia (`loadeddata`,
+ * `seeked`, `timeupdate`), que acontecem com ou sem apresentação, e um laço
+ * de animação entra por cima só enquanto está tocando, pra ficar fluido.
+ */
+function VerticalPreview({
+  videoRef,
+  ativo
+}: {
+  videoRef: React.RefObject<HTMLVideoElement>
+  ativo: boolean
+}): JSX.Element {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  /** 0 = janela na esquerda, 1 = na direita. Meio é o padrão. */
+  const [centro, setCentro] = useState(0.5)
+  const centroRef = useRef(0.5)
+  centroRef.current = centro
+
+  useEffect(() => {
+    const v = videoRef.current
+    const c = canvasRef.current
+    if (!v || !c) return
+    const ctx = c.getContext('2d')
+    if (!ctx) return
+
+    let vivo = true
+    let laco = 0
+    c.width = CANVAS_W
+    c.height = CANVAS_H
+
+    const desenhar = (): void => {
+      const lw = v.videoWidth
+      const lh = v.videoHeight
+      if (lw <= 0 || lh <= 0) return
+      // Altura inteira, largura recortada: é a mesma regra do reframe do
+      // motor (`app/reframe.py`), pra a prévia não prometer um
+      // enquadramento que a exportação não faria.
+      const cw = Math.min(lw, Math.round(lh * ALVO))
+      const x = Math.round((lw - cw) * centroRef.current)
+      ctx.drawImage(v, x, 0, cw, lh, 0, 0, CANVAS_W, CANVAS_H)
+    }
+
+    const animar = (): void => {
+      if (!vivo) return
+      desenhar()
+      laco = window.requestAnimationFrame(animar)
+    }
+    const parar = (): void => {
+      if (laco) window.cancelAnimationFrame(laco)
+      laco = 0
+      desenhar() // o quadro em que ele parou
+    }
+
+    const eventos: [string, () => void][] = [
+      ['loadeddata', desenhar],
+      ['seeked', desenhar],
+      ['timeupdate', desenhar],
+      ['play', animar],
+      ['pause', parar]
+    ]
+    for (const [nome, fn] of eventos) v.addEventListener(nome, fn)
+    if (!v.paused) animar()
+    desenhar() // o clipe pode já estar carregado quando a prévia abre
+
+    return () => {
+      vivo = false
+      if (laco) window.cancelAnimationFrame(laco)
+      for (const [nome, fn] of eventos) v.removeEventListener(nome, fn)
+    }
+  }, [videoRef, ativo])
+
+  // Mexer na régua com o vídeo parado tem que responder na hora: sem isto o
+  // enquadramento só aparecia no próximo evento de mídia, que pausado não vem.
+  useEffect(() => {
+    const v = videoRef.current
+    const c = canvasRef.current
+    const ctx = c?.getContext('2d')
+    if (!v || !c || !ctx || v.videoWidth <= 0) return
+    const cw = Math.min(v.videoWidth, Math.round(v.videoHeight * ALVO))
+    const x = Math.round((v.videoWidth - cw) * centro)
+    ctx.drawImage(v, x, 0, cw, v.videoHeight, 0, 0, CANVAS_W, CANVAS_H)
+  }, [centro, videoRef])
+
+  return (
+    <div className="flex items-stretch gap-2.5 border-t border-border pt-2.5">
+      <div className="h-[168px] w-[94px] shrink-0 overflow-hidden rounded-md border border-border bg-black">
+        <canvas ref={canvasRef} className="size-full object-cover" />
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
+        <span className="text-[11.5px] font-medium">Vertical 9:16</span>
+        <span className="text-[11px] leading-relaxed text-muted-foreground">
+          Arraste para escolher que faixa da cena entra no corte.
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={centro}
+          onChange={(e) => setCentro(Number(e.target.value))}
+          title="Enquadramento"
+          className="h-1 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary"
+        />
+        <div className="flex items-center gap-2 text-[10.5px] text-muted-foreground/70">
+          <span>esquerda</span>
+          <span className="flex-1" />
+          <button
+            type="button"
+            onClick={() => setCentro(0.5)}
+            className="rounded border border-border px-1.5 py-px transition-colors hover:bg-surface-hover"
+          >
+            centro
+          </button>
+          <span className="flex-1" />
+          <span>direita</span>
+        </div>
       </div>
     </div>
   )

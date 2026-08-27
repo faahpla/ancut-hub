@@ -53,7 +53,15 @@ export function IdentifyButton({
     return results.episodeRoot.split(sep).slice(0, -2).join(sep)
   }
 
-  const identificar = async (): Promise<void> => {
+  /**
+   * @param descoberta Abre a tela de batismo em vez de decidir sozinho.
+   *
+   * Os dois caminhos existem porque servem a casos diferentes, e o automático
+   * decidindo calado era o problema: quando o anime não está catalogado, ou
+   * está com o elenco pela metade, ele acerta pouco e não pergunta nada. A
+   * descoberta agrupa os rostos e devolve a decisão pra quem sabe quem é.
+   */
+  const identificar = async (descoberta: boolean): Promise<void> => {
     begin()
     onStarted()
     try {
@@ -72,7 +80,7 @@ export function IdentifyButton({
         skipTailSeconds: 0,
         params: prefs.params,
         aiReview: false,
-        discovery: false,
+        discovery: descoberta,
         cutOnly: false,
         // O corte já existe e é o mesmo: não há nada pra mesclar com nada.
         mergePrevious: false,
@@ -120,18 +128,45 @@ export function IdentifyButton({
                 Cancelar
               </Button>
               <Button
-                variant="primary"
+                variant="secondary"
                 disabled={semVideo}
+                title="Reconhece sozinho, usando o elenco do anime"
                 onClick={() => {
                   setConfirmar(false)
-                  void identificar()
+                  void identificar(false)
                 }}
               >
-                Identificar
+                Automático
+              </Button>
+              <Button
+                variant="primary"
+                disabled={semVideo}
+                title="Agrupa os rostos e abre a tela pra você dar os nomes"
+                onClick={() => {
+                  setConfirmar(false)
+                  void identificar(true)
+                }}
+              >
+                Modo descoberta
               </Button>
             </>
           }
         >
+          {!semVideo && (
+            <ul className="flex list-disc flex-col gap-1.5 pl-4 text-[12.5px] leading-relaxed text-muted-foreground">
+              <li>
+                <strong className="font-semibold text-foreground">Automático</strong> —
+                busca o elenco do anime e decide sozinho. Bom quando o anime é
+                conhecido e o elenco vem completo.
+              </li>
+              <li>
+                <strong className="font-semibold text-foreground">Modo descoberta</strong>{' '}
+                — agrupa os rostos parecidos e abre a tela pra você dar os nomes. É o
+                caminho quando o automático erra, ou quando o anime não está
+                catalogado.
+              </li>
+            </ul>
+          )}
           {semVideo ? (
             <div className="flex gap-2 rounded-md border border-warning/40 bg-warning/[0.08] px-3 py-2">
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />

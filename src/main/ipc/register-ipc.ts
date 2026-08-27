@@ -147,6 +147,10 @@ export function registerIpc(
       python.tagShot(shotId, characterId, remove)
   )
 
+  ipcMain.handle(CH.removeCharacter, async (_e, episodeId: number, characterId: number) =>
+    python.removeCharacter(episodeId, characterId)
+  )
+
   /** Igual à busca por personagem: a raiz do media:// é a saída inteira. */
   ipcMain.handle(CH.favorites, async () => {
     const r = await python.favorites()

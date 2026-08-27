@@ -68,6 +68,8 @@ const bridge: AnCutBridge = {
     favorites: () => ipcRenderer.invoke(CH.favorites),
     tagShot: (shotId: number, characterId: number, remove = false) =>
       ipcRenderer.invoke(CH.tagShot, shotId, characterId, remove),
+    removeCharacter: (episodeId: number, characterId: number) =>
+      ipcRenderer.invoke(CH.removeCharacter, episodeId, characterId),
     characters: (termo = '') => ipcRenderer.invoke(CH.characters, termo),
     characterShots: (ids: number[]) => ipcRenderer.invoke(CH.characterShots, ids),
     deleteEpisodePlan: (episodeId: number) =>

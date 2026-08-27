@@ -7,6 +7,7 @@ import type {
   MergeResult,
   OrphanEpisode,
   RecentEpisode,
+  RemoveCharacter,
   ShotRow
 } from '@shared/types'
 
@@ -50,6 +51,8 @@ interface ResultsState {
   dismissExplorer: () => void
   openEpisode: (episodeId: number) => Promise<void>
   selectCharacter: (character: CharacterSummary) => Promise<void>
+  /** Tira um personagem do episódio (reconhecimento errado). As cenas ficam. */
+  removeCharacter: (characterId: number) => Promise<RemoveCharacter | null>
   setActiveShot: (shot: ShotRow | null) => void
   setCardWidth: (w: number) => void
   /** Marca/desmarca uma cena. Com `ate`, marca o intervalo inteiro. */
@@ -152,16 +155,17 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
       explorer: null,
       lastTrashDir: ''
     })
-    // Sem personagem nenhum a tela abriria VAZIA, mesmo com as cenas todas
-    // ali. Acontece de verdade: numa abertura curta, ninguém alcança o mínimo
-    // de cenas por personagem e o episódio inteiro fica só em "Todas as
-    // cenas". Cair nela é melhor do que não cair em nada.
-    const first = results.characters[0] ?? {
+    // SEMPRE "Todas as cenas", nunca um personagem.
+    //
+    // Abrir no primeiro da lista escondia o episódio atrás de uma escolha que
+    // ninguém fez: terminar uma análise e cair na lista de um personagem
+    // qualquer dá a impressão de que o corte rendeu só aquilo. O panorama
+    // vem primeiro; filtrar por personagem é o segundo passo, e é um clique.
+    await get().selectCharacter({
       id: TODAS_AS_CENAS,
       name: 'Todas as cenas',
       shotCount: results.totalShots
-    }
-    await get().selectCharacter(first)
+    })
 
     // A varredura do disco vem por último, sem bloquear a abertura: ela lê
     // centenas de arquivos e o episódio já está utilizável sem ela.
@@ -268,6 +272,24 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
     } finally {
       set({ merging: false })
     }
+  },
+
+  removeCharacter: async (characterId) => {
+    const { results } = get()
+    if (!results) return null
+    const r = await window.ancut.results.removeCharacter(results.episodeId, characterId)
+    if (!r || r.error) return r
+    // Volta pra "Todas as cenas": a lista que estava aberta pode ser
+    // justamente a do personagem que acabou de deixar de existir. As cenas
+    // dele continuam todas ali — o que saiu foi o nome.
+    await recarregar(set, results.episodeId, null)
+    const atual = get().results
+    await get().selectCharacter({
+      id: TODAS_AS_CENAS,
+      name: 'Todas as cenas',
+      shotCount: atual?.totalShots ?? 0
+    })
+    return r
   },
 
   applyExplorer: async (charIds) => {
