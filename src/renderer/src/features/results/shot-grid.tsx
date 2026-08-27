@@ -194,6 +194,8 @@ export function ShotGrid(): JSX.Element {
             <Atalho tecla="Del" oque="excluir" />
             <Atalho tecla="F" oque="favoritar" />
             <Atalho tecla="M" oque="mesclar" />
+            <Atalho tecla="Ctrl+clique" oque="marcar" />
+            <Atalho tecla="Shift" oque="intervalo" />
             <Atalho tecla="Ctrl+A" oque="marcar tudo" />
             <Atalho tecla="Esc" oque="limpar" />
           </span>
@@ -358,16 +360,16 @@ export function ShotGrid(): JSX.Element {
                 marcada={selection.includes(shot.id)}
                 onSelect={() => setActiveShot(shot)}
                 onToggle={(faixa) => toggleSelected(shot.id, faixa)}
-                onCard={(faixa) => {
-                  // Clicar no clipe MARCA — e o player segue junto.
+                onCard={(mods) => {
+                  // Clique seco só LEVA PRO PLAYER; marcar pede Ctrl ou Shift.
                   //
-                  // Antes marcar exigia acertar a caixinha de 20px, e a
-                  // faxina de "Sem personagem" é feita aos montes: eram
-                  // centenas de cliques de precisão pra uma decisão que é
-                  // "esta não presta". O player continua acompanhando porque
-                  // é olhando que se decide.
+                  // A primeira versão marcava no clique seco, e o efeito foi
+                  // imediato: clicar num clipe pra assistir já o deixava
+                  // marcado. Ver é o gesto mais frequente da tela — ele não
+                  // pode carregar um efeito colateral. Ctrl marca uma,
+                  // Shift fecha o intervalo, como em qualquer lista.
                   setActiveShot(shot)
-                  toggleSelected(shot.id, faixa)
+                  if (mods.ctrl || mods.shift) toggleSelected(shot.id, mods.shift)
                 }}
                 onDrag={() => arrastar(shot)}
                 onMenu={(x, y) => setMenu({ x, y, shot })}
@@ -484,8 +486,8 @@ function ShotCard({
   onSelect: () => void
   /** `faixa` = shift pressionado: marca do último marcado até aqui. */
   onToggle: (faixa: boolean) => void
-  /** Clique no corpo do card: marca e leva pro player. */
-  onCard: (faixa: boolean) => void
+  /** Clique no corpo do card. `ctrl` marca; `shift` marca até aqui. */
+  onCard: (mods: { ctrl: boolean; shift: boolean }) => void
   onDrag: () => void
   onMenu: (x: number, y: number) => void
   onFavoritar: () => void
@@ -497,7 +499,7 @@ function ShotCard({
     <div
       role="button"
       tabIndex={0}
-      onClick={(e) => onCard(e.shiftKey)}
+      onClick={(e) => onCard({ ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey })}
       onKeyDown={(e) => e.key === 'Enter' && onSelect()}
       draggable
       // O `preventDefault` é o ponto: mata o arrasto do HTML (que só carregaria
@@ -520,13 +522,13 @@ function ShotCard({
             : 'border-border hover:border-muted'
       )}
     >
-      {/* A caixa continua aqui como ESTADO — o card inteiro já marca, mas um
-          card marcado precisa dizer isso mesmo sem o mouse em cima. Ela
-          também dá o gesto de marcar sem mexer no player. */}
+      {/* A caixa marca sem tecla nenhuma, e é o sinal de quem está marcado
+          quando o mouse não está em cima. O clique seco no card pertence a
+          quem só quer VER — por isso ele não passa por aqui. */}
       <button
         type="button"
         aria-label={marcada ? 'Desmarcar cena' : 'Marcar cena'}
-        title="Marcar sem mexer no player (shift = intervalo)"
+        title="Marcar esta cena (shift = intervalo)"
         onClick={(e) => {
           e.stopPropagation()
           onToggle(e.shiftKey)
