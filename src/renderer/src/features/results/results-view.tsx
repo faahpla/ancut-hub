@@ -1,6 +1,6 @@
 import { Clapperboard, FolderOpen, Images, Library, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { episodeLabel } from '@/lib/utils'
+import { cn, episodeLabel } from '@/lib/utils'
 import { useResultsStore } from '@/stores/results-store'
 import { CharacterList } from './character-list'
 import { ExplorerSyncBar } from './explorer-sync-bar'
@@ -18,12 +18,65 @@ export function ResultsView({
   /** Leva pra aba Analisar — é lá que mora a tela de progresso. */
   onAnalyze: () => void
 }): JSX.Element {
-  const { results, close } = useResultsStore()
+  const { results, close, abas, trocarAba, fecharAba } = useResultsStore()
 
   if (!results) return <SemEpisodio onBrowse={onBrowse} />
 
   return (
     <div className="animate-fade-in flex h-full flex-col gap-2.5">
+      {/* A tira só nasce a partir do SEGUNDO episódio: com um aberto ela
+          repetiria o título que já está logo abaixo. Ela aparece exatamente
+          no instante em que passa a servir pra alguma coisa. */}
+      {abas.length > 1 && (
+        <div className="scrollbar-thin flex shrink-0 items-center gap-1 overflow-x-auto pb-0.5">
+          {abas.map((a) => {
+            const ativa = a.episodeId === results.episodeId
+            return (
+              <div
+                key={a.episodeId}
+                role="button"
+                tabIndex={0}
+                onClick={() => trocarAba(a.episodeId)}
+                onKeyDown={(e) => e.key === 'Enter' && trocarAba(a.episodeId)}
+                // Botão do meio fecha, como em qualquer navegador. É o gesto
+                // de quem está limpando a tira sem parar de ler.
+                onAuxClick={(e) => {
+                  if (e.button === 1) {
+                    e.preventDefault()
+                    fecharAba(a.episodeId)
+                  }
+                }}
+                className={cn(
+                  'group flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 transition-colors',
+                  ativa
+                    ? 'border-primary/50 bg-primary/[0.12] text-foreground'
+                    : 'border-border bg-surface-sunken text-muted-foreground hover:bg-surface-hover'
+                )}
+              >
+                <span className="max-w-[220px] truncate text-[12px] font-medium">
+                  {a.rotulo}
+                </span>
+                <button
+                  type="button"
+                  aria-label={`Fechar ${a.rotulo}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    fecharAba(a.episodeId)
+                  }}
+                  className={cn(
+                    'grid size-4 shrink-0 place-items-center rounded transition-all',
+                    'hover:bg-surface-elevated hover:text-foreground',
+                    ativa ? 'opacity-70' : 'opacity-0 group-hover:opacity-100'
+                  )}
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       <header className="flex shrink-0 items-center gap-3">
         <h1 className="truncate text-[15px] font-bold">
           {results.animeTitle}
@@ -64,8 +117,18 @@ export function ResultsView({
         <Button
           size="sm"
           variant="ghost"
-          title="Fechar e voltar à Biblioteca"
+          title={
+            abas.length > 1
+              ? 'Fechar este episódio'
+              : 'Fechar e voltar à Biblioteca'
+          }
           onClick={() => {
+            // Com outras abas abertas, fechar é fechar ESTA — a vizinha
+            // assume e a Biblioteca não tem por que entrar no caminho.
+            if (abas.length > 1) {
+              fecharAba(results.episodeId)
+              return
+            }
             close()
             onBrowse()
           }}

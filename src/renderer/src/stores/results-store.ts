@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { episodeLabel } from '@/lib/utils'
 import type {
   CharacterSummary,
   DeleteResult,
@@ -19,6 +20,19 @@ interface ResultsState {
   /** Pastas completas no disco que o histórico não conhece. */
   orphans: OrphanEpisode[]
   restoring: string
+
+  /**
+   * Episódios abertos, na ordem em que foram abertos.
+   *
+   * Trocar de episódio significava voltar à Biblioteca, achar o anime, achar
+   * a temporada, achar o episódio — pra depois voltar de novo. Quem procura
+   * uma cena atravessa vários episódios, e a viagem de volta era o trabalho.
+   *
+   * O estado da aba ATIVA mora nos campos de sempre (`results`, `shots`...);
+   * as outras ficam guardadas em `guardadas`. Assim nenhuma ação do store
+   * precisou aprender a existência de abas.
+   */
+  abas: AbaEpisodio[]
 
   results: EpisodeResults | null
   /** Prefixo media:// da pasta do episódio — vazio até liberar a raiz. */
@@ -50,6 +64,10 @@ interface ResultsState {
   applyExplorer: (charIds: number[]) => Promise<void>
   dismissExplorer: () => void
   openEpisode: (episodeId: number) => Promise<void>
+  /** Põe outra aba na frente, sem ir ao motor: o estado dela está guardado. */
+  trocarAba: (episodeId: number) => void
+  /** Fecha a aba. Fechando a ativa, a vizinha assume. */
+  fecharAba: (episodeId: number) => void
   selectCharacter: (character: CharacterSummary) => Promise<void>
   /** Tira um personagem do episódio (reconhecimento errado). As cenas ficam. */
   removeCharacter: (characterId: number) => Promise<RemoveCharacter | null>
@@ -110,12 +128,65 @@ export const TODAS_AS_CENAS = 0
  */
 export const SEM_PERSONAGEM = -2
 
+/** Uma aba: qual episódio, e como chamá-lo na tira. */
+export interface AbaEpisodio {
+  episodeId: number
+  rotulo: string
+}
+
+/** O que uma aba guarda enquanto não está na frente. */
+type Guardado = Pick<
+  ResultsState,
+  | 'results'
+  | 'mediaPrefix'
+  | 'selectedCharacter'
+  | 'shots'
+  | 'activeShot'
+  | 'selection'
+  | 'explorer'
+  | 'lastTrashDir'
+>
+
+/**
+ * O estado das abas que não estão na frente.
+ *
+ * Fora do store de propósito: isto não é renderizado por ninguém, e pôr as
+ * cenas de cinco episódios dentro do estado observável faria cada tecla
+ * digitada comparar arrays de milhares de itens.
+ */
+const guardadas = new Map<number, Guardado>()
+
+/** "Mushoku Tensei S03E09" — a pasta, não o título da fonte, que é enorme. */
+function rotuloDe(r: EpisodeResults): string {
+  const pasta = r.animeFolder || r.animeTitle
+  return `${pasta} ${episodeLabel(r.season, r.episode, r.kind)}`
+}
+
+function guardarAtual(
+  get: () => ResultsState,
+  _set: (patch: Partial<ResultsState>) => void
+): void {
+  const e = get()
+  if (!e.results) return
+  guardadas.set(e.results.episodeId, {
+    results: e.results,
+    mediaPrefix: e.mediaPrefix,
+    selectedCharacter: e.selectedCharacter,
+    shots: e.shots,
+    activeShot: e.activeShot,
+    selection: e.selection,
+    explorer: e.explorer,
+    lastTrashDir: e.lastTrashDir
+  })
+}
+
 export const useResultsStore = create<ResultsState>((set, get) => ({
   recent: [],
   loadingRecent: false,
   missingRoots: 0,
   orphans: [],
   restoring: '',
+  abas: [],
   results: null,
   mediaPrefix: '',
   selectedCharacter: null,
@@ -157,8 +228,17 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
   },
 
   openEpisode: async (episodeId) => {
+    // Já está aberto: é só trazer pra frente. Recarregar jogaria fora a
+    // seleção e a rolagem de quem só queria voltar pro episódio de antes.
+    if (get().results?.episodeId === episodeId) return
+    if (get().abas.some((a) => a.episodeId === episodeId)) {
+      get().trocarAba(episodeId)
+      return
+    }
+
     const results = await window.ancut.results.load(episodeId)
     if (!results) return
+    guardarAtual(get, set)
     // Libera a pasta pro esquema media:// ANTES de renderizar: sem isso os
     // <img> disparam e levam 403.
     const mediaPrefix = await window.ancut.results.grantMedia(results.episodeRoot)
@@ -169,7 +249,9 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
       shots: [],
       activeShot: null,
       explorer: null,
-      lastTrashDir: ''
+      lastTrashDir: '',
+      selection: [],
+      abas: [...get().abas, { episodeId, rotulo: rotuloDe(results) }]
     })
     // SEMPRE "Todas as cenas", nunca um personagem.
     //
@@ -197,6 +279,35 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
     ) {
       set({ explorer })
     }
+  },
+
+  trocarAba: (episodeId) => {
+    const alvo = guardadas.get(episodeId)
+    if (!alvo || get().results?.episodeId === episodeId) return
+    guardarAtual(get, set)
+    guardadas.delete(episodeId)
+    set({ ...alvo, loadingShots: false })
+  },
+
+  fecharAba: (episodeId) => {
+    const { abas, results } = get()
+    const restantes = abas.filter((a) => a.episodeId !== episodeId)
+    guardadas.delete(episodeId)
+    set({ abas: restantes })
+    if (results?.episodeId !== episodeId) return
+
+    // Fechou a que estava na frente: assume a vizinha à esquerda — a de
+    // antes, que é de onde a pessoa veio. Sem vizinha, a tela volta a ser a
+    // de "nenhum episódio aberto".
+    const i = abas.findIndex((a) => a.episodeId === episodeId)
+    const vizinha = restantes[Math.max(0, i - 1)]
+    if (!vizinha) {
+      get().close()
+      return
+    }
+    const alvo = guardadas.get(vizinha.episodeId)
+    guardadas.delete(vizinha.episodeId)
+    if (alvo) set({ ...alvo, loadingShots: false })
   },
 
   selectCharacter: async (character) => {
@@ -324,8 +435,10 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
 
   dismissExplorer: () => set({ explorer: null }),
 
-  close: () =>
+  close: () => {
+    guardadas.clear()
     set({
+      abas: [],
       results: null,
       explorer: null,
       lastTrashDir: '',
@@ -335,6 +448,7 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
       activeShot: null,
       selection: []
     })
+  }
 }))
 
 /**
