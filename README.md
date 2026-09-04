@@ -28,13 +28,36 @@ em pastas por personagem — automático.
 
 Pra instalar pela primeira vez, baixe o **instalador completo**:
 
-**[AnCut-HUB-1.10.1-Completo.exe](https://github.com/faahpla/ancut-hub/releases/download/v1.10.1/AnCut-HUB-1.10.1-Completo.exe)** (~2 GB)
+**[AnCut-HUB-1.22.0-Completo.exe](https://github.com/faahpla/ancut-hub/releases/download/v1.22.0/AnCut-HUB-1.22.0-Completo.exe)** (~2 GB)
 
-Ele leva tudo: interface, motor Python, torch e CUDA. Instala pro usuário
-atual, sem pedir administrador.
+Ele leva tudo — interface, motor Python, torch, CUDA e o FFmpeg. Nada mais
+precisa ser instalado, e ele instala pro usuário atual, sem pedir
+administrador.
 
 Depois de instalado, as atualizações são automáticas e pequenas (1 MB quando
 só a interface muda): **Configurações → Procurar atualizações**.
+
+### O Windows vai reclamar
+
+O instalador não é assinado digitalmente (certificado custa caro e é anual),
+então o SmartScreen mostra **"O Windows protegeu o computador"**. Para
+continuar: **Mais informações → Executar assim mesmo**.
+
+### A primeira análise baixa os modelos
+
+Na primeira vez que você analisa um episódio, o app baixa da HuggingFace os
+modelos de reconhecimento — **~1,7 GB**, sendo 1,6 GB o CLIP que compara os
+rostos. Isso acontece **uma vez por máquina** e fica em cache
+(`%USERPROFILE%\.cache\huggingface`); as análises seguintes começam na hora.
+
+Nessa primeira vez, portanto: internet, e paciência com a barra parada em
+"preparando".
+
+### Placa de vídeo
+
+NVIDIA com CUDA deixa a análise muitas vezes mais rápida, mas **não é
+obrigatória** — sem ela o app roda na CPU, mais devagar. O que a máquina tem
+aparece no canto superior direito da janela.
 
 ---
 
@@ -112,6 +135,31 @@ com torch/CUDA não cabe num runner.
 
 > **Quando o Electron mudar de versão**, use `--full-ui`. O `app.asar` sozinho
 > deixaria o Chromium velho rodando código novo.
+
+### O instalador completo precisa acompanhar o motor
+
+O updater baixa só os pacotes da **última** release. Se o instalador da página
+for de uma versão anterior à última mudança do motor, quem instalar por ele e
+atualizar em seguida fica com a **interface nova sobre o motor velho** — e as
+funções que dependem de modos novos do motor quebram sem explicar por quê.
+
+Aconteceu: a página ficou doze versões com o instalador da 1.10.1.
+
+Então, **sempre que sair uma versão com `--engine`**, refaça o instalador e
+anexe-o à release:
+
+```bash
+ISCC /DAppVersion=1.22.0 installer-unified.iss     # ~20 min, sai em release/
+gh release upload v1.22.0 release/AnCut-HUB-1.22.0-Completo.exe
+```
+
+Existindo o `.exe` em `release/` na hora do `npm run release`, ele sobe junto,
+o aviso do topo passa a apontar pra ele e o link do README se reescreve
+sozinho.
+
+> **Ele está em 1,975 GiB — o limite de anexo do GitHub é 2 GiB.** Sobram
+> ~26 MiB. Quando estourar, o caminho é tirar peso do pacote (CUDA sem os
+> kernels que não usamos, por exemplo), não trocar de hospedagem no susto.
 
 ## Rodar do código
 

@@ -227,6 +227,30 @@ run('gh', [
   ...assets
 ])
 
+/**
+ * O link do README aponta pro instalador desta versão.
+ *
+ * Ele estava fixo na 1.10.1 e envelheceu doze versões calado: quem chegasse
+ * pelo README instalaria um app do mês passado e, ao atualizar, ficaria com
+ * a interface nova sobre o motor velho — porque o updater só baixa os
+ * pacotes da ÚLTIMA release, e a maioria delas não tem motor.
+ *
+ * Um link que precisa de disciplina humana pra continuar certo já está
+ * errado. Agora ele se reescreve sozinho, e só quando existe instalador.
+ */
+if (temInstalador) {
+  const readme = join(ROOT, 'README.md')
+  const antes = readFileSync(readme, 'utf-8')
+  const depois = antes.replace(
+    /\*\*\[AnCut-HUB-[\d.]+-Completo\.exe\]\([^)]+\)\*\*/,
+    `**[AnCut-HUB-${version}-Completo.exe](${REPO_URL}/releases/download/v${version}/AnCut-HUB-${version}-Completo.exe)**`
+  )
+  if (depois !== antes) {
+    writeFileSync(readme, depois, 'utf-8')
+    log('README apontando pro instalador desta versão (falta commitar).')
+  }
+}
+
 log('')
 log(`publicado: v${version}`)
 log('O app instalado vê a novidade na próxima abertura (ou em Configurações →')
