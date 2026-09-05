@@ -28,7 +28,7 @@ em pastas por personagem — automático.
 
 Pra instalar pela primeira vez, baixe o **instalador completo**:
 
-**[AnCut-HUB-1.22.0-Completo.exe](https://github.com/faahpla/ancut-hub/releases/download/v1.22.0/AnCut-HUB-1.22.0-Completo.exe)** (~2 GB)
+**[AnCut-HUB-1.23.0-Completo.exe](https://github.com/faahpla/ancut-hub/releases/download/v1.23.0/AnCut-HUB-1.23.0-Completo.exe)** (~2 GB)
 
 Ele leva tudo — interface, motor Python, torch, CUDA e o FFmpeg. Nada mais
 precisa ser instalado, e ele instala pro usuário atual, sem pedir
@@ -45,13 +45,31 @@ continuar: **Mais informações → Executar assim mesmo**.
 
 ### A primeira análise baixa os modelos
 
-Na primeira vez que você analisa um episódio, o app baixa da HuggingFace os
-modelos de reconhecimento — **~1,7 GB**, sendo 1,6 GB o CLIP que compara os
-rostos. Isso acontece **uma vez por máquina** e fica em cache
+Na primeira vez que você analisa, o app baixa da HuggingFace os modelos de
+reconhecimento. Isso acontece **uma vez por máquina** e fica em cache
 (`%USERPROFILE%\.cache\huggingface`); as análises seguintes começam na hora.
+
+| o que | quando | tamanho |
+|---|---|---|
+| CLIP + detector de anime | primeira análise de **anime** | ~1,7 GB |
+| SCRFD + ArcFace | primeira análise de **live action** | ~190 MB |
 
 Nessa primeira vez, portanto: internet, e paciência com a barra parada em
 "preparando".
+
+### Anime ou live action
+
+O app corta as duas coisas. Na aba **Analisar**, o botão **Tipo de mídia**
+escolhe quem reconhece o rosto:
+
+- **Anime** — detector treinado em desenho + CLIP, elenco do AniList.
+- **Live action** — reconhecimento facial (SCRFD + ArcFace), elenco do
+  [TMDB](https://www.themoviedb.org). A chave do TMDB é gratuita e vai em
+  Configurações; **sem ela ainda funciona** pelo Modo Descoberta, que agrupa
+  os rostos e pede os nomes.
+
+Filme é reconhecido pelo nome do arquivo (`Matrix (1999).mkv`) e vai pra pasta
+`Filme (1999)`, sem inventar temporada e episódio.
 
 ### Placa de vídeo
 
