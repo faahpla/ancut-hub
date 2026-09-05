@@ -98,6 +98,8 @@ function toSettings(raw: RawConfig): AppSettings {
     // Não é persistido no Python de propósito (heurística frágil, fica OFF).
     skipCreditShots: false,
     useDanbooru: bool(raw, 'use_danbooru', false),
+    mediaKind: str(raw, 'media_kind', 'anime') === 'live' ? 'live' : 'anime',
+    tmdbApiKey: str(raw, 'tmdb_api_key'),
     renderExportMode: modeFor(str(raw, 'render_export_mode', 'off')),
     navyaiApiKey: str(raw, 'navyai_api_key'),
     navyaiModel: str(raw, 'navyai_model', 'gemini-2.5-flash'),
@@ -124,6 +126,8 @@ function applyPatch(raw: RawConfig, patch: Partial<AppSettings>): RawConfig {
   set('last_season', patch.lastSeason)
   set('last_episode', patch.lastEpisode)
   set('use_danbooru', patch.useDanbooru)
+  set('media_kind', patch.mediaKind)
+  set('tmdb_api_key', patch.tmdbApiKey)
   set('render_export_mode', patch.renderExportMode)
   set('navyai_api_key', patch.navyaiApiKey)
   set('navyai_model', patch.navyaiModel)

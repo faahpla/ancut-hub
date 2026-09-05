@@ -86,6 +86,7 @@ export function AnalyzeView(): JSX.Element {
         mergePrevious,
         skipCreditShots: ep.skipCreditShots,
         useDanbooru: ep.useDanbooru,
+        mediaKind: ep.mediaKind,
         renderExportMode: ep.renderExportMode
       })
     } catch (e) {

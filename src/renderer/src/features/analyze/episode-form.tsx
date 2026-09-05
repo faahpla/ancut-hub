@@ -5,7 +5,7 @@ import { Field, Input } from '@/components/ui/field'
 import { Panel } from '@/components/ui/panel'
 import { useEpisodeStore } from '@/stores/episode-store'
 import { cn, episodeSlug } from '@/lib/utils'
-import type { EpisodeKind } from '@shared/types'
+import type { EpisodeKind, MediaKind } from '@shared/types'
 
 const VIDEO_RE = /\.(mp4|mkv|mov|avi|webm|ts|m2ts)$/i
 
@@ -20,6 +20,27 @@ const TIPOS: { valor: EpisodeKind; rotulo: string; dica: string }[] = [
     valor: 'ED',
     rotulo: 'Encerramento',
     dica: 'Vai pra pasta S02-ED1, separada do episódio 1 da temporada.'
+  },
+  {
+    valor: 'MOVIE',
+    rotulo: 'Filme',
+    dica: 'Filme não tem temporada nem episódio: vai pra pasta "Filme (ano)".'
+  }
+]
+
+/** Anime ou gente de verdade. Ver `MediaKind`. */
+const MIDIAS: { valor: MediaKind; rotulo: string; dica: string }[] = [
+  {
+    valor: 'anime',
+    rotulo: 'Anime',
+    dica: 'Reconhecimento treinado em rosto de desenho, elenco do AniList.'
+  },
+  {
+    valor: 'live',
+    rotulo: 'Live action',
+    dica:
+      'Filme e série com gente de verdade: reconhecimento facial (ArcFace) e ' +
+      'elenco do TMDB. Os modelos são baixados na primeira vez (~190 MB).'
   }
 ]
 
@@ -83,6 +104,31 @@ export function EpisodeForm({ disabled }: { disabled: boolean }): JSX.Element {
           Selecionar
         </Button>
       </div>
+
+      {/* Antes de tudo: é o que decide QUEM vai reconhecer o rosto. Um filme
+          analisado com o modelo de anime não acha ninguém, e o erro só
+          apareceria no fim, com o episódio inteiro cortado à toa. */}
+      <Field label="Tipo de mídia">
+        <div className="flex gap-1.5">
+          {MIDIAS.map((m) => (
+            <button
+              key={m.valor}
+              type="button"
+              disabled={disabled}
+              onClick={() => ep.set({ mediaKind: m.valor })}
+              title={m.dica}
+              className={cn(
+                'flex-1 rounded-md border px-3 py-1.5 text-[12.5px] font-medium transition-colors disabled:opacity-50',
+                ep.mediaKind === m.valor
+                  ? 'border-primary bg-primary/[0.12] text-primary'
+                  : 'border-border text-muted-foreground hover:bg-surface-hover hover:text-foreground'
+              )}
+            >
+              {m.rotulo}
+            </button>
+          ))}
+        </div>
+      </Field>
 
       {/* O tipo vem ANTES dos números porque é ele que dá sentido a eles:
           com "Abertura" marcado, o campo ao lado deixa de ser o episódio e

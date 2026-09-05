@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import type { EpisodeKind, MatchParams, PresetKey, RenderExportMode } from '@shared/types'
+import type {
+  MediaKind, EpisodeKind, MatchParams, PresetKey, RenderExportMode } from '@shared/types'
 import { PRESETS } from './analysis-store'
 
 /**
@@ -33,6 +34,9 @@ interface EpisodeState {
   preset: PresetKey
   params: MatchParams
   useDanbooru: boolean
+  /** Anime ou live action — decide quem reconhece o rosto e de onde vem o
+   *  elenco. Fica no formulário porque muda por MÍDIA, não por gosto. */
+  mediaKind: MediaKind
   skipCreditShots: boolean
   renderExportMode: RenderExportMode
   hydrated: boolean
@@ -80,6 +84,7 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
   preset: 'auto',
   params: PRESETS.auto.params,
   useDanbooru: false,
+  mediaKind: 'anime',
   skipCreditShots: false,
   renderExportMode: 'off',
   hydrated: false,
@@ -137,6 +142,7 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
       preset: s.preset,
       params: s.params,
       useDanbooru: s.useDanbooru,
+      mediaKind: s.mediaKind,
       renderExportMode: s.renderExportMode,
       hydrated: true
     })

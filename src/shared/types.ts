@@ -26,7 +26,10 @@ export interface MatchParams {
  * 2ª temporada não é o episódio 1 dela, e sem esta distinção as duas
  * dividiam a mesma vaga no banco — uma apagava as cenas da outra.
  */
-export type EpisodeKind = '' | 'OP' | 'ED'
+/** '' = episódio, OP/ED = abertura e encerramento, MOVIE = filme (que não tem
+ *  temporada nem episódio, e entra como S01E01). Faz parte da IDENTIDADE do
+ *  episódio no banco. */
+export type EpisodeKind = '' | 'OP' | 'ED' | 'MOVIE'
 
 export interface AnalysisRequest {
   videoPath: string
@@ -61,8 +64,20 @@ export interface AnalysisRequest {
   mergePrevious: boolean
   skipCreditShots: boolean
   useDanbooru: boolean
+  /** Que par de modelos olha o rosto. Ver `MediaKind`. */
+  mediaKind: MediaKind
   renderExportMode: RenderExportMode
 }
+
+/**
+ * Anime ou live action.
+ *
+ * Não é preferência de apresentação: decide QUEM reconhece. Em anime, o YOLO
+ * da deepghs + CLIP; em live action, SCRFD + ArcFace — que responde "é a mesma
+ * pessoa?" com margem de 0,33 onde o CLIP em anime trabalha com 0,077. E é o
+ * que decide a fonte do elenco: AniList ou TMDB.
+ */
+export type MediaKind = 'anime' | 'live'
 
 /**
  * Formato de saída dos clipes.
@@ -599,6 +614,10 @@ export interface AppSettings {
   params: MatchParams
   skipCreditShots: boolean
   useDanbooru: boolean
+  mediaKind: MediaKind
+  /** Chave do TMDB — o elenco de filme e série. Vazia, live action funciona
+   *  só pelo Modo Descoberta. */
+  tmdbApiKey: string
   renderExportMode: RenderExportMode
   navyaiApiKey: string
   navyaiModel: string

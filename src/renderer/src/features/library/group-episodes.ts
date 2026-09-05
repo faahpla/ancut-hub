@@ -64,7 +64,7 @@ export function pastaDoAnime(episodeRoot: string): string {
  * temporada inteira. Misturada na numeração, a OP1 aparecia empurrando o E01
  * pra baixo toda vez.
  */
-const PESO: Record<EpisodeKind, number> = { '': 0, OP: 1, ED: 2 }
+const PESO: Record<EpisodeKind, number> = { '': 0, OP: 1, ED: 2, MOVIE: 3 }
 
 /** Compara ignorando maiúsculas e acentos, do jeito que gente ordena. */
 const porNome = new Intl.Collator('pt-BR', { numeric: true, sensitivity: 'base' })

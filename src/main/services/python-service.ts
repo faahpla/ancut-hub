@@ -152,6 +152,7 @@ function toWireRequest(req: AnalysisRequest): Record<string, unknown> {
     mergePrevious: req.mergePrevious,
     skipCreditShots: req.skipCreditShots,
     useDanbooru: req.useDanbooru,
+    mediaKind: req.mediaKind,
     renderExportMode: req.renderExportMode
   }
 }

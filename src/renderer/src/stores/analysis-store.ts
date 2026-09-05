@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { STAGES, type StageId } from '@shared/channels'
 import type {
+  MediaKind,
   AnalysisEvent,
   AnalysisRequest,
   AnalysisResult,
@@ -256,6 +257,7 @@ export function buildRequest(form: {
   outputFolder: string
   params: MatchParams
   useDanbooru: boolean
+  mediaKind: MediaKind
   skipCreditShots: boolean
   renderExportMode: RenderExportMode
 }): Omit<AnalysisRequest, 'aiReview' | 'cutOnly' | 'discovery' | 'mergePrevious'> {

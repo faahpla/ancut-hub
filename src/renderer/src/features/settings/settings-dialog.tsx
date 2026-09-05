@@ -92,6 +92,7 @@ export function SettingsDialog({
       useEpisodeStore.getState().set({
         outputDir: settings.outputDir,
         useDanbooru: settings.useDanbooru,
+        mediaKind: settings.mediaKind,
         renderExportMode: settings.renderExportMode
       })
       onOpenChange(false)
@@ -189,6 +190,23 @@ export function SettingsDialog({
                   onChange={(e) => patch({ geminiModel: e.target.value })}
                 />
               </Field>
+            </Panel>
+
+            <Panel title="Live action (filme e série)" compact>
+              <Field label="Chave do TMDB">
+                <SecretInput
+                  value={settings.tmdbApiKey}
+                  placeholder="(gratuita em themoviedb.org)"
+                  onChange={(v) => patch({ tmdbApiKey: v })}
+                />
+              </Field>
+              <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+                O TMDB é o AniList do cinema: dá o elenco com a foto de cada
+                ator, que vira a referência do reconhecimento. <b>Sem chave,
+                live action ainda funciona pelo Modo Descoberta</b> — ele
+                agrupa os rostos e você dá os nomes, sem depender de fonte
+                nenhuma.
+              </p>
             </Panel>
 
             <Panel title="Referências" compact>

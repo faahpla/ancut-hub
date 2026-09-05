@@ -86,6 +86,7 @@ export function IdentifyButton({
         mergePrevious: false,
         skipCreditShots: prefs.skipCreditShots,
         useDanbooru: prefs.useDanbooru,
+        mediaKind: prefs.mediaKind,
         // O formato do DISCO, não o da tela. É isto que preserva o cache do
         // corte — ver `cutExportMode` em EpisodeResults.
         renderExportMode: results.cutExportMode
