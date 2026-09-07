@@ -28,7 +28,7 @@ em pastas por personagem — automático.
 
 Pra instalar pela primeira vez, baixe o **instalador completo**:
 
-**[AnCut-HUB-1.23.0-Completo.exe](https://github.com/faahpla/ancut-hub/releases/download/v1.23.0/AnCut-HUB-1.23.0-Completo.exe)** (~2 GB)
+**[AnCut-HUB-1.23.1-Completo.exe](https://github.com/faahpla/ancut-hub/releases/download/v1.23.1/AnCut-HUB-1.23.1-Completo.exe)** (~2 GB)
 
 Ele leva tudo — interface, motor Python, torch, CUDA e o FFmpeg. Nada mais
 precisa ser instalado, e ele instala pro usuário atual, sem pedir
