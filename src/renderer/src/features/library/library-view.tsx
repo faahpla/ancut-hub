@@ -61,10 +61,16 @@ export function LibraryView({
    * personagem é como ele costuma ser pedido: "tudo que eu tenho do Rimuru",
    * que atravessa episódios e temporadas. Duas abas separadas dariam a
    * impressão de dois acervos; aqui é um, visto de dois ângulos.
+   *
+   * O ângulo, a busca e o que está destrinchado vêm do store — esta tela é
+   * desmontada ao trocar de aba, e com eles aqui dentro a volta de um
+   * episódio chegava sempre na estaca zero.
    */
-  const [modo, setModo] = useState<'anime' | 'personagem' | 'favorito'>('anime')
-  const [busca, setBusca] = useState('')
-  const [abertos, setAbertos] = useState<string[]>([])
+  const { modo, busca, abertos } = useResultsStore((s) => s.biblioteca)
+  const setBiblioteca = useResultsStore((s) => s.setBiblioteca)
+  const setModo = (m: 'anime' | 'personagem' | 'favorito'): void =>
+    setBiblioteca({ modo: m })
+  const setBusca = (b: string): void => setBiblioteca({ busca: b })
   /** Anime que o usuário quer fazer sumir dentro de outro. */
   const [juntando, setJuntando] = useState<Anime | null>(null)
   /** Episódios que vão mudar de temporada, e o rótulo do que são. */
@@ -100,11 +106,17 @@ export function LibraryView({
     buscando || visiveis.length === 1 || abertos.includes(a.pasta)
 
   const alternar = (pasta: string): void =>
-    setAbertos((atual) =>
-      atual.includes(pasta) ? atual.filter((p) => p !== pasta) : [...atual, pasta]
-    )
+    setBiblioteca({
+      abertos: abertos.includes(pasta)
+        ? abertos.filter((p) => p !== pasta)
+        : [...abertos, pasta]
+    })
 
-  if (loadingRecent) {
+  // Só engole a tela na PRIMEIRA carga. Nas outras a lista que já está aqui
+  // continua valendo enquanto o motor responde — trocar o acervo inteiro por
+  // um rodopio a cada volta de episódio é o que fazia a Biblioteca parecer
+  // que carregava toda hora.
+  if (loadingRecent && recent.length === 0 && orphans.length === 0) {
     return (
       <div className="grid h-full place-items-center">
         <Loader2 className="size-5 animate-spin text-muted-foreground" />

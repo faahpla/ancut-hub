@@ -22,6 +22,18 @@ interface ResultsState {
   restoring: string
 
   /**
+   * Como a Biblioteca está sendo olhada no momento.
+   *
+   * Mora AQUI, e não na tela, porque trocar de aba desmonta a tela: abrir um
+   * episódio e voltar fechava o anime que estava destrinchado, zerava a busca
+   * e jogava a pessoa de volta na visão por anime. Quem procura uma cena
+   * atravessa vários episódios do mesmo anime, então o caminho de volta era
+   * refeito a cada ida — e o trabalho era justamente esse caminho.
+   */
+  biblioteca: EstadoBiblioteca
+  setBiblioteca: (patch: Partial<EstadoBiblioteca>) => void
+
+  /**
    * Episódios abertos, na ordem em que foram abertos.
    *
    * Trocar de episódio significava voltar à Biblioteca, achar o anime, achar
@@ -128,6 +140,15 @@ export const TODAS_AS_CENAS = 0
  */
 export const SEM_PERSONAGEM = -2
 
+/** O estado da Biblioteca que precisa sobreviver a uma ida e volta. */
+export interface EstadoBiblioteca {
+  /** Em que ângulo o acervo está: por anime, por personagem ou favoritos. */
+  modo: 'anime' | 'personagem' | 'favorito'
+  busca: string
+  /** Animes destrinchados, pelo nome da pasta. */
+  abertos: string[]
+}
+
 /** Uma aba: qual episódio, e como chamá-lo na tira. */
 export interface AbaEpisodio {
   episodeId: number
@@ -186,6 +207,7 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
   missingRoots: 0,
   orphans: [],
   restoring: '',
+  biblioteca: { modo: 'anime', busca: '', abertos: [] },
   abas: [],
   results: null,
   mediaPrefix: '',
@@ -200,6 +222,8 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
   lastTrashDir: '',
   selection: [],
   merging: false,
+
+  setBiblioteca: (patch) => set({ biblioteca: { ...get().biblioteca, ...patch } }),
 
   loadRecent: async () => {
     set({ loadingRecent: true })
