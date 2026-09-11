@@ -31,17 +31,25 @@ Pra instalar pela primeira vez, baixe o **instalador completo**:
 **[AnCut-HUB-1.23.1-Completo.exe](https://github.com/faahpla/ancut-hub/releases/download/v1.23.1/AnCut-HUB-1.23.1-Completo.exe)** (~2 GB)
 
 Ele leva tudo — interface, motor Python, torch, CUDA e o FFmpeg. Nada mais
-precisa ser instalado, e ele instala pro usuário atual, sem pedir
-administrador.
+precisa ser instalado.
 
 Depois de instalado, as atualizações são automáticas e pequenas (1 MB quando
 só a interface muda): **Configurações → Procurar atualizações**.
 
-### O Windows vai reclamar
+### O Windows vai reclamar duas vezes
 
-O instalador não é assinado digitalmente (certificado custa caro e é anual),
-então o SmartScreen mostra **"O Windows protegeu o computador"**. Para
-continuar: **Mais informações → Executar assim mesmo**.
+Primeiro o **SmartScreen**: o instalador não é assinado digitalmente
+(certificado custa caro e é anual), então aparece **"O Windows protegeu o
+computador"**. Para continuar: **Mais informações → Executar assim mesmo**.
+
+Depois o **UAC**, pedindo permissão de administrador. O app é instalado em
+`C:\Program Files\AnCut HUB` — escrever ali exige elevação. Pela mesma razão,
+**cada atualização também pede UAC** na hora de aplicar; recusar não quebra
+nada, só deixa a versão nova baixada esperando.
+
+Nenhum dos dois é sinal de erro. Parecem, porque os dois aparecem antes de
+qualquer barra de progresso — mas depois de passar por eles a instalação
+segue sozinha.
 
 ### A primeira análise baixa os modelos
 
@@ -119,6 +127,10 @@ range requests).
 O app se atualiza sozinho a partir do GitHub Releases. Ele consulta
 `releases/latest/download/manifest.json` na abertura, avisa numa pílula no
 cabeçalho e instala quando o usuário mandar.
+
+Aplicar pede UAC: a instalação fica em `C:\Program Files\AnCut HUB` e o
+`apply-update.ps1` precisa rodar elevado pra escrever ali. É de lá que vem o
+relançamento pelo `explorer.exe` no fim do script — ver as armadilhas.
 
 O que viaja é **delta**, não o pacote inteiro:
 
@@ -229,4 +241,7 @@ PyInstaller do repositório do motor.
 
 O instalador não é assinado. O SmartScreen bloqueia na primeira execução e
 parece que "não instalou" — é em *Mais informações → Executar assim mesmo*.
-Atualizações depois disso não passam pelo SmartScreen.
+Logo depois vem o UAC, porque a instalação é em Program Files.
+
+As atualizações não passam mais pelo SmartScreen, mas continuam pedindo UAC a
+cada aplicação — pela mesma razão.
