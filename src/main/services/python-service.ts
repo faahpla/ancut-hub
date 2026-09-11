@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { app } from 'electron'
 import type {
   AnalysisEvent,
@@ -98,9 +98,15 @@ function resolveBackend(): BackendLocation | null {
     if (hit) return hit
   }
 
-  // 4) Dev: o venv do projeto Qt. Roda o módulo direto, então alterações no
-  //    Python valem na hora, sem reempacotar.
-  const repo = 'D:\\FAAH\\AnCut HUB'
+  // 4) Dev: o repositório do motor, irmão deste na árvore de projetos. O venv
+  //    roda o módulo direto, então mexer no Python vale na hora — e, sem ele,
+  //    serve o que o PyInstaller tiver deixado em dist/ ali mesmo (5).
+  //
+  //    O caminho é RELATIVO de propósito. Aqui morou um absoluto de máquina
+  //    (D:\FAAH\AnCut HUB); quando a máquina foi formatada e os projetos
+  //    mudaram de lugar, o dev ficou sem motor e ninguém percebeu — motor
+  //    ausente não levanta erro, só faz toda consulta voltar null.
+  const repo = join(resolve(__dirname, '../../..'), 'ancut-hub-engine')
   const venvPy = join(repo, '.venv', 'Scripts', 'python.exe')
   if (existsSync(venvPy)) {
     return { cmd: venvPy, args: ['-m', 'app.headless'], cwd: repo, origin: 'venv de dev' }

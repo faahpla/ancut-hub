@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 /** Saída do PyInstaller no projeto do motor (fora deste repositório). */
-const ENGINE_DIST = resolve(ROOT, '..', 'AnCut HUB', 'dist', 'CorteCenas')
+const ENGINE_DIST = resolve(ROOT, '..', 'ancut-hub-engine', 'dist', 'CorteCenas')
 const WORK = join(ROOT, 'release', '_publish')
 
 // ------------------------------------------------------------------ args

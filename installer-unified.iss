@@ -8,9 +8,10 @@
 ;  Resultado: UM app, UM atalho, UM desinstalador. Sem duplicata.
 ;
 ;  Pré-requisitos (nesta ordem):
-;    1. cd "D:\FAAH\AnCut HUB"     -> PyInstaller build.spec   (gera dist\CorteCenas)
-;    2. cd "D:\FAAH\AnCut HUB App" -> npm run build && npx electron-builder --dir
-;                                     (gera release\<v>\win-unpacked)
+;    1. no repositório do motor (..\ancut-hub-engine): PyInstaller build.spec
+;       -> gera dist\CorteCenas
+;    2. aqui: npm run build && npx electron-builder --dir
+;       -> gera release\<v>\win-unpacked
 ;    3. ISCC.exe installer-unified.iss
 ; ============================================================
 
@@ -30,7 +31,7 @@
 ; Sai da versão: era fixo em 1.0.0 e empacotaria uma interface velha em
 ; silêncio — o instalador construído hoje sairia com o app do mês passado.
 #define UiDir      "release\" + AppVersion + "\win-unpacked"
-#define EngineDir  "..\AnCut HUB\dist\CorteCenas"
+#define EngineDir  "..\ancut-hub-engine\dist\CorteCenas"
 
 [Setup]
 AppId={#AppId}
