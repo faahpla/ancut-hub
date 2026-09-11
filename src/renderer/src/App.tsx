@@ -62,7 +62,7 @@ export default function App(): JSX.Element {
         actions={
           <>
             <UpdateBadge />
-            <DeviceBadge gpuName={info?.gpuName ?? null} />
+            <DeviceBadge info={info} />
             <Button
               variant="ghost"
               size="sm"
