@@ -1,4 +1,4 @@
-import { BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
 import { CH } from '../../shared/channels'
 import { APP_ORIGIN } from '../register-protocol'
@@ -73,6 +73,27 @@ export class WindowManager {
     win.webContents.on('did-fail-load', (_e, code, desc, url) => {
       console.error(`[did-fail-load] ${code} ${desc} ${url}`)
     })
+
+    // Morte do processo da TELA. Sem isto ela some em silêncio: a janela é
+    // destruída, `window-all-closed` dispara, o app fecha inteiro — e o log
+    // termina na última linha normal, como se alguém tivesse clicado no X.
+    // Foi exatamente assim que um fechamento sozinho chegou reportado, e não
+    // havia nada no log nem no Visualizador de Eventos pra distinguir os dois.
+    win.webContents.on('render-process-gone', (_e, details) => {
+      console.error(
+        `[render-process-gone] motivo=${details.reason} exitCode=${details.exitCode}`
+      )
+    })
+    // Filhos do Chromium (GPU, utilitários). Um deles caindo nem sempre
+    // derruba a janela, mas explica lentidão e tela preta.
+    app.on('child-process-gone', (_e, details) => {
+      console.error(
+        `[child-process-gone] tipo=${details.type} motivo=${details.reason} ` +
+          `exitCode=${details.exitCode}`
+      )
+    })
+    win.on('close', () => console.log('[janela] fechando'))
+    win.on('unresponsive', () => console.error('[janela] travou (unresponsive)'))
 
     win.loadURL(rendererUrl())
     win.on('closed', () => {
