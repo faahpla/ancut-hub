@@ -75,6 +75,19 @@ export function registerIpc(
     return res.canceled || res.filePaths.length === 0 ? null : res.filePaths[0]
   })
 
+  ipcMain.handle(CH.pickVideos, async (): Promise<string[]> => {
+    const win = windows.getMain()
+    const opts: Electron.OpenDialogOptions = {
+      title: 'Selecionar episódios pra fila',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Vídeo', extensions: VIDEO_EXTS }]
+    }
+    const res = win
+      ? await dialog.showOpenDialog(win, opts)
+      : await dialog.showOpenDialog(opts)
+    return res.canceled ? [] : res.filePaths
+  })
+
   ipcMain.handle(CH.pickFolder, async (_e, current?: string): Promise<string | null> => {
     const win = windows.getMain()
     const opts: Electron.OpenDialogOptions = {
@@ -261,7 +274,7 @@ export function registerIpc(
         params: req.params,
         useDanbooru: req.useDanbooru
       })
-      return { runId: python.start(req) }
+      return { runId: await python.start(req) }
     }
   )
 

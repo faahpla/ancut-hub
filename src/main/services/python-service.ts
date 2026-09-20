@@ -214,6 +214,20 @@ export interface ParsedFilename {
 export class PythonService {
   private current: ChildProcessWithoutNullStreams | null = null
   private probeCache: ProbeInfo | null = null
+  /**
+   * O run já emitiu seu evento final e o processo está só terminando de
+   * morrer.
+   *
+   * A distinção importa porque `done` chega ANTES do `close` do processo:
+   * quem recebe o "terminei" e manda o próximo na hora — a fila de cortes —
+   * batia em "já existe uma análise em andamento" e marcava como falha um
+   * episódio que nunca chegou a rodar. Medido: o motor ainda segurava o
+   * lugar por alguns instantes depois do `done`.
+   *
+   * Ocupado de verdade e ocupado terminando merecem respostas diferentes:
+   * o primeiro é erro na hora, o segundo é esperar um pouquinho.
+   */
+  private encerrando = false
 
   constructor(private readonly emit: (event: AnalysisEvent) => void) {}
 
@@ -539,8 +553,19 @@ export class PythonService {
     return r?.shots ?? []
   }
 
-  start(req: AnalysisRequest): string {
+  /** Espera o filho anterior acabar de morrer. Só vale quando ele já emitiu
+   *  o evento final — para não mascarar uma análise de verdade em curso. */
+  private async aguardarEncerrar(limiteMs = 15_000): Promise<void> {
+    const ate = Date.now() + limiteMs
+    while (this.current && this.encerrando && Date.now() < ate) {
+      await new Promise((r) => setTimeout(r, 40))
+    }
+  }
+
+  async start(req: AnalysisRequest): Promise<string> {
+    await this.aguardarEncerrar()
     if (this.current) throw new Error('Já existe uma análise em andamento.')
+    this.encerrando = false
 
     const backend = resolveBackend()
     if (!backend) throw new Error(BACKEND_MISSING)
@@ -563,6 +588,12 @@ export class PythonService {
         console.error('[python] linha não-JSON no canal de eventos:', line.slice(0, 200))
         return
       }
+      // Evento final: daqui pra frente o processo está só terminando de
+      // morrer, e quem pedir o próximo run pode esperar em vez de levar erro.
+      const tipo = (parsed as { type?: string }).type
+      if (tipo === 'done' || tipo === 'failed' || tipo === 'cancelled') {
+        this.encerrando = true
+      }
       this.emit(parsed as AnalysisEvent)
     })
 
@@ -578,6 +609,7 @@ export class PythonService {
     child.on('error', (err) => {
       this.emit({ type: 'failed', message: `Falha ao iniciar o backend: ${err.message}` })
       this.current = null
+      this.encerrando = false
     })
 
     child.on('close', (code) => {
@@ -592,6 +624,7 @@ export class PythonService {
         })
       }
       this.current = null
+      this.encerrando = false
     })
 
     child.stdin.write(JSON.stringify(toWireRequest(req)) + '\n')
@@ -637,5 +670,6 @@ export class PythonService {
     if (!this.current) return
     this.current.kill()
     this.current = null
+    this.encerrando = false
   }
 }

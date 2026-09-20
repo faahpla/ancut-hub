@@ -720,6 +720,8 @@ export interface AnCutBridge {
   }
   dialog: {
     pickVideo(): Promise<string | null>
+    /** Vários episódios de uma vez, pra encher a fila num gesto só. */
+    pickVideos(): Promise<string[]>
     pickFolder(current?: string): Promise<string | null>
   }
   episode: {

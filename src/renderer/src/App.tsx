@@ -1,6 +1,7 @@
 import { Settings } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAnalysisStore } from '@/stores/analysis-store'
+import { useQueueStore } from '@/stores/queue-store'
 import { useResultsStore } from '@/stores/results-store'
 import { Brand } from '@/components/layout/brand'
 import { DeviceBadge } from '@/components/layout/device-badge'
@@ -21,6 +22,8 @@ export default function App(): JSX.Element {
   const result = useAnalysisStore((s) => s.result)
   const apply = useAnalysisStore((s) => s.apply)
   const openEpisode = useResultsStore((s) => s.openEpisode)
+  const aplicarNaFila = useQueueStore((s) => s.aplicar)
+  const filaRodando = useQueueStore((s) => s.rodando)
   const jaAberto = useRef<AnalysisResult | null>(null)
 
   useEffect(() => {
@@ -35,6 +38,13 @@ export default function App(): JSX.Element {
   // nunca desmonta, então o stream sobrevive à navegação.
   useEffect(() => window.ancut.analysis.onEvent(apply), [apply])
 
+  // A fila escuta o MESMO stream, por conta própria. Ela só se interessa
+  // pelos eventos terminais (done/failed/cancelled), que é quando precisa
+  // mandar o próximo episódio — e assinar separado evita que o store da
+  // análise, que cuida de barra de progresso e ETA, precise aprender que
+  // existe uma fila.
+  useEffect(() => window.ancut.analysis.onEvent(aplicarNaFila), [aplicarNaFila])
+
   // Análise terminou: abre o resultado em vez de deixar o usuário caçá-lo no
   // histórico. A navegação mora aqui, e não no store da análise, porque é a
   // App que é dona das abas — o store não deveria saber que abas existem.
@@ -48,13 +58,19 @@ export default function App(): JSX.Element {
   // fora do ar, banco travado) e mesmo assim o usuário TEM que sair da tela de
   // progresso. Preso no `then`, uma falha de leitura deixava a análise
   // terminada sem levar ninguém a lugar nenhum.
+  //
+  // Com a FILA rodando isto não vale: ela termina um episódio a cada poucos
+  // minutos, e pular pra Resultados a cada um arrancaria a pessoa de onde
+  // ela estivesse, várias vezes seguidas. A fila mostra o que ficou pronto
+  // na lista dela, e cada linha tem um "Ver".
   useEffect(() => {
     if (!result || jaAberto.current === result) return
     jaAberto.current = result
+    if (filaRodando) return
     void openEpisode(result.episodeId)
       .catch((e) => console.error('[resultados] falha ao abrir o episódio:', e))
       .finally(() => setTab('results'))
-  }, [result, openEpisode])
+  }, [result, openEpisode, filaRodando])
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
@@ -85,7 +101,13 @@ export default function App(): JSX.Element {
 
       <main className="scrollbar-thin flex-1 overflow-y-auto px-4 pb-4 pt-3">
         {tab === 'analyze' ? (
-          <AnalyzeView />
+          <AnalyzeView
+            onVerResultado={(episodeId) => {
+              void openEpisode(episodeId)
+                .catch((e) => console.error('[fila] falha ao abrir:', e))
+                .finally(() => setTab('results'))
+            }}
+          />
         ) : tab === 'library' ? (
           // A Biblioteca escolhe; a aba Resultados trabalha. Abrir daqui leva
           // pra lá porque o episódio aberto ocupa a tela inteira — mostrá-lo

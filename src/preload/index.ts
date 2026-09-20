@@ -34,6 +34,7 @@ const bridge: AnCutBridge = {
   },
   dialog: {
     pickVideo: () => ipcRenderer.invoke(CH.pickVideo),
+    pickVideos: () => ipcRenderer.invoke(CH.pickVideos),
     pickFolder: (current?: string) => ipcRenderer.invoke(CH.pickFolder, current)
   },
   episode: {

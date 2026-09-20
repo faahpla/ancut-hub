@@ -19,6 +19,8 @@ export const CH = {
 
   /** Renderer → main: abre seletor de arquivo/pasta. */
   pickVideo: 'dialog:pick-video',
+  /** Vários de uma vez — é o gesto de quem vai encher a fila. */
+  pickVideos: 'dialog:pick-videos',
   pickFolder: 'dialog:pick-folder',
 
   /** Consultas leves ao backend (sem carregar o pipeline). */

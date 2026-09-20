@@ -1,6 +1,7 @@
 import { Scissors, Sparkles, Wand2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { useAnalysisStore } from '@/stores/analysis-store'
 import { parseMmss, useEpisodeStore } from '@/stores/episode-store'
 import { DiscoveryDialog } from './discovery-dialog'
@@ -8,19 +9,30 @@ import { EpisodeForm } from './episode-form'
 import { ModeCards } from './mode-cards'
 import { NeedsInputDialog } from './needs-input-dialog'
 import { ProgressPanel } from './progress-panel'
+import { QueuePanel } from './queue-panel'
 import { ReanalyzeDialog, type ReanalyzeChoice } from './reanalyze-dialog'
+import { useQueueStore } from '@/stores/queue-store'
 
-export function AnalyzeView(): JSX.Element {
+export function AnalyzeView({
+  onVerResultado
+}: {
+  /** Abrir um episódio pronto da fila leva pra aba Resultados. */
+  onVerResultado: (episodeId: number) => void
+}): JSX.Element {
   const ep = useEpisodeStore()
   const { status, begin, apply, needsInput, dismissNeedsInput, discovery, discoveryMedia, clearDiscovery } =
     useAnalysisStore()
+  const filaRodando = useQueueStore((s) => s.rodando)
   const [startError, setStartError] = useState<string | null>(null)
   /** Resolve com a escolha do usuário quando o diálogo de reanálise abre. */
   const [pendingChoice, setPendingChoice] = useState<
     ((choice: ReanalyzeChoice) => void) | null
   >(null)
 
-  const running = status === 'running'
+  // A fila ocupa o mesmo motor: enquanto ela roda, os botões de um episódio
+  // só ficam fora — apertá-los daria "já existe uma análise em andamento",
+  // que é um erro sobre o funcionamento interno, não sobre o que a pessoa fez.
+  const running = status === 'running' || filaRodando
 
   useEffect(() => {
     void ep.hydrate()
@@ -114,8 +126,16 @@ export function AnalyzeView(): JSX.Element {
         </p>
       )}
 
-      <div className="flex flex-wrap items-center justify-center gap-2 py-0.5">
-        {running ? (
+      {/* Some inteira enquanto a fila roda: quem para a fila é o botão dela,
+          e um "Cancelar análise" aqui pararia UM episódio sem dizer que a
+          fila seguiria pro próximo. */}
+      <div
+        className={cn(
+          'flex flex-wrap items-center justify-center gap-2 py-0.5',
+          filaRodando && 'hidden'
+        )}
+      >
+        {status === 'running' ? (
           <Button
             variant="danger"
             size="lg"
@@ -163,6 +183,8 @@ export function AnalyzeView(): JSX.Element {
       </div>
 
       <ProgressPanel />
+
+      <QueuePanel onVerResultado={onVerResultado} />
 
       <ReanalyzeDialog
         open={pendingChoice !== null}
