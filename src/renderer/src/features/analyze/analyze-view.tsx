@@ -195,7 +195,10 @@ export function AnalyzeView({
         <DiscoveryDialog
           discovery={discovery}
           mediaPrefix={discoveryMedia}
-          onCommit={(names, removed) => {
+          onCommit={(names, removed, reforcar) => {
+            // Marcado ANTES do commit: o `done` pode chegar logo depois, e
+            // quem consome o pedido precisa encontrá-lo lá.
+            useAnalysisStore.getState().marcarReforco(reforcar)
             void window.ancut.analysis.commitDiscovery(names, removed)
             clearDiscovery()
           }}

@@ -1,6 +1,9 @@
 import {
+  CheckSquare,
   ChevronRight,
   Clapperboard,
+  Square,
+  Wand2,
   Combine,
   FolderOpen,
   FolderSearch,
@@ -41,9 +44,12 @@ import type { RecentEpisode } from '@shared/types'
  * abas diferentes faria a segunda nunca ser encontrada.
  */
 export function LibraryView({
-  onOpen
+  onOpen,
+  onDescobrir
 }: {
   onOpen: (episodeId: number) => void
+  /** Episódios marcados pra identificar em sequência, no Modo Descoberta. */
+  onDescobrir: (eps: RecentEpisode[]) => void
 }): JSX.Element {
   const {
     recent,
@@ -231,6 +237,7 @@ export function LibraryView({
                 podeJuntar={animes.length > 1}
                 onMudarTemporada={setMudandoTemporada}
                 onMenu={(x, y, ep, temporada) => setMenu({ x, y, ep, temporada })}
+                onDescobrir={onDescobrir}
               />
             </li>
           ))}
@@ -401,7 +408,8 @@ function AnimeCard({
   onJuntar,
   podeJuntar,
   onMudarTemporada,
-  onMenu
+  onMenu,
+  onDescobrir
 }: {
   anime: Anime
   aberto: boolean
@@ -416,10 +424,36 @@ function AnimeCard({
     destino?: number
   }) => void
   onMenu: (x: number, y: number, ep: RecentEpisode, temporada: number) => void
+  onDescobrir: (eps: RecentEpisode[]) => void
 }): JSX.Element {
   /** Temporada cujo cabeçalho está sob o episódio sendo arrastado. */
   const [alvoArrasto, setAlvoArrasto] = useState<number | null>(null)
   const temporadas = anime.temporadas.length
+
+  /**
+   * Marcando episódios pro Modo Descoberta em sequência.
+   *
+   * Vive no cartão, e não na Biblioteca inteira, porque a sequência é de UM
+   * anime: a tela de batismo sugere nomes a partir do elenco dele, e
+   * intercalar dois animes faria a pessoa trocar de elenco na cabeça a cada
+   * episódio.
+   */
+  const [marcando, setMarcando] = useState(false)
+  const [marcados, setMarcados] = useState<Set<number>>(new Set())
+  const ordem = anime.temporadas.flatMap((t) => t.episodios)
+
+  const alternarMarcado = (id: number): void =>
+    setMarcados((atual) => {
+      const novo = new Set(atual)
+      if (novo.has(id)) novo.delete(id)
+      else novo.add(id)
+      return novo
+    })
+
+  const sairDaMarcacao = (): void => {
+    setMarcando(false)
+    setMarcados(new Set())
+  }
 
   return (
     <div className="panel overflow-hidden">
@@ -459,6 +493,21 @@ function AnimeCard({
             {anime.cenas.toLocaleString('pt-BR')} cenas
           </span>
         </button>
+        <Button
+          size="sm"
+          variant={marcando ? 'secondary' : 'ghost'}
+          title="Marcar episódios pra identificar um depois do outro, no Modo Descoberta"
+          onClick={() => {
+            if (marcando) {
+              sairDaMarcacao()
+              return
+            }
+            setMarcando(true)
+            if (!aberto) onAlternar()
+          }}
+        >
+          <Wand2 />
+        </Button>
         {podeJuntar && (
           <Button
             size="sm"
@@ -551,12 +600,59 @@ function AnimeCard({
                       onOpen={onOpen}
                       temporada={t.numero}
                       onMenu={onMenu}
+                      marcado={marcando ? marcados.has(ep.episodeId) : undefined}
+                      onMarcar={() => alternarMarcado(ep.episodeId)}
                     />
                   </li>
                 ))}
               </ul>
             </div>
           ))}
+
+          {marcando && (
+            <div className="sticky bottom-0 flex flex-wrap items-center gap-2 rounded-md border border-primary/40 bg-surface-elevated px-3 py-2">
+              <Wand2 className="size-4 shrink-0 text-primary" />
+              <span className="text-[12.5px]">
+                {marcados.size === 0
+                  ? 'Clique nos episódios pra marcar'
+                  : `${marcados.size} ${marcados.size === 1 ? 'marcado' : 'marcados'}`}
+              </span>
+              <button
+                type="button"
+                className="text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                onClick={() =>
+                  setMarcados(
+                    marcados.size === ordem.length
+                      ? new Set()
+                      : new Set(ordem.map((e) => e.episodeId))
+                  )
+                }
+              >
+                {marcados.size === ordem.length ? 'Desmarcar todos' : 'Marcar todos'}
+              </button>
+              <span className="flex-1" />
+              <Button size="sm" variant="ghost" onClick={sairDaMarcacao}>
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                className="gap-1.5"
+                disabled={marcados.size === 0}
+                title="Cada episódio para na tela de batismo esperando os nomes, e o próximo começa quando você salvar"
+                onClick={() => {
+                  // Na ordem da lista, não na ordem em que foram clicados:
+                  // a sequência tem que ser a do anime.
+                  onDescobrir(ordem.filter((e) => marcados.has(e.episodeId)))
+                  sairDaMarcacao()
+                }}
+              >
+                <Wand2 />
+                Modo Descoberta em {marcados.size || ''}{' '}
+                {marcados.size === 1 ? 'episódio' : 'episódios'}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -567,20 +663,30 @@ function EpisodeRow({
   ep,
   onOpen,
   temporada,
-  onMenu
+  onMenu,
+  marcado,
+  onMarcar
 }: {
   ep: RecentEpisode
   onOpen: (episodeId: number) => void
   temporada: number
   onMenu: (x: number, y: number, ep: RecentEpisode, temporada: number) => void
+  /** Definido só no modo de marcação — aí o clique marca em vez de abrir. */
+  marcado?: boolean
+  onMarcar: () => void
 }): JSX.Element {
   const rotulo = episodeLabel(ep.season, ep.episode, ep.kind)
+  const marcando = marcado !== undefined
   return (
     <button
       type="button"
-      onClick={() => onOpen(ep.episodeId)}
-      title={`${ep.animeTitle} — arraste até outra temporada pra mover`}
-      draggable
+      onClick={() => (marcando ? onMarcar() : onOpen(ep.episodeId))}
+      title={
+        marcando
+          ? 'Clique pra marcar ou desmarcar'
+          : `${ep.animeTitle} — arraste até outra temporada pra mover`
+      }
+      draggable={!marcando}
       // Aqui o arrasto NÃO é cancelado, ao contrário da grade de cenas: este
       // é um arrasto interno da tela (mover de temporada), não um arrasto de
       // arquivo pro Windows. Tipo próprio pra a área de soltar saber que o
@@ -596,9 +702,24 @@ function EpisodeRow({
         )
         e.dataTransfer.effectAllowed = 'move'
       }}
-      className="flex w-full cursor-grab items-center gap-2 rounded-md border border-transparent bg-surface-sunken px-2.5 py-1.5 text-left transition-colors hover:border-border hover:bg-surface-hover active:cursor-grabbing"
+      className={cn(
+        'flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition-colors',
+        marcando
+          ? marcado
+            ? 'cursor-pointer border-primary/50 bg-primary/[0.12]'
+            : 'cursor-pointer border-transparent bg-surface-sunken hover:border-border hover:bg-surface-hover'
+          : 'cursor-grab border-transparent bg-surface-sunken hover:border-border hover:bg-surface-hover active:cursor-grabbing'
+      )}
     >
-      <Clapperboard className="size-3.5 shrink-0 text-muted-foreground" />
+      {marcando ? (
+        marcado ? (
+          <CheckSquare className="size-3.5 shrink-0 text-primary" />
+        ) : (
+          <Square className="size-3.5 shrink-0 text-muted-foreground" />
+        )
+      ) : (
+        <Clapperboard className="size-3.5 shrink-0 text-muted-foreground" />
+      )}
       <span className="tabular shrink-0 text-[12px] font-semibold">{rotulo}</span>
       <span className="flex-1" />
       <span className="tabular shrink-0 text-[11.5px] text-muted-foreground/70">

@@ -77,8 +77,21 @@ interface AnalysisState {
   discovery: DiscoveryReadyEvent | null
   /** Prefixo media:// da pasta do episódio, pra exibir os recortes. */
   discoveryMedia: string
+  /**
+   * O batismo pediu "Reforçar refs ao terminar".
+   *
+   * É marcado no commit da descoberta e consumido UMA vez quando a análise
+   * termina — por quem estiver no comando: a fila, se ela estiver rodando
+   * (porque precisa esperar o reforço antes do próximo), ou a App, se não.
+   * `begin` zera: uma análise que morreu antes do fim não pode deixar o
+   * pedido pendurado pra próxima.
+   */
+  reforcarAoTerminar: boolean
 
   begin: () => void
+  marcarReforco: (sim: boolean) => void
+  /** Devolve se havia pedido de reforço, e o apaga. */
+  consumirReforco: () => boolean
   apply: (event: AnalysisEvent) => void
   dismissNeedsInput: () => void
   clearDiscovery: () => void
@@ -103,9 +116,18 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   needsInput: null,
   discovery: null,
   discoveryMedia: '',
+  reforcarAoTerminar: false,
+
+  marcarReforco: (sim) => set({ reforcarAoTerminar: sim }),
+  consumirReforco: () => {
+    const havia = get().reforcarAoTerminar
+    if (havia) set({ reforcarAoTerminar: false })
+    return havia
+  },
 
   begin: () =>
     set({
+      reforcarAoTerminar: false,
       status: 'running',
       stages: freshStages(),
       overall: 0,

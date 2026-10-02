@@ -2,7 +2,10 @@ import { Settings } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAnalysisStore } from '@/stores/analysis-store'
 import { useQueueStore } from '@/stores/queue-store'
+import { useReforcoStore } from '@/stores/reforco-store'
 import { useResultsStore } from '@/stores/results-store'
+import { episodeLabel } from '@/lib/utils'
+import { ReforcoBadge } from '@/features/results/reforco-badge'
 import { Brand } from '@/components/layout/brand'
 import { DeviceBadge } from '@/components/layout/device-badge'
 import { TabBar, type TabKey } from '@/components/layout/tab-bar'
@@ -13,7 +16,7 @@ import { LibraryView } from '@/features/library/library-view'
 import { ResultsView } from '@/features/results/results-view'
 import { SettingsDialog } from '@/features/settings/settings-dialog'
 import { UpdateBadge, UpdateDialogHost } from '@/features/update/update-badge'
-import type { AnalysisResult, AppInfo } from '@shared/types'
+import type { AnalysisResult, AppInfo, RecentEpisode } from '@shared/types'
 
 export default function App(): JSX.Element {
   const [tab, setTab] = useState<TabKey>('analyze')
@@ -63,20 +66,54 @@ export default function App(): JSX.Element {
   // minutos, e pular pra Resultados a cada um arrancaria a pessoa de onde
   // ela estivesse, várias vezes seguidas. A fila mostra o que ficou pronto
   // na lista dela, e cada linha tem um "Ver".
+  //
+  // Fora da fila, é também aqui que o "Reforçar refs ao terminar" do batismo
+  // dispara. Dentro dela quem dispara é a fila, que precisa esperar o reforço
+  // antes do próximo episódio — `consumirReforco` garante que só um dos dois
+  // pega o pedido.
   useEffect(() => {
     if (!result || jaAberto.current === result) return
     jaAberto.current = result
     if (filaRodando) return
+    if (useAnalysisStore.getState().consumirReforco()) {
+      void useReforcoStore
+        .getState()
+        .rodar(result.episodeId, `${result.animeTitle} ${episodeLabel(result.season, result.episode, result.kind)}`)
+    }
     void openEpisode(result.episodeId)
       .catch((e) => console.error('[resultados] falha ao abrir o episódio:', e))
       .finally(() => setTab('results'))
   }, [result, openEpisode, filaRodando])
+
+  // A tela de batismo mora na aba Analisar. Se ela ficar pronta com a pessoa
+  // em outra aba — olhando o resultado do episódio anterior da fila, por
+  // exemplo —, o motor fica parado esperando nomes que ninguém está vendo.
+  const discoveryPronta = useAnalysisStore((s) => s.discovery !== null)
+  useEffect(() => {
+    if (discoveryPronta) setTab('analyze')
+  }, [discoveryPronta])
+
+  /**
+   * Episódios marcados na Biblioteca vão pra fila em Modo Descoberta.
+   *
+   * Só manda começar se o motor estiver livre: com uma análise avulsa
+   * rodando, começar agora faria o primeiro bater em "já existe uma análise"
+   * — eles ficam esperando na fila, com o botão de começar à mão.
+   */
+  const descobrirEmSequencia = (eps: RecentEpisode[]): void => {
+    const fila = useQueueStore.getState()
+    fila.adicionarDescoberta(eps)
+    const avulsa = useAnalysisStore.getState().status === 'running' && !fila.rodando
+    if (!avulsa) void fila.iniciar()
+    setTab('analyze')
+  }
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <TitleBar
         actions={
           <>
+            <ReforcoBadge />
             <UpdateBadge />
             <DeviceBadge info={info} />
             <Button
@@ -118,6 +155,7 @@ export default function App(): JSX.Element {
                 .catch((e) => console.error('[biblioteca] falha ao abrir:', e))
                 .finally(() => setTab('results'))
             }}
+            onDescobrir={descobrirEmSequencia}
           />
         ) : (
           <ResultsView

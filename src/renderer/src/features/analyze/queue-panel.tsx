@@ -6,7 +6,9 @@ import {
   Loader2,
   Play,
   Square,
+  SkipForward,
   Trash2,
+  Wand2,
   X
 } from 'lucide-react'
 import { useState, type DragEvent } from 'react'
@@ -49,7 +51,7 @@ export function QueuePanel({
   }
 
   const esperando = itens.filter((i) => i.status === 'esperando').length
-  const prontos = itens.filter((i) => i.status === 'pronto').length
+  const prontos = itens.filter((i) => i.status === 'pronto' || i.status === 'pulado').length
   const falhos = itens.filter((i) => i.status === 'falhou').length
 
   // Sem número de passo de propósito: 1, 2 e 3 são o caminho de UM episódio,
@@ -90,7 +92,7 @@ export function QueuePanel({
                 onClick={() => void iniciar()}
               >
                 <Play />
-                Cortar {esperando} {esperando === 1 ? 'episódio' : 'episódios'}
+                {rotuloComecar(itens.filter((i) => i.status === 'esperando'))}
               </Button>
             ))}
 
@@ -108,11 +110,10 @@ export function QueuePanel({
           <p className="text-[12.5px] leading-relaxed text-muted-foreground">
             Arraste vários episódios aqui (ou use o botão) e eles são cortados em
             cenas, um depois do outro, sem precisar de você. Os personagens ficam
-            pra depois: cada episódio pronto ganha um botão{' '}
-            <strong className="font-semibold text-foreground">
-              Identificar personagens
-            </strong>{' '}
-            na aba Resultados.
+            pra depois: na Biblioteca, o botão{' '}
+            <Wand2 className="inline size-3.5 align-[-2px] text-foreground" /> de cada
+            anime marca vários episódios pra identificar em sequência no{' '}
+            <strong className="font-semibold text-foreground">Modo Descoberta</strong>.
           </p>
         ) : (
           <>
@@ -131,7 +132,10 @@ export function QueuePanel({
             <p className="text-[11.5px] text-muted-foreground">
               {prontos > 0 && `${prontos} pronto${prontos > 1 ? 's' : ''}. `}
               {falhos > 0 && `${falhos} falhou${falhos > 1 ? '/falharam' : ''}. `}
-              A fila usa a pasta de saída e o tipo de mídia do formulário acima.
+              {itens.some((i) => i.modo === 'descobrir' && i.status !== 'pronto')
+                ? 'No Modo Descoberta, cada episódio para na tela de batismo esperando os nomes. '
+                : ''}
+              A fila usa o tipo de mídia do formulário acima.
             </p>
           </>
         )}
@@ -140,17 +144,29 @@ export function QueuePanel({
   )
 }
 
+/** O botão diz o que vai acontecer, que depende do que está esperando. */
+function rotuloComecar(esperando: ItemFila[]): string {
+  const n = esperando.length
+  const eps = n === 1 ? 'episódio' : 'episódios'
+  const descobrir = esperando.filter((i) => i.modo === 'descobrir').length
+  if (descobrir === 0) return `Cortar ${n} ${eps}`
+  if (descobrir === n) return `Modo Descoberta em ${n} ${eps}`
+  return `Começar fila (${n} ${eps})`
+}
+
 const CORES: Record<StatusItem, string> = {
   esperando: 'text-muted-foreground',
   cortando: 'text-primary',
   pronto: 'text-primary',
-  falhou: 'text-warning'
+  falhou: 'text-warning',
+  pulado: 'text-muted-foreground'
 }
 
 function Icone({ status }: { status: StatusItem }): JSX.Element {
   if (status === 'cortando') return <Loader2 className="size-3.5 animate-spin" />
   if (status === 'pronto') return <CheckCircle2 className="size-3.5" />
   if (status === 'falhou') return <CircleAlert className="size-3.5" />
+  if (status === 'pulado') return <SkipForward className="size-3.5" />
   return <Clock className="size-3.5" />
 }
 
@@ -183,9 +199,24 @@ function Linha({
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium">{rotulo}</span>
+        <span className="flex items-center gap-1.5">
+          <span className="truncate font-medium">{rotulo}</span>
+          {item.modo === 'descobrir' && (
+            <span className="flex shrink-0 items-center gap-1 rounded bg-primary/15 px-1.5 py-px text-[10.5px] font-semibold text-primary">
+              <Wand2 className="size-3" />
+              descoberta
+            </span>
+          )}
+        </span>
         {item.erro && (
-          <span className="block truncate text-[11.5px] text-warning">{item.erro}</span>
+          <span
+            className={cn(
+              'block truncate text-[11.5px]',
+              item.status === 'pulado' ? 'text-muted-foreground' : 'text-warning'
+            )}
+          >
+            {item.erro}
+          </span>
         )}
         {item.status === 'pronto' && item.shots !== undefined && (
           <span className="block text-[11.5px] text-muted-foreground">
@@ -194,7 +225,7 @@ function Linha({
         )}
       </span>
 
-      {item.status === 'pronto' && item.episodeId !== undefined && (
+      {(item.status === 'pronto' || item.status === 'pulado') && item.episodeId !== undefined && (
         <Button
           size="sm"
           variant="ghost"

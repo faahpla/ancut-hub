@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils'
 import { mediaUrl } from '@/stores/results-store'
 import type { DiscoveryGroup, DiscoveryReadyEvent } from '@shared/types'
 
+const CHAVE_REFORCO = 'ancut.reforcarAposDescoberta'
+
 /**
  * Batismo do Modo Descoberta.
  *
@@ -35,7 +37,12 @@ export function DiscoveryDialog({
 }: {
   discovery: DiscoveryReadyEvent
   mediaPrefix: string
-  onCommit: (names: Record<number, string>, removed: Record<number, number[]>) => void
+  onCommit: (
+    names: Record<number, string>,
+    removed: Record<number, number[]>,
+    /** Rodar o "Reforçar refs" sozinho quando a análise terminar. */
+    reforcar: boolean
+  ) => void
   onCancel: () => void
 }): JSX.Element {
   const [names, setNames] = useState<Record<number, string>>(() =>
@@ -45,6 +52,24 @@ export function DiscoveryDialog({
   const [submitting, setSubmitting] = useState(false)
   const [verFigurantes, setVerFigurantes] = useState(false)
   const [confirmandoSaida, setConfirmandoSaida] = useState(false)
+  // Lembrada entre um batismo e outro: quem desmarcou uma vez tinha motivo,
+  // e reaparecer marcada toda vez seria brigar com a escolha. Começa
+  // marcada porque o pedido foi justamente parar de esquecer.
+  const [reforcar, setReforcar] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(CHAVE_REFORCO) !== 'nao'
+    } catch {
+      return true
+    }
+  })
+  const alternarReforco = (sim: boolean): void => {
+    setReforcar(sim)
+    try {
+      localStorage.setItem(CHAVE_REFORCO, sim ? 'sim' : 'nao')
+    } catch {
+      /* sem armazenamento: vale só pra esta vez */
+    }
+  }
 
   // `minor` vem do motor; sem ele (motor velho) o piso é aplicado aqui, pra
   // a tela não voltar a ser a parede de antes só por causa de um delta.
@@ -95,7 +120,8 @@ export function DiscoveryDialog({
         Object.entries(removed)
           .map(([k, v]): [number, number[]] => [Number(k), Array.from(v)])
           .filter(([, v]) => v.length > 0)
-      )
+      ),
+      reforcar
     )
   }
 
@@ -145,9 +171,22 @@ export function DiscoveryDialog({
             </>
           ) : (
             <>
-              <span className="mr-auto self-center text-[12px] text-muted-foreground">
+              <span className="self-center text-[12px] text-muted-foreground">
                 {nomeados} {nomeados === 1 ? 'nomeado' : 'nomeados'}
               </span>
+              <label
+                className="mr-auto flex cursor-pointer items-center gap-1.5 self-center pl-3 text-[12px] text-muted-foreground hover:text-foreground"
+                title="Quando a análise terminar, guarda os rostos mais confiáveis deste episódio como referência — o reconhecimento automático dos próximos fica melhor. Só adiciona, nunca apaga."
+              >
+                <input
+                  type="checkbox"
+                  className="accent-primary"
+                  checked={reforcar}
+                  disabled={submitting}
+                  onChange={(e) => alternarReforco(e.target.checked)}
+                />
+                Reforçar refs ao terminar
+              </label>
               <Button
                 variant="ghost"
                 onClick={() => (nomeados > 0 ? setConfirmandoSaida(true) : onCancel())}

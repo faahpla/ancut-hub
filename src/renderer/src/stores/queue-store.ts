@@ -1,33 +1,49 @@
 import { create } from 'zustand'
-import type { AnalysisEvent, EpisodeKind } from '@shared/types'
+import type { AnalysisEvent, EpisodeKind, RecentEpisode } from '@shared/types'
+import { pastaDoAnime } from '@/features/library/group-episodes'
+import { pedidoDeIdentificacao } from '@/lib/identificar'
+import { episodeLabel } from '@/lib/utils'
 import { useAnalysisStore } from './analysis-store'
 import { useEpisodeStore } from './episode-store'
+import { useReforcoStore } from './reforco-store'
 
 /**
- * Fila de cortes.
+ * A fila: vários episódios em sequência, num motor só.
  *
- * Só CORTAR, nunca identificar — e isso não é limitação de tempo, é o que
- * permite a fila existir. Identificar para no meio pra perguntar coisas
- * (anime não encontrado, refs faltando, batismo do Modo Descoberta), e uma
- * fila que trava esperando resposta na terceira de oito é pior que fila
- * nenhuma. Cortar não pergunta nada: não usa internet, não reconhece
- * ninguém, roda sozinho até o fim.
+ * Faz duas coisas, com naturezas diferentes:
  *
- * Identificar depois é um clique por episódio, na aba Resultados, e aí a
- * pessoa está sentada na frente pra responder o que for preciso.
+ * **Cortar** — sem ninguém olhando. Não usa internet, não reconhece
+ * ninguém, não pergunta nada: roda sozinho até o fim. É o "estou na
+ * correria, deixa cortando".
+ *
+ * **Modo Descoberta** — com a pessoa na frente. Cada episódio para na tela
+ * de batismo esperando os nomes, e só segue quando eles chegam. Não é fila
+ * de largar rodando; é fila pra não ter que voltar à Biblioteca entre um
+ * episódio e outro. Foi o pedido: cortar vários pela fila, depois sentar e
+ * identificar todos em sequência.
+ *
+ * O "Automático" fica de fora de propósito: ele para pra perguntar coisas
+ * que não são nomes (anime não encontrado, refs faltando), e uma fila
+ * travada numa pergunta dessas na terceira de oito é pior que fila nenhuma.
  */
 
-export type StatusItem = 'esperando' | 'cortando' | 'pronto' | 'falhou'
+/** `pulado`: episódio que já tinha personagens — ver `dispararProximo`. */
+export type StatusItem = 'esperando' | 'cortando' | 'pronto' | 'falhou' | 'pulado'
+export type ModoItem = 'cortar' | 'descobrir'
 
 export interface ItemFila {
   /** Só pra chave de lista e remoção — o caminho pode repetir. */
   id: string
+  modo: ModoItem
+  /** Vazio em 'descobrir': o vídeo vem do histórico na hora de rodar. */
   videoPath: string
   nomeArquivo: string
   anime: string
   season: number
   episode: number
   kind: EpisodeKind
+  /** 'descobrir': o episódio JÁ cortado que vai ser identificado. */
+  origemId?: number
   status: StatusItem
   erro?: string
   /** Preenchidos quando termina, pra tela poder abrir o resultado. */
@@ -37,12 +53,14 @@ export interface ItemFila {
 
 interface QueueState {
   itens: ItemFila[]
-  /** A fila está processando (não é o mesmo que "tem item cortando"). */
+  /** A fila está processando (não é o mesmo que "tem item rodando"). */
   rodando: boolean
   /** Lendo nome de arquivo pra preencher anime/temporada/episódio. */
   lendo: boolean
 
   adicionar: (paths: string[]) => Promise<void>
+  /** Episódios já cortados, pra identificar um depois do outro. */
+  adicionarDescoberta: (eps: RecentEpisode[]) => void
   remover: (id: string) => void
   limparProntos: () => void
   limparTudo: () => void
@@ -62,6 +80,12 @@ function nomeDe(path: string): string {
   return path.split(/[\\/]/).pop() ?? path
 }
 
+/** "Slime S04E24" — a pasta do anime, que é o que a Biblioteca mostra. */
+function rotuloDe(item: ItemFila): string {
+  const ep = episodeLabel(item.season, item.episode, item.kind)
+  return item.anime ? `${item.anime} ${ep}` : item.nomeArquivo
+}
+
 export const useQueueStore = create<QueueState>((set, get) => ({
   itens: [],
   rodando: false,
@@ -77,10 +101,13 @@ export const useQueueStore = create<QueueState>((set, get) => ({
       // vez só, na hora de montar a fila.
       const novos: ItemFila[] = []
       for (const videoPath of paths) {
-        if (get().itens.some((i) => i.videoPath === videoPath)) continue
+        if (get().itens.some((i) => i.modo === 'cortar' && i.videoPath === videoPath)) {
+          continue
+        }
         const p = await window.ancut.episode.parseFilename(videoPath)
         novos.push({
           id: `f${++contador}`,
+          modo: 'cortar',
           videoPath,
           nomeArquivo: nomeDe(videoPath),
           anime: p?.anime ?? '',
@@ -96,10 +123,35 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     }
   },
 
+  adicionarDescoberta: (eps) => {
+    const jaNaFila = new Set(
+      get()
+        .itens.filter((i) => i.modo === 'descobrir' && i.status === 'esperando')
+        .map((i) => i.origemId)
+    )
+    const novos: ItemFila[] = eps
+      .filter((e) => !jaNaFila.has(e.episodeId))
+      .map((e) => ({
+        id: `f${++contador}`,
+        modo: 'descobrir',
+        videoPath: '',
+        nomeArquivo: '',
+        // A pasta do anime, não o título da fonte: é o que a Biblioteca mostra
+        // e o que a pessoa acabou de marcar.
+        anime: nomeDe(pastaDoAnime(e.episodeRoot)) || e.animeTitle,
+        season: e.season,
+        episode: e.episode,
+        kind: e.kind,
+        origemId: e.episodeId,
+        status: 'esperando'
+      }))
+    set({ itens: [...get().itens, ...novos] })
+  },
+
   remover: (id) => set({ itens: get().itens.filter((i) => i.id !== id) }),
 
   limparProntos: () =>
-    set({ itens: get().itens.filter((i) => i.status !== 'pronto') }),
+    set({ itens: get().itens.filter((i) => i.status !== 'pronto' && i.status !== 'pulado') }),
 
   limparTudo: () => set({ itens: [] }),
 
@@ -114,7 +166,7 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 
   parar: () => {
     set({ rodando: false })
-    // Volta o que estava cortando pra "esperando": cancelar não é falhar, e
+    // Volta o que estava rodando pra "esperando": cancelar não é falhar, e
     // os clipes já feitos ficam em cache — recomeçar sai do ponto em que
     // parou, não do zero.
     set({
@@ -136,14 +188,25 @@ export const useQueueStore = create<QueueState>((set, get) => ({
         episodeId: event.result.episodeId,
         shots: event.result.totalShots
       })
-      void dispararProximo(set, get)
+      // O reforço pedido no batismo roda ANTES do próximo episódio, e a fila
+      // espera ele: reforço e análise abrem cada um o seu motor, e os dois
+      // carregando modelo na mesma placa só deixaria os dois lentos.
+      const reforcar = useAnalysisStore.getState().consumirReforco()
+      void (async () => {
+        if (reforcar) {
+          await useReforcoStore.getState().rodar(event.result.episodeId, rotuloDe(atual))
+        }
+        await dispararProximo(set, get)
+      })()
       return
     }
 
-    if (event.type === 'failed') {
+    if (event.type === 'failed' || event.type === 'needs-input') {
       // Um episódio ruim não derruba a fila: marca e segue. Parar tudo por
       // causa do terceiro de oito desperdiçaria a noite inteira de quem
-      // deixou rodando.
+      // deixou rodando. `needs-input` entra aqui porque, na fila, não há
+      // quem responda à pergunta — e esperar por ela travaria a fila pra
+      // sempre.
       get().editar(atual.id, { status: 'falhou', erro: event.message })
       void dispararProximo(set, get)
       return
@@ -175,7 +238,46 @@ async function dispararProximo(
     return
   }
 
+  const falhar = (erro: string): Promise<void> => {
+    get().editar(proximo.id, { status: 'falhou', erro })
+    return dispararProximo(set, get)
+  }
+
   const ep = useEpisodeStore.getState()
+
+  if (proximo.modo === 'descobrir') {
+    // O pedido sai do que o banco sabe do episódio já cortado — o mesmo que
+    // o botão "Identificar personagens" usa. É isso que mantém o episódio na
+    // pasta em que ele mora, reaproveitando o corte.
+    const results =
+      proximo.origemId !== undefined ? await window.ancut.results.load(proximo.origemId) : null
+    if (!get().rodando) return
+    if (!results) return falhar('O episódio não está mais no histórico.')
+    // Já identificado: pula. Refazer a descoberta APAGA as cenas e as recria
+    // (`clear_episode_shots`), e com elas vão os favoritos e as marcações à
+    // mão daquele episódio. Um "Marcar todos" na Biblioteca pega episódio
+    // que já está pronto, e a fila não pode cobrar isso calada.
+    if (results.characters.length > 0) {
+      get().editar(proximo.id, {
+        status: 'pulado',
+        episodeId: results.episodeId,
+        erro: 'Já tinha personagens — pulado pra não apagar favoritos e marcações.'
+      })
+      return dispararProximo(set, get)
+    }
+    if (!results.sourceExists) {
+      return falhar('O vídeo original não está mais no lugar — sem ele não há rosto pra agrupar.')
+    }
+    get().editar(proximo.id, { status: 'cortando', erro: undefined })
+    useAnalysisStore.getState().begin()
+    try {
+      await window.ancut.analysis.start(pedidoDeIdentificacao(results, ep, true))
+    } catch (e) {
+      return falhar(e instanceof Error ? e.message : 'Falha ao iniciar a descoberta.')
+    }
+    return
+  }
+
   if (!ep.outputDir.trim()) {
     get().editar(proximo.id, {
       status: 'falhou',
@@ -215,13 +317,9 @@ async function dispararProximo(
       renderExportMode: ep.renderExportMode
     })
   } catch (e) {
-    // O start falha antes de o motor subir (já tem análise rodando, motor
-    // não encontrado): nenhum evento vai chegar, então o erro tem que ser
-    // tratado aqui ou a fila ficaria parada pra sempre.
-    get().editar(proximo.id, {
-      status: 'falhou',
-      erro: e instanceof Error ? e.message : 'Falha ao iniciar o corte.'
-    })
-    void dispararProximo(set, get)
+    // O start falha antes de o motor subir (motor não encontrado): nenhum
+    // evento vai chegar, então o erro tem que ser tratado aqui ou a fila
+    // ficaria parada pra sempre.
+    return falhar(e instanceof Error ? e.message : 'Falha ao iniciar o corte.')
   }
 }
