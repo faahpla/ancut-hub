@@ -7,6 +7,7 @@ import { ExplorerSyncBar } from './explorer-sync-bar'
 import { BenchmarkButton } from './benchmark-button'
 import { HarvestButton } from './harvest-button'
 import { IdentifyButton } from './identify-button'
+import { NextEpisodeButton } from './next-episode-button'
 import { PreviewPlayer } from './preview-player'
 import { ShotGrid } from './shot-grid'
 
@@ -87,6 +88,7 @@ export function ResultsView({
         <span className="text-[12px] text-muted-foreground">
           {results.totalShots} cenas · {results.characters.length} personagens
         </span>
+        <NextEpisodeButton />
         <span className="flex-1" />
         <IdentifyButton results={results} onStarted={onAnalyze} />
         <BenchmarkButton
