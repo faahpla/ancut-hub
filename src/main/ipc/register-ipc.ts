@@ -2,7 +2,8 @@ import { app, dialog, ipcMain, nativeImage, shell } from 'electron'
 import { join } from 'node:path'
 import { CH } from '../../shared/channels'
 import type { AnalysisRequest, AppInfo, AppSettings } from '../../shared/types'
-import { allowMediaRoot, mediaUrlPrefix } from '../register-protocol'
+import { allowMediaRoot, caminhoDaMidia, mediaUrlPrefix } from '../register-protocol'
+import { tiraDoClipe } from '../services/strip-service'
 import type { PythonService } from '../services/python-service'
 import type { UpdateService } from '../services/update-service'
 import { SettingsStore } from '../store/settings-store'
@@ -222,6 +223,19 @@ export function registerIpc(
   ipcMain.handle(CH.harvestStart, async (_e, episodeId: number) =>
     python.harvest(episodeId, (event) => windows.send(CH.harvestEvent, event))
   )
+  ipcMain.handle(CH.clipStrip, async (_e, clipUrl: string) => {
+    // Só clipe que o media:// já serviria — ver `caminhoDaMidia`.
+    const caminho = caminhoDaMidia(clipUrl)
+    if (!caminho) return null
+    try {
+      return await tiraDoClipe(caminho)
+    } catch (err) {
+      // Sem tira o card continua com a miniatura: prévia a menos, nada quebra.
+      console.error('[tira] não consegui montar a tira de', caminho, err)
+      return null
+    }
+  })
+
   ipcMain.handle(CH.mediaUrls, async (_e, episodeRoot: string): Promise<string> => {
     // Liberar a raiz é o que autoriza o renderer a ler dali via media://.
     allowMediaRoot(episodeRoot)

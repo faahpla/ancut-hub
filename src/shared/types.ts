@@ -595,6 +595,22 @@ export interface BenchmarkCase {
   total: number
 }
 
+/**
+ * A tira de quadros que a prévia do card percorre com o mouse.
+ *
+ * Uma imagem só, com `quadros` quadros do clipe em grade de `colunas` por
+ * `linhas`, em ordem de leitura. Mover o mouse é trocar qual pedaço dela
+ * aparece — ver `strip-service.ts` pro porquê de não ser um <video>.
+ */
+export interface ClipStrip {
+  /** URL media:// da imagem da tira. */
+  url: string
+  /** Quantos quadros vieram DE FATO — pode ser menos que o pedido. */
+  quadros: number
+  colunas: number
+  linhas: number
+}
+
 export interface DeleteResult {
   deletedCount: number
   /** Arquivos que foram parar na lixeira: clipe + keyframe. */
@@ -823,6 +839,12 @@ export interface AnCutBridge {
      * URL. Sem isto o renderer não consegue exibir keyframe nem tocar clipe.
      */
     grantMedia(episodeRoot: string): Promise<string>
+    /**
+     * Tira de quadros do clipe, montada uma vez e guardada em disco. Recebe a
+     * mesma URL media:// que o card já usa — e só atende clipe dentro de uma
+     * pasta já liberada, como o próprio media://. Null quando não deu.
+     */
+    clipStrip(clipUrl: string): Promise<ClipStrip | null>
   }
   settings: {
     get(): Promise<AppSettings>

@@ -42,6 +42,8 @@ export const CH = {
   harvestEvent: 'results:harvest-event',
   /** Converte caminho do disco em URL media:// (e libera a raiz). */
   mediaUrls: 'results:media-urls',
+  /** Tira de quadros de um clipe, pra prévia guiada pelo mouse. */
+  clipStrip: 'results:clip-strip',
   /** Congela este episódio como gabarito da régua de reconhecimento. */
   benchmarkAdd: 'results:benchmark-add',
   /** O que o usuário mexeu na pasta do episódio pelo Explorer. */

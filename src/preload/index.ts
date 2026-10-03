@@ -94,7 +94,8 @@ const bridge: AnCutBridge = {
     },
     markBenchmark: (episodeId: number, label = '') =>
       ipcRenderer.invoke(CH.benchmarkAdd, episodeId, label),
-    grantMedia: (episodeRoot: string) => ipcRenderer.invoke(CH.mediaUrls, episodeRoot)
+    grantMedia: (episodeRoot: string) => ipcRenderer.invoke(CH.mediaUrls, episodeRoot),
+    clipStrip: (clipUrl: string) => ipcRenderer.invoke(CH.clipStrip, clipUrl)
   },
   settings: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke(CH.settingsGet),

@@ -37,6 +37,25 @@ function isAllowed(target: string): boolean {
   return false
 }
 
+/**
+ * O caminho no disco de uma URL media://, se ela aponta pra dentro de uma
+ * raiz liberada — o mesmo critério que o próprio esquema aplica ao servir.
+ *
+ * Existe pra quem recebe uma URL dessas do renderer e precisa do arquivo de
+ * verdade (a tira de quadros da prévia). Aceitar um caminho cru do renderer
+ * abriria a porta que o media:// fecha: pedir qualquer arquivo do sistema.
+ */
+export function caminhoDaMidia(url: string): string | null {
+  try {
+    const u = new URL(url)
+    if (u.protocol !== `${MEDIA_SCHEME}:`) return null
+    const alvo = decodeURIComponent(u.pathname).replace(/^\/+/, '')
+    return alvo && isAllowed(alvo) ? resolve(alvo) : null
+  } catch {
+    return null
+  }
+}
+
 /** Registrado UMA vez, antes do "ready", pros esquemas agirem como https. */
 export function registerSchemes(): void {
   protocol.registerSchemesAsPrivileged([
