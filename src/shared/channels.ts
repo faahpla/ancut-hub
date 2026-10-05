@@ -64,6 +64,10 @@ export const CH = {
   setSeasonPlan: 'results:set-season-plan',
   /** Renomeia as pastas e reaponta o histórico. */
   setSeasonApply: 'results:set-season-apply',
+  /** Simula mudar tipo, número e pasta de vários episódios. Não move nada. */
+  reclassifyPlan: 'results:reclassify-plan',
+  /** Move as pastas e reaponta o histórico. */
+  reclassifyApply: 'results:reclassify-apply',
   /** Liga/desliga o favorito de uma cena. */
   favToggle: 'results:fav-toggle',
   tagShot: 'results:tag-shot',

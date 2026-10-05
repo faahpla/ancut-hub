@@ -64,6 +64,8 @@ const bridge: AnCutBridge = {
       ipcRenderer.invoke(CH.setSeasonPlan, episodeIds, season),
     setSeasonApply: (episodeIds: number[], season: number) =>
       ipcRenderer.invoke(CH.setSeasonApply, episodeIds, season),
+    reclassifyPlan: (req) => ipcRenderer.invoke(CH.reclassifyPlan, req),
+    reclassifyApply: (req) => ipcRenderer.invoke(CH.reclassifyApply, req),
     favToggle: (shotId: number, characterId = 0) =>
       ipcRenderer.invoke(CH.favToggle, shotId, characterId),
     favorites: () => ipcRenderer.invoke(CH.favorites),

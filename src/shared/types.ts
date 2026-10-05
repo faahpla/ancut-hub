@@ -271,6 +271,37 @@ export interface SeasonPlan {
 }
 
 /**
+ * Mudar o TIPO e o número de vários episódios, e juntá-los numa pasta só.
+ *
+ * O caso que trouxe isto: aberturas analisadas sem marcar "Abertura" viram
+ * um anime cada, todas com um S01E01 — e juntar uma por uma dá conflito,
+ * porque todas têm o mesmo nome. Aqui cada uma ganha o seu número.
+ */
+export interface ReclassifyRequest {
+  /** Pasta de anime que recebe tudo. Vazio = cada um fica onde está. */
+  destino: string
+  season: number
+  itens: { episodeId: number; kind: EpisodeKind; numero: number }[]
+}
+
+export interface ReclassifyPlan {
+  destino: string
+  mudancas: {
+    episodeId: number
+    /** "pasta do anime/pasta do episódio", antes e depois. */
+    de: string
+    para: string
+    season: number
+    episode: number
+    kind: EpisodeKind
+  }[]
+  conflitos: string[]
+  erro: string
+  pode: boolean
+  aplicado: boolean
+}
+
+/**
  * O que seria (ou foi) apagado ao excluir um episódio.
  *
  * `insideOutput` é a trava: só pasta DENTRO da saída configurada pode ir pra
@@ -785,6 +816,10 @@ export interface AnCutBridge {
     setSeasonPlan(episodeIds: number[], season: number): Promise<SeasonPlan | null>
     /** Renomeia as pastas e reaponta o histórico. */
     setSeasonApply(episodeIds: number[], season: number): Promise<SeasonPlan | null>
+    /** Simula mudar tipo, número e pasta — não move nada. */
+    reclassifyPlan(req: ReclassifyRequest): Promise<ReclassifyPlan | null>
+    /** Move as pastas e reaponta o histórico. */
+    reclassifyApply(req: ReclassifyRequest): Promise<ReclassifyPlan | null>
     /** Liga/desliga o favorito. Devolve o estado novo. */
     favToggle(shotId: number, characterId?: number): Promise<FavToggle | null>
     /** Marca (ou desmarca) o personagem nesta cena. Mexe no banco, na pasta

@@ -13,6 +13,7 @@ import {
   Move,
   PlayCircle,
   Search,
+  Shapes,
   Star,
   Users,
   Trash2,
@@ -26,6 +27,7 @@ import { useResultsStore } from '@/stores/results-store'
 import { agruparPorAnime, filtrar, type Anime } from './group-episodes'
 import { MergeAnimeDialog } from './merge-anime-dialog'
 import { SeasonDialog } from './season-dialog'
+import { OrganizeDialog } from './organize-dialog'
 import { DeleteEpisodeDialog } from './delete-episode-dialog'
 import { CharactersView } from './characters-view'
 import { FavoritesView } from './favorites-view'
@@ -95,6 +97,8 @@ export function LibraryView({
     temporada: number
   } | null>(null)
   const [excluindo, setExcluindo] = useState<{ id: number; rotulo: string } | null>(null)
+  /** Episódios na janela de organizar (tipo, número e pasta). */
+  const [organizando, setOrganizando] = useState<RecentEpisode[] | null>(null)
 
   useEffect(() => {
     void loadRecent()
@@ -181,6 +185,27 @@ export function LibraryView({
             rotulo="Favoritos"
           />
         </div>
+        {modo === 'anime' && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="shrink-0 gap-1.5"
+            disabled={!buscando || visiveis.length === 0}
+            title={
+              buscando
+                ? 'Mudar o tipo (episódio, abertura, encerramento), o número e a pasta do que apareceu na busca, tudo de uma vez'
+                : 'Procure primeiro (ex.: "Black Clover") — organiza tudo que aparecer na busca de uma vez'
+            }
+            onClick={() =>
+              setOrganizando(
+                visiveis.flatMap((a) => a.temporadas.flatMap((t) => t.episodios))
+              )
+            }
+          >
+            <Shapes />
+            Organizar
+          </Button>
+        )}
         {modo === 'anime' && (
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -299,6 +324,11 @@ export function LibraryView({
                 })
             },
             {
+              label: 'Mudar o tipo (abertura, encerramento)…',
+              icon: Shapes,
+              onSelect: () => setOrganizando([menu.ep])
+            },
+            {
               label: 'Excluir…',
               icon: Trash2,
               danger: true,
@@ -309,6 +339,18 @@ export function LibraryView({
                 })
             }
           ]}
+        />
+      )}
+
+      {organizando && (
+        <OrganizeDialog
+          episodios={organizando}
+          animes={animes}
+          onClose={() => setOrganizando(null)}
+          onDone={() => {
+            setOrganizando(null)
+            void loadRecent()
+          }}
         />
       )}
 

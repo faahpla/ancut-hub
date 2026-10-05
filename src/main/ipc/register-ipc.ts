@@ -1,7 +1,7 @@
 import { app, dialog, ipcMain, nativeImage, shell } from 'electron'
 import { join } from 'node:path'
 import { CH } from '../../shared/channels'
-import type { AnalysisRequest, AppInfo, AppSettings } from '../../shared/types'
+import type { AnalysisRequest, AppInfo, AppSettings, ReclassifyRequest } from '../../shared/types'
 import { allowMediaRoot, caminhoDaMidia, mediaUrlPrefix } from '../register-protocol'
 import { tiraDoClipe } from '../services/strip-service'
 import type { PythonService } from '../services/python-service'
@@ -144,6 +144,12 @@ export function registerIpc(
   )
   ipcMain.handle(CH.setSeasonApply, async (_e, ids: number[], season: number) =>
     python.setSeasonApply(ids, season)
+  )
+  ipcMain.handle(CH.reclassifyPlan, async (_e, req: ReclassifyRequest) =>
+    python.reclassify(req, false)
+  )
+  ipcMain.handle(CH.reclassifyApply, async (_e, req: ReclassifyRequest) =>
+    python.reclassify(req, true)
   )
 
   /**

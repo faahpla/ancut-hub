@@ -19,6 +19,8 @@ import type {
   TagShot,
   RemoveCharacter,
   FavoritesIndex,
+  ReclassifyPlan,
+  ReclassifyRequest,
   SeasonPlan,
   HarvestDone,
   HarvestEvent,
@@ -409,6 +411,29 @@ export class PythonService {
     return this.runOneShot<SeasonPlan>(
       ['set-season', String(season), ids.join(','), 'apply'],
       'set-season'
+    )
+  }
+
+  /**
+   * Muda tipo, número e pasta de vários episódios. Dois tempos, igual à
+   * temporada: `aplicar` false só devolve o plano.
+   *
+   * Os itens vão como `id:TIPO:número` separados por vírgula, e não JSON:
+   * aspas dentro de argumento de linha de comando no Windows são loteria.
+   */
+  reclassify(req: ReclassifyRequest, aplicar: boolean): Promise<ReclassifyPlan | null> {
+    const itens = req.itens
+      .map((i) => `${Math.trunc(i.episodeId)}:${i.kind || 'E'}:${Math.trunc(i.numero)}`)
+      .join(',')
+    return this.runOneShot<ReclassifyPlan>(
+      [
+        'reclassify',
+        req.destino,
+        String(Math.trunc(req.season)),
+        itens,
+        ...(aplicar ? ['apply'] : [])
+      ],
+      'reclassify'
     )
   }
 
