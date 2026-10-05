@@ -121,6 +121,12 @@ export function OrganizeDialog({
   const [plano, setPlano] = useState<ReclassifyPlan | null>(null)
   const [carregando, setCarregando] = useState(false)
   const [aplicando, setAplicando] = useState(false)
+  /**
+   * O motor não respondeu. Quase sempre é motor anterior à 0.15.0 — quem
+   * atualizou só a interface pelo app e não rodou o instalador completo. Sem
+   * isto a janela ficava em branco, com o botão apagado e nenhum motivo.
+   */
+  const [semResposta, setSemResposta] = useState(false)
 
   const pastaFinal = destino === NOVA ? novaPasta.trim() : destino
   const marcadas = linhas.filter((l) => l.marcado)
@@ -161,7 +167,11 @@ export function OrganizeDialog({
     const t = window.setTimeout(() => {
       void window.ancut.results
         .reclassifyPlan(pedido)
-        .then((p) => vivo && setPlano(p))
+        .then((p) => {
+          if (!vivo) return
+          setPlano(p)
+          setSemResposta(p === null)
+        })
         .finally(() => vivo && setCarregando(false))
     }, 300)
     return () => {
@@ -373,6 +383,15 @@ export function OrganizeDialog({
             <p className="flex items-center gap-2 text-[12px] text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" />
               Conferindo…
+            </p>
+          )}
+
+          {semResposta && !carregando && (
+            <p className="rounded-md border border-warning/40 bg-warning/[0.08] px-3 py-2 text-[12.5px] leading-relaxed text-muted-foreground">
+              <span className="font-medium text-warning">O motor não respondeu.</span>{' '}
+              Organizar precisa do motor da versão 1.29.0, que só vem pelo
+              instalador completo (AnCut-HUB-1.29.0-Completo.exe, na página de
+              versões). Seu acervo continua onde está.
             </p>
           )}
 
