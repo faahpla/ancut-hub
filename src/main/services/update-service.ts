@@ -1,10 +1,15 @@
 import { app, net } from 'electron'
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { createWriteStream } from 'node:fs'
+import { createWriteStream, readdirSync } from 'node:fs'
 import { copyFile, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { UpdateManifest, UpdatePackage, UpdateStatus } from '../../shared/types'
+import type {
+  MotorPackage,
+  UpdateManifest,
+  UpdatePackage,
+  UpdateStatus
+} from '../../shared/types'
 
 /**
  * Atualização automática via GitHub Releases.
@@ -48,7 +53,9 @@ export class UpdateService {
   constructor(
     private readonly emit: (status: UpdateStatus) => void,
     /** Bloqueia a aplicação enquanto uma análise estiver rodando. */
-    private readonly isEngineBusy: () => boolean
+    private readonly isEngineBusy: () => boolean,
+    /** Versão do motor instalado (o probe). null = não respondeu. */
+    private readonly versaoDoMotor: () => Promise<string | null>
   ) {
     this.status = {
       phase: 'idle',
@@ -58,7 +65,9 @@ export class UpdateService {
       error: null,
       // Em dev o app roda de out/ pelo electron-vite: não há instalação pra
       // sobrescrever, e copiar por cima só quebraria o ambiente de trabalho.
-      supported: app.isPackaged && process.platform === 'win32'
+      supported: app.isPackaged && process.platform === 'win32',
+      pacotes: { ui: false, motor: false },
+      motorIncompativel: false
     }
   }
 
@@ -80,13 +89,22 @@ export class UpdateService {
     this.set({ phase: 'checking', error: null, progress: null })
     try {
       const manifest = await this.fetchManifest()
-      if (!isNewer(manifest.version, this.status.currentVersion)) {
-        return this.set({ phase: 'up-to-date', manifest: null })
+      const ui = isNewer(manifest.version, this.status.currentVersion)
+      const motor = await this.motorServe(manifest.packages.motor)
+      const pacotes = { ui, motor: motor === 'serve' }
+      const motorIncompativel = motor === 'incompativel'
+      if (!pacotes.ui && !pacotes.motor) {
+        return this.set({ phase: 'up-to-date', manifest: null, pacotes, motorIncompativel })
       }
       // Um download interrompido antes de aplicar não se perde: se o payload
       // desta versão já está pronto no disco, pula direto pro fim.
-      const ready = await this.isStaged(manifest.version)
-      return this.set({ phase: ready ? 'ready' : 'available', manifest })
+      const ready = await this.isStaged(stageKey(manifest, pacotes))
+      return this.set({
+        phase: ready ? 'ready' : 'available',
+        manifest,
+        pacotes,
+        motorIncompativel
+      })
     } catch (err) {
       return this.set({ phase: 'error', error: describe(err) })
     } finally {
@@ -109,6 +127,32 @@ export class UpdateService {
     return manifest
   }
 
+  /**
+   * O motor do manifesto deve vir junto?
+   *
+   * Duas condições. A óbvia: ser mais novo que o instalado. A que custou
+   * caro: as bibliotecas do motor instalado (torch, numpy, CUDA — os 5 GB
+   * que o pacote NÃO leva) têm que ser as mesmas com que o pacote foi
+   * construído. O app de quem instalou antes da formatação de 09/2026 tem
+   * numpy 2.4.4; o pacote, construído aqui, espera 2.5.2. Aplicado por cima,
+   * o motor quebrava no numpy e o app caía pra CPU sem avisar. Foi por isso
+   * que toda correção de motor passou a exigir o instalador de 2 GB.
+   *
+   * Com a conferência, o pacote pequeno volta a valer pra quem pode recebê-lo,
+   * e só quem não pode é mandado pro instalador.
+   */
+  private async motorServe(
+    motor: MotorPackage | undefined
+  ): Promise<'serve' | 'incompativel' | 'nada'> {
+    if (!motor?.versao || !motor.base) return 'nada'
+    const instalada = await this.versaoDoMotor()
+    // Sem resposta do motor não dá pra saber o que está lá. Na dúvida, não
+    // mexe: o pior que acontece é a correção esperar a próxima checagem.
+    if (!instalada || !isNewer(motor.versao, instalada)) return 'nada'
+    const pasta = join(dirname(app.getPath('exe')), 'engine')
+    return baseDoMotor(pasta) === motor.base ? 'serve' : 'incompativel'
+  }
+
   // ------------------------------------------------------------ download
 
   async download(): Promise<UpdateStatus> {
@@ -117,15 +161,20 @@ export class UpdateService {
     if (this.status.phase === 'ready') return this.status
 
     this.busy = true
-    const stage = this.stageDir(manifest.version)
+    const chave = stageKey(manifest, this.status.pacotes)
+    const stage = this.stageDir(chave)
     const payload = join(stage, 'payload')
     try {
       await rm(stage, { recursive: true, force: true })
       await mkdir(payload, { recursive: true })
 
-      const parts = [manifest.packages.ui, manifest.packages.engine].filter(
-        (p): p is UpdatePackage => Boolean(p)
-      )
+      // Só o que a checagem decidiu. A interface fica de fora quando já está
+      // na versão do manifesto (atualização só de motor); o motor, quando não
+      // é mais novo ou não serve nas bibliotecas instaladas.
+      const parts = [
+        this.status.pacotes.ui ? manifest.packages.ui : undefined,
+        this.status.pacotes.motor ? manifest.packages.motor : undefined
+      ].filter((p): p is UpdatePackage => Boolean(p))
       const total = parts.reduce((sum, p) => sum + p.size, 0)
       let done = 0
 
@@ -143,8 +192,8 @@ export class UpdateService {
 
       // O marcador só entra depois de tudo baixado, conferido e extraído —
       // é ele que autoriza pular o download numa próxima abertura.
-      await writeFile(join(stage, '.ready'), manifest.version, 'utf-8')
-      await this.pruneOldStages(manifest.version)
+      await writeFile(join(stage, '.ready'), chave, 'utf-8')
+      await this.pruneOldStages(chave)
       return this.set({ phase: 'ready', progress: null })
     } catch (err) {
       await rm(stage, { recursive: true, force: true }).catch(() => undefined)
@@ -218,7 +267,7 @@ export class UpdateService {
     this.busy = true
 
     try {
-      return await this.runApply(manifest.version)
+      return await this.runApply(stageKey(manifest, this.status.pacotes))
     } catch (err) {
       this.busy = false
       this.set({ phase: 'ready', error: describe(err) })
@@ -226,9 +275,9 @@ export class UpdateService {
     }
   }
 
-  private async runApply(version: string): Promise<boolean> {
+  private async runApply(chave: string): Promise<boolean> {
     const installRoot = dirname(app.getPath('exe'))
-    const stage = this.stageDir(version)
+    const stage = this.stageDir(chave)
     const payload = join(stage, 'payload')
 
     // O script vem de dentro do asar — copiar pra fora é obrigatório: o
@@ -273,13 +322,13 @@ export class UpdateService {
 
   // --------------------------------------------------------------- disco
 
-  private stageDir(version: string): string {
-    return join(app.getPath('userData'), 'updates', version)
+  private stageDir(chave: string): string {
+    return join(app.getPath('userData'), 'updates', chave)
   }
 
-  private async isStaged(version: string): Promise<boolean> {
+  private async isStaged(chave: string): Promise<boolean> {
     try {
-      const entries = await readdir(this.stageDir(version))
+      const entries = await readdir(this.stageDir(chave))
       return entries.includes('.ready')
     } catch {
       return false
@@ -300,6 +349,46 @@ export class UpdateService {
 }
 
 // ------------------------------------------------------------- utilidades
+
+/**
+ * Nome da pasta de download: a versão, mais o que vai junto. Sem isto, um
+ * payload só de interface baixado antes ("1.29.1") seria aplicado no lugar de
+ * um que também leva o motor, e vice-versa.
+ */
+function stageKey(manifest: UpdateManifest, pacotes: { ui: boolean; motor: boolean }): string {
+  const partes = [manifest.version]
+  if (!pacotes.ui) partes.push('so-motor')
+  if (pacotes.motor && manifest.packages.motor) partes.push(`motor-${manifest.packages.motor.versao}`)
+  return partes.join('_')
+}
+
+/**
+ * Impressão digital das bibliotecas de um motor instalado.
+ *
+ * Cada biblioteca Python que o PyInstaller copia leva a versão no nome da
+ * pasta de metadados — `numpy-2.5.2.dist-info`, `torch-2.11.0+cu128.dist-info`
+ * —, e a DLL do Python leva a versão dele. A lista desses nomes muda
+ * exatamente quando o pacote do motor deixa de servir.
+ *
+ * Não é o `deps_fingerprint.txt`: aquele é o hash do requirements.txt, que
+ * foi IGUAL nas duas máquinas — as versões soltas resolveram diferente na
+ * hora do pip. Foi por isso que ele não barrou o delta quebrado.
+ *
+ * **Mesma conta do `scripts/release.mjs`** — mudar uma sem a outra faz todo
+ * motor parecer incompatível.
+ */
+export function baseDoMotor(pastaDoMotor: string): string | null {
+  try {
+    const nomes = readdirSync(join(pastaDoMotor, '_internal'))
+      .filter((n) => /\.dist-info$/i.test(n) || /^python3\d*\.dll$/i.test(n))
+      .map((n) => n.toLowerCase())
+      .sort()
+    if (nomes.length === 0) return null
+    return createHash('sha256').update(nomes.join('\n')).digest('hex')
+  } catch {
+    return null
+  }
+}
 
 /** Compara `1.10.0` > `1.9.3` numericamente (comparar texto erraria isso). */
 export function isNewer(candidate: string, current: string): boolean {

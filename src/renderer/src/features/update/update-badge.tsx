@@ -44,7 +44,9 @@ export function UpdateBadge(): JSX.Element | null {
           ? 'Baixando…'
           : phase === 'ready'
             ? 'Pronto pra instalar'
-            : `Versão ${status?.manifest?.version}`}
+            : status?.pacotes.ui === false
+              ? 'Motor novo'
+              : `Versão ${status?.manifest?.version}`}
       </button>
 
     </>
@@ -68,13 +70,39 @@ export function UpdateDialogHost(): JSX.Element | null {
   )
 }
 
+/**
+ * O motor novo não serve no motor instalado: as bibliotecas dele (torch,
+ * numpy) são de outra versão, e o pacote pequeno por cima quebraria a
+ * análise. Acontece com quem instalou o app antes de 09/2026. Uma vez pelo
+ * instalador completo, e daí em diante o motor volta a chegar por aqui.
+ */
+export function AvisoInstaladorCompleto({ versao }: { versao?: string }): JSX.Element {
+  return (
+    <p className="rounded-md border border-warning/40 bg-warning/[0.08] px-3 py-2 text-[11.5px] leading-relaxed text-muted-foreground">
+      <span className="font-medium text-warning">O motor de análise novo não chega por aqui.</span>{' '}
+      O seu foi instalado com bibliotecas de outra versão, e trocar só o motor
+      quebraria a análise. Baixe o instalador completo
+      {versao ? ` (AnCut-HUB-${versao}-Completo.exe)` : ''} na página de versões
+      do GitHub, uma vez — depois disso as próximas correções do motor chegam
+      pela atualização normal.
+    </p>
+  )
+}
+
 function UpdateDialog(): JSX.Element {
   const { status, setOpen, dismiss, download, apply } = useUpdateStore()
   const manifest = status?.manifest
   const phase = status?.phase ?? 'idle'
 
+  const soMotor = status?.pacotes.ui === false
+  const comMotor = Boolean(status?.pacotes.motor)
+  // O tamanho do que VAI ser baixado, não do que o manifesto tem: a
+  // interface fica de fora numa atualização só de motor, e o motor fica de
+  // fora quando não serve aqui.
   const totalMb = manifest
-    ? (manifest.packages.ui.size + (manifest.packages.engine?.size ?? 0)) / 1e6
+    ? ((status?.pacotes.ui ? manifest.packages.ui.size : 0) +
+        (comMotor ? manifest.packages.motor?.size ?? 0 : 0)) /
+      1e6
     : 0
   const pct =
     status?.progress && status.progress.total > 0
@@ -86,13 +114,17 @@ function UpdateDialog(): JSX.Element {
       title={
         phase === 'ready'
           ? 'Atualização pronta pra instalar'
-          : `AnCut HUB ${manifest?.version ?? ''} disponível`
+          : soMotor
+            ? 'Correção do motor de análise disponível'
+            : `AnCut HUB ${manifest?.version ?? ''} disponível`
       }
       description={
         phase === 'applying'
           ? 'Confirme o pedido de permissão do Windows que apareceu na tela. Depois disso o app fecha e volta atualizado.'
           : phase === 'ready'
           ? 'O app vai fechar, aplicar a atualização e abrir de novo sozinho. O Windows vai pedir permissão uma vez.'
+          : soMotor
+          ? `A interface já está na ${status?.currentVersion}; falta o motor. O download é de ${totalMb.toFixed(1)} MB.`
           : `Você está na ${status?.currentVersion}. O download é de ${totalMb.toFixed(1)} MB — só o que mudou, não o pacote inteiro.`
       }
       onClose={() => setOpen(false)}
@@ -166,12 +198,14 @@ function UpdateDialog(): JSX.Element {
           </p>
         )}
 
-        {manifest?.packages.engine && (
+        {comMotor && !soMotor && (
           <p className="text-[11.5px] leading-relaxed text-muted-foreground">
             Esta atualização também troca o motor de análise, por isso é maior
             que o normal.
           </p>
         )}
+
+        {status?.motorIncompativel && <AvisoInstaladorCompleto versao={manifest?.version} />}
       </div>
     </DialogContent>
   )

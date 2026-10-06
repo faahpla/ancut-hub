@@ -28,16 +28,26 @@ export function UpdateCheckButton(): JSX.Element {
   ) {
     return (
       <Button variant="ghost" size="sm" className="text-primary" onClick={() => setOpen(true)}>
-        Versão {status.manifest?.version} disponível
+        {status.pacotes.ui === false
+          ? 'Correção do motor disponível'
+          : `Versão ${status.manifest?.version} disponível`}
       </Button>
     )
   }
 
   return (
     <div className="flex items-center gap-2">
-      {phase === 'up-to-date' && (
-        <span className="text-[11.5px] text-muted-foreground">Você está na mais recente</span>
-      )}
+      {phase === 'up-to-date' &&
+        (status.motorIncompativel ? (
+          <span
+            className="text-[11.5px] text-warning"
+            title="Seu motor foi instalado com bibliotecas de outra versão. Baixe o instalador completo uma vez, na página de versões do GitHub."
+          >
+            Motor novo só pelo instalador completo
+          </span>
+        ) : (
+          <span className="text-[11.5px] text-muted-foreground">Você está na mais recente</span>
+        ))}
       {phase === 'error' && (
         <span className="text-[11.5px] text-destructive">{status.error}</span>
       )}

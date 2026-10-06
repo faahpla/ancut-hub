@@ -707,9 +707,32 @@ export interface UpdateManifest {
   packages: {
     /** A interface Electron. Sempre presente — pesa ~3 MB. */
     ui: UpdatePackage
-    /** O motor Python. Só quando o código Python mudou (~45 MB). */
+    /**
+     * O motor Python no formato antigo. Releases novas NÃO publicam mais
+     * este: o updater de até a 1.29.0 aplicava sem conferir nada, e por cima
+     * do motor da máquina antiga isso quebrava no numpy. Fica no tipo só pra
+     * ler manifesto velho.
+     */
     engine?: UpdatePackage
+    /**
+     * O motor Python, com o que ele espera achar instalado. Nome novo de
+     * propósito: updater antigo não conhece a chave e ignora — só quem sabe
+     * conferir a `base` recebe o motor pela atualização.
+     */
+    motor?: MotorPackage
   }
+}
+
+/** Pacote do motor: só código nosso (~45 MB), por cima das bibliotecas. */
+export interface MotorPackage extends UpdatePackage {
+  /** Versão do motor dentro do pacote (`app/__init__.py`). */
+  versao: string
+  /**
+   * Impressão digital das bibliotecas (torch, numpy…) com que o pacote foi
+   * construído. Só serve por cima de um motor com a MESMA impressão — ver
+   * `baseDoMotor` no update-service.
+   */
+  base: string
 }
 
 export type UpdatePhase =
@@ -733,6 +756,13 @@ export interface UpdateStatus {
   error: string | null
   /** Falso em desenvolvimento: só o app instalado sabe se atualizar. */
   supported: boolean
+  /** O que esta atualização leva. Preenchido junto com `manifest`. */
+  pacotes: { ui: boolean; motor: boolean }
+  /**
+   * Existe motor novo, mas ele não serve no motor instalado (bibliotecas de
+   * outra versão). Aí o motor só chega pelo instalador completo.
+   */
+  motorIncompativel: boolean
 }
 
 export interface SkipRanges {

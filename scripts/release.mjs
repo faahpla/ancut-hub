@@ -29,7 +29,16 @@
  */
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -107,7 +116,11 @@ packages.ui = pack('ui', `ancut-ui-${version}.zip`, (stage) => {
 
 if (WITH_ENGINE) {
   if (!existsSync(ENGINE_DIST)) fail(`motor não encontrado em ${ENGINE_DIST} — rode o PyInstaller antes`)
-  packages.engine = pack('engine', `ancut-engine-${version}.zip`, (stage) => {
+  // `motor`, e não `engine`: o updater de até a 1.29.0 lê `engine` e aplica
+  // sem conferir nada — por cima do motor da máquina antiga, isso quebrava
+  // no numpy. Com a chave nova, updater velho ignora o pacote, e o novo só
+  // aplica onde a `base` bate (ver `baseDoMotor` no update-service).
+  const motorPack = pack('engine', `ancut-engine-${version}.zip`, (stage) => {
     const dest = join(stage, 'engine')
     mkdirSync(dest, { recursive: true })
     // Só o que muda de versão pra versão. O resto de _internal (torch, CUDA,
@@ -130,6 +143,10 @@ if (WITH_ENGINE) {
       log(`  + _internal/${extra}`)
     }
   })
+  const base = baseDoMotor(ENGINE_DIST)
+  if (!base) fail(`não achei as bibliotecas do motor em ${ENGINE_DIST}/_internal`)
+  packages.motor = { ...motorPack, versao: versaoDoMotor(), base }
+  log(`motor ${packages.motor.versao}, base ${base.slice(0, 12)}…`)
 }
 
 const manifest = { version, date: new Date().toISOString().slice(0, 10), notes, packages }
@@ -199,7 +216,7 @@ const REPO_URL = 'https://github.com/faahpla/ancut-hub'
 const comoInstalar = temInstalador
   ? `> [\`AnCut-HUB-${version}-Completo.exe\`](${REPO_URL}/releases/download/v${version}/AnCut-HUB-${version}-Completo.exe) (~2 GB), aqui embaixo.`
   : `> Pegue o \`*-Completo.exe\` mais recente em **[Releases](${REPO_URL}/releases?q=Completo)**.` +
-    ' Esta versão aqui não traz um: só o motor mudando exige instalador novo.'
+    ' Esta versão aqui não traz um: quem já tem o app recebe tudo pela atualização.'
 
 const AVISO = [
   '> [!IMPORTANT]',
@@ -259,6 +276,30 @@ log('Procurar atualizações).')
 // ----------------------------------------------------------------- helpers
 
 /** Monta a árvore num staging, comprime e devolve {file, sha256, size}. */
+/**
+ * Impressão digital das bibliotecas do motor: os nomes `*.dist-info` (que
+ * levam a versão de cada biblioteca) e a DLL do Python, em `_internal`.
+ *
+ * **Mesma conta de `baseDoMotor` em src/main/services/update-service.ts** —
+ * é lá que o app confere se o pacote serve no motor instalado.
+ */
+function baseDoMotor(pastaDoMotor) {
+  const nomes = readdirSync(join(pastaDoMotor, '_internal'))
+    .filter((n) => /\.dist-info$/i.test(n) || /^python3\d*\.dll$/i.test(n))
+    .map((n) => n.toLowerCase())
+    .sort()
+  if (nomes.length === 0) return null
+  return createHash('sha256').update(nomes.join('\n')).digest('hex')
+}
+
+/** Versão do motor, lida do `app/__init__.py` do repositório dele. */
+function versaoDoMotor() {
+  const texto = readFileSync(resolve(ROOT, '..', 'ancut-hub-engine', 'app', '__init__.py'), 'utf-8')
+  const m = texto.match(/__version__\s*=\s*["']([\d.]+)["']/)
+  if (!m) fail('não achei __version__ em ancut-hub-engine/app/__init__.py')
+  return m[1]
+}
+
 function pack(name, file, build) {
   const stage = join(WORK, `_${name}`)
   mkdirSync(stage, { recursive: true })

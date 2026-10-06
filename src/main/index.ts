@@ -16,7 +16,8 @@ const settings = new SettingsStore()
 const python = new PythonService((event) => windows.send(CH.analysisEvent, event))
 const updates = new UpdateService(
   (status) => windows.send(CH.updateEvent, status),
-  () => python.running
+  () => python.running,
+  async () => (await python.probe())?.version ?? null
 )
 
 // Uma instância só: abrir de novo traz a janela existente pra frente em vez
