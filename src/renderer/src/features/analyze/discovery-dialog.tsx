@@ -1,4 +1,4 @@
-import { ChevronDown, Link2, Sparkles, Users } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Link2, Sparkles, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -28,6 +28,14 @@ const CHAVE_REFORCO = 'ancut.reforcarAposDescoberta'
  * parede de rolagem, e o que interessa — os dez ou quinze que voltam toda
  * semana — ficava enterrado no meio. Os figurantes continuam aqui, atrás de
  * um botão que diz quantos são: nada some, só sai da frente.
+ *
+ * ## Os já conhecidos não pedem nome de novo
+ *
+ * Do segundo episódio em diante, a maior parte dos grupos é gente batizada
+ * antes — e o agrupamento parte o mesmo personagem em vários (de frente,
+ * de perfil, chibi). O motor reconhece os que batem com folga, junta os
+ * pedaços e manda `known`: eles chegam com nome, numa seção fechada no topo
+ * que dá pra abrir e corrigir. A lista principal fica só com o que é novo.
  */
 export function DiscoveryDialog({
   discovery,
@@ -45,9 +53,16 @@ export function DiscoveryDialog({
   ) => void
   onCancel: () => void
 }): JSX.Element {
+  // Nome preenchido só no que o motor RECONHECEU. O resto da sugestão vira
+  // o botão "parece X": pré-preencher palpite fazia o grupo de pescoço
+  // chegar escrito "Maomao", e apagar nome errado era metade do trabalho.
+  // Motor anterior à 0.16.0 não manda `known` — aí fica como era.
   const [names, setNames] = useState<Record<number, string>>(() =>
-    Object.fromEntries(discovery.groups.map((g) => [g.key, g.suggestedName]))
+    Object.fromEntries(
+      discovery.groups.map((g) => [g.key, g.known === false ? '' : g.suggestedName])
+    )
   )
+  const [verReconhecidos, setVerReconhecidos] = useState(false)
   const [removed, setRemoved] = useState<Record<number, Set<number>>>({})
   const [submitting, setSubmitting] = useState(false)
   const [verFigurantes, setVerFigurantes] = useState(false)
@@ -73,9 +88,13 @@ export function DiscoveryDialog({
 
   // `minor` vem do motor; sem ele (motor velho) o piso é aplicado aqui, pra
   // a tela não voltar a ser a parede de antes só por causa de um delta.
-  const ehFigurante = (g: DiscoveryGroup): boolean => g.minor ?? g.shots < 2
+  const ehFigurante = (g: DiscoveryGroup): boolean => !g.known && (g.minor ?? g.shots < 2)
+  const reconhecidos = useMemo(
+    () => discovery.groups.filter((g) => g.known),
+    [discovery.groups]
+  )
   const principais = useMemo(
-    () => discovery.groups.filter((g) => !ehFigurante(g)),
+    () => discovery.groups.filter((g) => !g.known && !ehFigurante(g)),
     [discovery.groups]
   )
   const figurantes = useMemo(
@@ -149,11 +168,17 @@ export function DiscoveryDialog({
         travado
         description={
           <>
-            {principais.length} personagens com 2 ou mais cenas, de{' '}
-            {discovery.groups.length} grupos em {discovery.totalFaces} rostos. Deixe em
-            branco para ignorar. <b>Dois grupos com o mesmo nome viram um só</b> — é
-            assim que se junta o personagem que o agrupamento partiu em dois. Clique num
-            recorte para <b>não</b> usá-lo como referência.
+            {reconhecidos.length > 0 && (
+              <>
+                {reconhecidos.length}{' '}
+                {reconhecidos.length === 1 ? 'personagem reconhecido' : 'personagens reconhecidos'}{' '}
+                de outros episódios, já com nome.{' '}
+              </>
+            )}
+            {principais.length} {principais.length === 1 ? 'grupo novo' : 'grupos novos'} pra
+            batizar. Deixe em branco para ignorar. <b>Dois grupos com o mesmo nome viram um
+            só</b> — é assim que se junta o personagem que o agrupamento partiu em dois.
+            Clique num recorte para <b>não</b> usá-lo como referência.
           </>
         }
         footer={
@@ -213,6 +238,40 @@ export function DiscoveryDialog({
         }
       >
         <div className="flex flex-col gap-2.5 pr-1">
+          {reconhecidos.length > 0 && (
+            <div className="rounded-md border border-primary/30 bg-primary/[0.04]">
+              <button
+                type="button"
+                onClick={() => setVerReconhecidos((v) => !v)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition-colors hover:bg-primary/[0.06]"
+              >
+                <CheckCircle2 className="size-4 shrink-0 text-primary" />
+                <span className="font-medium">
+                  {reconhecidos.length} já {reconhecidos.length === 1 ? 'conhecido' : 'conhecidos'}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  {reconhecidos
+                    .map((g) => (names[g.key] ?? '').trim() || '(sem nome)')
+                    .join(', ')}
+                </span>
+                <span className="shrink-0 text-[11.5px] text-muted-foreground">
+                  {verReconhecidos ? 'Fechar' : 'Revisar'}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    'size-3.5 shrink-0 text-muted-foreground transition-transform',
+                    verReconhecidos && 'rotate-180'
+                  )}
+                />
+              </button>
+              {verReconhecidos && (
+                <div className="flex flex-col gap-2.5 border-t border-primary/20 p-2.5">
+                  {reconhecidos.map(linha)}
+                </div>
+              )}
+            </div>
+          )}
+
           {principais.map(linha)}
 
           {figurantes.length > 0 && (
@@ -226,9 +285,9 @@ export function DiscoveryDialog({
                   className={cn('size-3.5 transition-transform', verFigurantes && 'rotate-180')}
                 />
                 {verFigurantes ? 'Esconder' : 'Mostrar'} {figurantes.length}{' '}
-                {figurantes.length === 1 ? 'grupo' : 'grupos'} de uma cena só
+                {figurantes.length === 1 ? 'grupo pequeno' : 'grupos pequenos'}
                 <span className="text-muted-foreground/60">
-                  — quase sempre figurante de fundo
+                  — figurante de fundo, ou mais nuca e cabelo do que rosto
                 </span>
               </button>
               {verFigurantes && figurantes.map(linha)}
@@ -237,8 +296,9 @@ export function DiscoveryDialog({
 
           {principais.length === 0 && !verFigurantes && (
             <p className="py-8 text-center text-[12.5px] text-muted-foreground">
-              Nenhum rosto apareceu em duas cenas ou mais. Abra os grupos de uma cena
-              só se quiser batizar mesmo assim.
+              {reconhecidos.length > 0
+                ? 'Nenhum personagem novo neste episódio — só os já conhecidos acima.'
+                : 'Nenhum grupo com cenas suficientes. Abra os grupos pequenos se quiser batizar mesmo assim.'}
             </p>
           )}
         </div>

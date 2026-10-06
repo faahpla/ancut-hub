@@ -184,9 +184,18 @@ export interface DiscoveryGroup {
   /** Palpite quando o anime já é conhecido ("parece a Eris"). */
   suggestedName: string
   suggestedSim: number
-  /** Figurante: aparece em menos cenas que o piso de relevância. Fica fora
-   *  da lista principal do batismo. Motor anterior à 0.11.4 não manda. */
+  /** Figurante: aparece em menos cenas que o piso de relevância (ou, desde o
+   *  motor 0.16.0, o grupo é mais nuca e cabelo do que rosto). Fica fora da
+   *  lista principal do batismo. Motor anterior à 0.11.4 não manda. */
   minor?: boolean
+  /**
+   * Reconhecido com folga como alguém batizado em outro episódio: o nome
+   * vem preenchido e o grupo vai pra seção "reconhecidos". Sem isto (false),
+   * `suggestedName` é só a dica "parece X" e o campo começa vazio. Motor
+   * anterior à 0.16.0 não manda — aí vale o comportamento antigo, que
+   * preenchia toda sugestão.
+   */
+  known?: boolean
 }
 
 export interface DiscoveryReadyEvent {
