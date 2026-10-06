@@ -76,14 +76,18 @@ export function UpdateDialogHost(): JSX.Element | null {
  * análise. Acontece com quem instalou o app antes de 09/2026. Uma vez pelo
  * instalador completo, e daí em diante o motor volta a chegar por aqui.
  */
-export function AvisoInstaladorCompleto({ versao }: { versao?: string }): JSX.Element {
+export function AvisoInstaladorCompleto(): JSX.Element {
+  // Sem número de versão no nome do arquivo: o instalador completo NÃO sai
+  // em toda versão (é justamente o que esta atualização evita), e a 1.30.0
+  // mandou a pessoa procurar um "AnCut-HUB-1.30.0-Completo.exe" que nunca
+  // existiu. O mais recente é sempre o certo — e o README aponta pra ele.
   return (
     <p className="rounded-md border border-warning/40 bg-warning/[0.08] px-3 py-2 text-[11.5px] leading-relaxed text-muted-foreground">
       <span className="font-medium text-warning">O motor de análise novo não chega por aqui.</span>{' '}
       O seu foi instalado com bibliotecas de outra versão, e trocar só o motor
-      quebraria a análise. Baixe o instalador completo
-      {versao ? ` (AnCut-HUB-${versao}-Completo.exe)` : ''} na página de versões
-      do GitHub, uma vez — depois disso as próximas correções do motor chegam
+      quebraria a análise. Baixe o instalador completo mais recente (o arquivo
+      que termina em <b>-Completo.exe</b>, no link do README do projeto no
+      GitHub), uma vez — depois disso as próximas correções do motor chegam
       pela atualização normal.
     </p>
   )
@@ -205,7 +209,7 @@ function UpdateDialog(): JSX.Element {
           </p>
         )}
 
-        {status?.motorIncompativel && <AvisoInstaladorCompleto versao={manifest?.version} />}
+        {status?.motorIncompativel && <AvisoInstaladorCompleto />}
       </div>
     </DialogContent>
   )
