@@ -742,6 +742,15 @@ export interface MotorPackage extends UpdatePackage {
    * `baseDoMotor` no update-service.
    */
   base: string
+  /**
+   * As bibliotecas que o pacote precisa achar instaladas: os nomes
+   * `*.dist-info` (com a versão) e a DLL do Python. Desde a 1.30.1 é ISTO
+   * que o updater confere — basta todas estarem lá. A `base` exigia a pasta
+   * idêntica, e o instalador completo rodado por cima de um app antigo deixa
+   * as bibliotecas velhas sobrando ao lado das novas: o motor funcionava, e
+   * o updater recusava mesmo assim (caso do Ajk).
+   */
+  bibliotecas?: string[]
 }
 
 export type UpdatePhase =

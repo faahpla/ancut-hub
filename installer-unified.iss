@@ -64,6 +64,15 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
+[InstallDelete]
+; O motor antigo sai INTEIRO antes do novo entrar. Sem isto, instalar por
+; cima de um app antigo deixava as bibliotecas velhas sobrando ao lado das
+; novas (numpy-2.4.4 junto do numpy-2.5.2) — o motor rodava, mas a
+; conferência do updater via uma pasta que não batia com nenhum pacote e
+; recusava o motor novo pra sempre (caso do Ajk, 10/2026). É a mesma pasta
+; que o desinstalador apaga; nada do usuário mora nela.
+Type: filesandordirs; Name: "{app}\engine"
+
 [Files]
 ; Interface Electron na raiz…
 Source: "{#UiDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

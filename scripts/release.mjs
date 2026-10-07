@@ -145,8 +145,12 @@ if (WITH_ENGINE) {
   })
   const base = baseDoMotor(ENGINE_DIST)
   if (!base) fail(`não achei as bibliotecas do motor em ${ENGINE_DIST}/_internal`)
-  packages.motor = { ...motorPack, versao: versaoDoMotor(), base }
-  log(`motor ${packages.motor.versao}, base ${base.slice(0, 12)}…`)
+  // O que o pacote precisa ACHAR instalado. O que vai dentro dele
+  // (--engine-extra) não entra: chega junto, ninguém precisa ter antes.
+  const extras = new Set(ENGINE_EXTRAS.map((e) => e.toLowerCase()))
+  const bibliotecas = bibliotecasDoMotor(ENGINE_DIST).filter((n) => !extras.has(n))
+  packages.motor = { ...motorPack, versao: versaoDoMotor(), base, bibliotecas }
+  log(`motor ${packages.motor.versao}, ${bibliotecas.length} bibliotecas, base ${base.slice(0, 12)}…`)
 }
 
 const manifest = { version, date: new Date().toISOString().slice(0, 10), notes, packages }
@@ -284,12 +288,17 @@ log('Procurar atualizações).')
  * é lá que o app confere se o pacote serve no motor instalado.
  */
 function baseDoMotor(pastaDoMotor) {
-  const nomes = readdirSync(join(pastaDoMotor, '_internal'))
+  const nomes = bibliotecasDoMotor(pastaDoMotor)
+  if (nomes.length === 0) return null
+  return createHash('sha256').update(nomes.join('\n')).digest('hex')
+}
+
+/** Os nomes por trás da `base`. Mesma conta do update-service. */
+function bibliotecasDoMotor(pastaDoMotor) {
+  return readdirSync(join(pastaDoMotor, '_internal'))
     .filter((n) => /\.dist-info$/i.test(n) || /^python3\d*\.dll$/i.test(n))
     .map((n) => n.toLowerCase())
     .sort()
-  if (nomes.length === 0) return null
-  return createHash('sha256').update(nomes.join('\n')).digest('hex')
 }
 
 /** Versão do motor, lida do `app/__init__.py` do repositório dele. */

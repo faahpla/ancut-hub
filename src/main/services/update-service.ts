@@ -150,6 +150,16 @@ export class UpdateService {
     // mexe: o pior que acontece é a correção esperar a próxima checagem.
     if (!instalada || !isNewer(motor.versao, instalada)) return 'nada'
     const pasta = join(dirname(app.getPath('exe')), 'engine')
+    // Desde a 1.30.1: basta TODAS as bibliotecas que o pacote precisa estarem
+    // instaladas. Sobra de versão velha ao lado não atrapalha — é o que fica
+    // quando o instalador completo roda por cima de um app antigo, e exigir a
+    // pasta idêntica (a `base`) recusava um motor que funcionava.
+    if (motor.bibliotecas?.length) {
+      const instaladas = new Set(bibliotecasDoMotor(pasta) ?? [])
+      return motor.bibliotecas.every((b) => instaladas.has(b.toLowerCase()))
+        ? 'serve'
+        : 'incompativel'
+    }
     return baseDoMotor(pasta) === motor.base ? 'serve' : 'incompativel'
   }
 
@@ -378,13 +388,21 @@ function stageKey(manifest: UpdateManifest, pacotes: { ui: boolean; motor: boole
  * motor parecer incompatível.
  */
 export function baseDoMotor(pastaDoMotor: string): string | null {
+  const nomes = bibliotecasDoMotor(pastaDoMotor)
+  if (!nomes?.length) return null
+  return createHash('sha256').update(nomes.join('\n')).digest('hex')
+}
+
+/**
+ * Os nomes que identificam as bibliotecas do motor instalado (minúsculos e
+ * ordenados) — a mesma lista que vira a `base`. null = pasta ilegível.
+ */
+export function bibliotecasDoMotor(pastaDoMotor: string): string[] | null {
   try {
-    const nomes = readdirSync(join(pastaDoMotor, '_internal'))
+    return readdirSync(join(pastaDoMotor, '_internal'))
       .filter((n) => /\.dist-info$/i.test(n) || /^python3\d*\.dll$/i.test(n))
       .map((n) => n.toLowerCase())
       .sort()
-    if (nomes.length === 0) return null
-    return createHash('sha256').update(nomes.join('\n')).digest('hex')
   } catch {
     return null
   }
