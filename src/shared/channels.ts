@@ -54,6 +54,8 @@ export const CH = {
   orphanScan: 'results:orphans',
   /** Devolve uma pasta esquecida pro histórico, sem reanalisar. */
   orphanRestore: 'results:restore',
+  /** Religa episódios cuja pasta mudou de lugar (Explorer). */
+  relink: 'results:relink',
   /** Em que pasta de anime este nome cai, e quais pastas já existem. */
   animeFolder: 'episode:anime-folder',
   /** Simula juntar duas pastas de anime. Não move nada. */

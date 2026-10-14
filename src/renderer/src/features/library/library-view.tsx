@@ -12,6 +12,7 @@ import {
   Loader2,
   Move,
   PlayCircle,
+  RefreshCw,
   Search,
   Shapes,
   Star,
@@ -60,8 +61,17 @@ export function LibraryView({
     orphans,
     restoring,
     restoreOrphan,
-    missingRoots
+    missingRoots,
+    religando,
+    ultimoReligar,
+    atualizarBiblioteca
   } = useResultsStore()
+
+  /** Procurar também numa pasta escolhida — pro acervo que foi pra longe. */
+  const procurarEmOutraPasta = async (): Promise<void> => {
+    const pasta = await window.ancut.dialog.pickFolder()
+    if (pasta) await atualizarBiblioteca(pasta)
+  }
   /**
    * Dois jeitos de olhar o MESMO acervo.
    *
@@ -162,6 +172,19 @@ export function LibraryView({
           </span>
         )}
         <span className="flex-1" />
+        {modo === 'anime' && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="shrink-0 gap-1.5"
+            disabled={religando}
+            title="Procura de novo as pastas dos episódios — pra quando você mudou anime de pasta no Explorer. Nada é movido nem apagado."
+            onClick={() => void atualizarBiblioteca()}
+          >
+            <RefreshCw className={cn(religando && 'animate-spin')} />
+            Atualizar
+          </Button>
+        )}
         {/* `shrink-0` e `whitespace-nowrap`: sem os dois, o cabeçalho sem
             espaço quebrava "Por anime" em duas linhas e o alternador virava um
             bloco torto de 3 alturas diferentes. */}
@@ -229,16 +252,42 @@ export function LibraryView({
         )}
       </header>
 
-      {missingRoots > 0 && (
-        <p className="mx-1 rounded-md border border-warning/40 bg-warning/[0.08] px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
-          <span className="font-medium text-warning">
-            {missingRoots} {missingRoots === 1 ? 'episódio' : 'episódios'} do
-            histórico {missingRoots === 1 ? 'está' : 'estão'} sem pasta no disco
+      {ultimoReligar && ultimoReligar.religados.length > 0 && (
+        <p className="mx-1 rounded-md border border-primary/40 bg-primary/[0.08] px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
+          <span className="font-medium text-primary">
+            {ultimoReligar.religados.length}{' '}
+            {ultimoReligar.religados.length === 1
+              ? 'episódio reencontrado'
+              : 'episódios reencontrados'}
           </span>{' '}
-          — a pasta foi movida ou apagada por fora do app, então não dá pra
-          abrir. Nada foi perdido do lado do histórico; se você devolver a
-          pasta pro lugar, {missingRoots === 1 ? 'ele volta' : 'eles voltam'}.
+          no lugar novo — o histórico já aponta pra lá.
         </p>
+      )}
+
+      {missingRoots > 0 && (
+        <div className="mx-1 rounded-md border border-warning/40 bg-warning/[0.08] px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
+          <p>
+            <span className="font-medium text-warning">
+              {missingRoots} {missingRoots === 1 ? 'episódio' : 'episódios'} do
+              histórico {missingRoots === 1 ? 'está' : 'estão'} sem pasta no disco
+            </span>{' '}
+            — a pasta foi apagada, ou movida pra um lugar onde o app não
+            procurou. Nada foi perdido do lado do histórico. Se você mudou o
+            anime de lugar, mostre onde ele está agora.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="gap-1.5"
+              disabled={religando}
+              onClick={() => void procurarEmOutraPasta()}
+            >
+              <FolderSearch />
+              Procurar em outra pasta…
+            </Button>
+          </div>
+        </div>
       )}
 
       {modo === 'personagem' ? (

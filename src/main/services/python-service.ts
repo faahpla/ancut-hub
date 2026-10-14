@@ -20,6 +20,7 @@ import type {
   RemoveCharacter,
   FavoritesIndex,
   ReclassifyPlan,
+  RelinkResult,
   ReclassifyRequest,
   SeasonPlan,
   HarvestDone,
@@ -374,6 +375,11 @@ export class PythonService {
   async orphanEpisodes(): Promise<OrphanEpisode[]> {
     const r = await this.runOneShot<{ episodes: OrphanEpisode[] }>(['orphans'], 'orphans')
     return r?.episodes ?? []
+  }
+
+  /** Religa episódios cuja pasta mudou de lugar. Ver `reencontrar.py`. */
+  relink(extras: string[]): Promise<RelinkResult | null> {
+    return this.runOneShot<RelinkResult>(['relink', ...extras], 'relink')
   }
 
   restoreEpisode(root: string): Promise<RestoreResult | null> {

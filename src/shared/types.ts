@@ -603,6 +603,16 @@ export interface OrphanEpisode {
   characters: string[]
 }
 
+/** Resultado de "Atualizar biblioteca". */
+export interface RelinkResult {
+  /** Episódios que estavam sem pasta e foram reencontrados. */
+  religados: { episodeId: number; de: string; para: string }[]
+  /** Continuam sem pasta (apagados, ou fora de onde se procurou). */
+  semPasta: number
+  /** Onde se procurou. */
+  raizes: string[]
+}
+
 export interface RestoreResult {
   type: 'restored'
   episodeId: number
@@ -856,6 +866,12 @@ export interface AnCutBridge {
      * leitura de arquivo, não reanálise: nenhum clipe é recortado.
      */
     restore(root: string): Promise<RestoreResult | null>
+    /**
+     * Procura de novo as pastas de episódio que mudaram de lugar e religa o
+     * histórico. `extras`: pastas a mais onde procurar, além da saída e de
+     * onde os outros episódios já estão. Nada é movido no disco.
+     */
+    relink(extras?: string[]): Promise<RelinkResult | null>
     /** Simula juntar duas pastas de anime — não move nada. */
     mergeAnimePlan(origem: string, destino: string): Promise<AnimeMergePlan | null>
     /** Junta de verdade. Só depois de o usuário ver o plano. */

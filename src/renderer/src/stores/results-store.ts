@@ -7,10 +7,18 @@ import type {
   ExplorerChanges,
   MergeResult,
   OrphanEpisode,
+  RelinkResult,
   RecentEpisode,
   RemoveCharacter,
   ShotRow
 } from '@shared/types'
+
+/**
+ * A biblioteca procurou sozinha as pastas que mudaram de lugar nesta abertura
+ * do app? Fora do store de propósito: não é estado de tela, e não deve voltar
+ * a falso quando a Biblioteca desmonta.
+ */
+let jaProcurouSozinho = false
 
 interface ResultsState {
   recent: RecentEpisode[]
@@ -20,6 +28,10 @@ interface ResultsState {
   /** Pastas completas no disco que o histórico não conhece. */
   orphans: OrphanEpisode[]
   restoring: string
+  /** "Atualizar biblioteca" rodando. */
+  religando: boolean
+  /** O que a última atualização achou — a tela mostra uma linha com isto. */
+  ultimoReligar: RelinkResult | null
 
   /**
    * Como a Biblioteca está sendo olhada no momento.
@@ -70,6 +82,11 @@ interface ResultsState {
   merging: boolean
 
   loadRecent: () => Promise<void>
+  /**
+   * Procura de novo as pastas que mudaram de lugar e recarrega. `extra` é uma
+   * pasta escolhida pela pessoa pra procurar também.
+   */
+  atualizarBiblioteca: (extra?: string) => Promise<void>
   /** Reconstrói uma pasta esquecida e já a traz pro histórico. */
   restoreOrphan: (root: string) => Promise<void>
   /** Aplica a faxina do Explorer. `charIds` = pastas confirmadas. */
@@ -206,6 +223,8 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
   loadingRecent: false,
   missingRoots: 0,
   orphans: [],
+  religando: false,
+  ultimoReligar: null,
   restoring: '',
   biblioteca: { modo: 'anime', busca: '', abertos: [] },
   abas: [],
@@ -228,13 +247,38 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
   loadRecent: async () => {
     set({ loadingRecent: true })
     try {
-      const r = await window.ancut.results.recent()
+      let r = await window.ancut.results.recent()
+      // Episódio sem pasta quase sempre é pasta MOVIDA pelo Explorer (o Ajk
+      // reorganiza o acervo). Procura sozinho uma vez por abertura do app,
+      // antes de mostrar "N sem pasta" — sem isto ele precisava saber que
+      // existe um botão. Uma vez só: o que foi apagado de verdade continua
+      // sem pasta, e procurar a cada volta pra Biblioteca seria disco à toa.
+      if (r.missingFolders > 0 && !jaProcurouSozinho) {
+        jaProcurouSozinho = true
+        const rl = await window.ancut.results.relink()
+        if (rl && rl.religados.length > 0) {
+          set({ ultimoReligar: rl })
+          r = await window.ancut.results.recent()
+        }
+      }
       set({ recent: r.episodes, missingRoots: r.missingFolders })
       // Depois do histórico, e sem travar a tela: a varredura lê o disco e
       // só interessa quando a lista já está lá pra comparar.
       set({ orphans: await window.ancut.results.orphans() })
     } finally {
       set({ loadingRecent: false })
+    }
+  },
+
+  atualizarBiblioteca: async (extra) => {
+    if (get().religando) return
+    set({ religando: true })
+    try {
+      const rl = await window.ancut.results.relink(extra ? [extra] : [])
+      set({ ultimoReligar: rl })
+      await get().loadRecent()
+    } finally {
+      set({ religando: false })
     }
   },
 
