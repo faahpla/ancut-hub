@@ -319,6 +319,11 @@ export function DiscoveryDialog({
   )
 }
 
+/** Minúsculas e sem acento: "Ichigo" acha "Kurosaki, Ichigo", "joao" acha "João". */
+function normalizar(t: string): string {
+  return t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
 function GroupRow({
   group,
   mediaPrefix,
@@ -350,13 +355,29 @@ function GroupRow({
   const temFotos = cast.some((c) => c.photo)
   // Palpites com foto (motor 0.17.0+). Sem eles, o "parece X" antigo.
   const palpites = group.candidates ?? []
-  // A galeria filtra pelo que já está digitado: vazio mostra o elenco todo,
-  // "ma" mostra Maomao e Maine. Com nome escolhido, mostra todo mundo de novo
-  // — clicar no campo de um grupo já batizado é querer TROCAR o nome.
-  const filtro = value.trim().toLowerCase()
-  const visiveis = cast.filter(
-    (c) => !filtro || named || c.name.toLowerCase().includes(filtro)
-  )
+  // A galeria acompanha o que está sendo DIGITADO: "grim" deixa só o
+  // Grimmjow, primeiro quem tem uma palavra começando assim, depois quem só
+  // contém. Ao abrir (foco) ela mostra o elenco inteiro mesmo com nome no
+  // campo — clicar num grupo já batizado é querer TROCAR o nome. A 1.32.0
+  // confundia as duas coisas e nunca filtrava: qualquer texto no campo
+  // contava como "já batizado", e o Grimmjow ficava pra achar rolando.
+  const [digitou, setDigitou] = useState(false)
+  const filtro = normalizar(value.trim())
+  const visiveis = useMemo(() => {
+    if (!digitou || !filtro) return cast
+    const comeca: CastMember[] = []
+    const contem: CastMember[] = []
+    for (const c of cast) {
+      const n = normalizar(c.name)
+      if (n.split(/[\s,.'-]+/).some((p) => p.startsWith(filtro)) || n.startsWith(filtro)) {
+        comeca.push(c)
+      } else if (n.includes(filtro)) {
+        contem.push(c)
+      }
+    }
+    return [...comeca, ...contem]
+  }, [cast, digitou, filtro])
+  const filtrando = digitou && filtro !== ''
 
   return (
     <div
@@ -453,13 +474,18 @@ function GroupRow({
         <div className="relative w-56 shrink-0">
           <Input
             value={value}
-            onChange={(e) => onName(e.target.value)}
+            onChange={(e) => {
+              onName(e.target.value)
+              setDigitou(true)
+              if (temFotos) setGaleria(true)
+            }}
             placeholder={temFotos ? 'Nome — ou escolha pela foto' : 'Nome (vazio = ignorar)'}
             // Com fotos, a galeria substitui o autocompletar: duas listas
             // abrindo juntas debaixo do campo brigavam pelo mesmo espaço.
             list={!temFotos && roster.length > 0 ? listId : undefined}
             onFocus={() => {
               if (fechar.current) window.clearTimeout(fechar.current)
+              setDigitou(false)
               if (temFotos) setGaleria(true)
             }}
             // O clique numa foto tira o foco do campo ANTES de virar clique:
@@ -469,11 +495,22 @@ function GroupRow({
             }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') setGaleria(false)
+              // Enter escolhe o primeiro da lista filtrada: "grim" + Enter.
+              if (e.key === 'Enter' && galeria && filtrando && visiveis.length > 0) {
+                e.preventDefault()
+                onName(visiveis[0].name)
+                setGaleria(false)
+              }
             }}
           />
+          {galeria && filtrando && visiveis.length === 0 && (
+            <p className="absolute right-0 top-full z-30 mt-1 w-[22rem] rounded-md border border-border bg-surface-elevated px-3 py-2 text-[11.5px] text-muted-foreground shadow-elevated">
+              Ninguém do elenco com “{value.trim()}” — o nome digitado vale assim mesmo.
+            </p>
+          )}
           {galeria && visiveis.length > 0 && (
             <div className="scrollbar-thin absolute right-0 top-full z-30 mt-1 grid max-h-72 w-[22rem] grid-cols-4 gap-1.5 overflow-y-auto rounded-md border border-border bg-surface-elevated p-2 shadow-elevated">
-              {visiveis.map((c) => {
+              {visiveis.map((c, i) => {
                 const foto = c.photo ? mediaUrl(mediaPrefix, c.photo) : null
                 return (
                   <button
@@ -486,7 +523,11 @@ function GroupRow({
                       setGaleria(false)
                     }}
                     title={c.name}
-                    className="flex flex-col items-center gap-1 rounded p-1 text-[10.5px] leading-tight text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                    className={cn(
+                      'flex flex-col items-center gap-1 rounded p-1 text-[10.5px] leading-tight text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground',
+                      // O primeiro do filtro é o que o Enter escolhe.
+                      filtrando && i === 0 && 'bg-primary/15 text-foreground ring-1 ring-primary/60'
+                    )}
                   >
                     {foto ? (
                       <img src={foto} alt="" loading="lazy" className="size-14 rounded object-cover" />
