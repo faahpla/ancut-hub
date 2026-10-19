@@ -1,11 +1,11 @@
 import { CheckCircle2, ChevronDown, Link2, Sparkles, Users } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/field'
 import { cn } from '@/lib/utils'
 import { mediaUrl } from '@/stores/results-store'
-import type { DiscoveryGroup, DiscoveryReadyEvent } from '@shared/types'
+import type { CastMember, DiscoveryGroup, DiscoveryReadyEvent } from '@shared/types'
 
 const CHAVE_REFORCO = 'ancut.reforcarAposDescoberta'
 
@@ -144,12 +144,24 @@ export function DiscoveryDialog({
     )
   }
 
+  // Foto de cada nome, pros palpites e pra galeria do campo de nome.
+  const cast = discovery.cast ?? []
+  const fotoDe = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of discovery.cast ?? []) {
+      if (c.photo) m.set(c.name.toLowerCase(), mediaUrl(mediaPrefix, c.photo) ?? '')
+    }
+    return m
+  }, [discovery.cast, mediaPrefix])
+
   const linha = (g: DiscoveryGroup): JSX.Element => (
     <GroupRow
       key={g.key}
       group={g}
       mediaPrefix={mediaPrefix}
       roster={discovery.roster}
+      cast={cast}
+      fotoDe={fotoDe}
       value={names[g.key] ?? ''}
       removed={removed[g.key] ?? new Set()}
       juntaCom={(repetidos.get((names[g.key] ?? '').trim().toLowerCase()) ?? 0) > 1}
@@ -311,6 +323,8 @@ function GroupRow({
   group,
   mediaPrefix,
   roster,
+  cast,
+  fotoDe,
   value,
   removed,
   juntaCom,
@@ -320,6 +334,9 @@ function GroupRow({
   group: DiscoveryGroup
   mediaPrefix: string
   roster: string[]
+  cast: CastMember[]
+  /** nome em minúsculas → URL da foto */
+  fotoDe: Map<string, string>
   value: string
   removed: Set<number>
   juntaCom: boolean
@@ -328,6 +345,18 @@ function GroupRow({
 }): JSX.Element {
   const named = value.trim().length > 0
   const listId = `roster-${group.key}`
+  const [galeria, setGaleria] = useState(false)
+  const fechar = useRef<number | null>(null)
+  const temFotos = cast.some((c) => c.photo)
+  // Palpites com foto (motor 0.17.0+). Sem eles, o "parece X" antigo.
+  const palpites = group.candidates ?? []
+  // A galeria filtra pelo que já está digitado: vazio mostra o elenco todo,
+  // "ma" mostra Maomao e Maine. Com nome escolhido, mostra todo mundo de novo
+  // — clicar no campo de um grupo já batizado é querer TROCAR o nome.
+  const filtro = value.trim().toLowerCase()
+  const visiveis = cast.filter(
+    (c) => !filtro || named || c.name.toLowerCase().includes(filtro)
+  )
 
   return (
     <div
@@ -351,7 +380,37 @@ function GroupRow({
           </span>
         )}
         <span className="flex-1" />
-        {group.suggestedName && (
+        {palpites.length > 0 ? (
+          <div className="flex items-center gap-1.5">
+            {palpites.map((c, i) => {
+              const foto = fotoDe.get(c.name.toLowerCase())
+              const escolhido = value.trim().toLowerCase() === c.name.toLowerCase()
+              return (
+                <button
+                  key={c.name}
+                  type="button"
+                  onClick={() => onName(c.name)}
+                  title={`${c.name} — semelhança ${c.sim.toFixed(2)}`}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-[11.5px] font-medium transition-colors',
+                    escolhido
+                      ? 'border-primary bg-primary/20 text-foreground'
+                      : i === 0
+                        ? 'border-accent/50 bg-accent/10 text-accent hover:bg-accent/20'
+                        : 'border-border text-muted-foreground hover:bg-surface-hover hover:text-foreground'
+                  )}
+                >
+                  {foto ? (
+                    <img src={foto} alt="" className="size-6 rounded-full object-cover" />
+                  ) : (
+                    <Sparkles className="ml-1 size-3" />
+                  )}
+                  {c.name}
+                </button>
+              )
+            })}
+          </div>
+        ) : group.suggestedName && (
           <button
             type="button"
             onClick={() => onName(group.suggestedName)}
@@ -391,13 +450,57 @@ function GroupRow({
           })}
         </div>
 
-        <div className="w-56 shrink-0">
+        <div className="relative w-56 shrink-0">
           <Input
             value={value}
             onChange={(e) => onName(e.target.value)}
-            placeholder="Nome (vazio = ignorar)"
-            list={roster.length > 0 ? listId : undefined}
+            placeholder={temFotos ? 'Nome — ou escolha pela foto' : 'Nome (vazio = ignorar)'}
+            // Com fotos, a galeria substitui o autocompletar: duas listas
+            // abrindo juntas debaixo do campo brigavam pelo mesmo espaço.
+            list={!temFotos && roster.length > 0 ? listId : undefined}
+            onFocus={() => {
+              if (fechar.current) window.clearTimeout(fechar.current)
+              if (temFotos) setGaleria(true)
+            }}
+            // O clique numa foto tira o foco do campo ANTES de virar clique:
+            // fechar na hora sumiria com a foto debaixo do mouse.
+            onBlur={() => {
+              fechar.current = window.setTimeout(() => setGaleria(false), 150)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setGaleria(false)
+            }}
           />
+          {galeria && visiveis.length > 0 && (
+            <div className="scrollbar-thin absolute right-0 top-full z-30 mt-1 grid max-h-72 w-[22rem] grid-cols-4 gap-1.5 overflow-y-auto rounded-md border border-border bg-surface-elevated p-2 shadow-elevated">
+              {visiveis.map((c) => {
+                const foto = c.photo ? mediaUrl(mediaPrefix, c.photo) : null
+                return (
+                  <button
+                    key={c.name}
+                    type="button"
+                    // mousedown e não click: chega antes do blur do campo.
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      onName(c.name)
+                      setGaleria(false)
+                    }}
+                    title={c.name}
+                    className="flex flex-col items-center gap-1 rounded p-1 text-[10.5px] leading-tight text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                  >
+                    {foto ? (
+                      <img src={foto} alt="" loading="lazy" className="size-14 rounded object-cover" />
+                    ) : (
+                      <span className="grid size-14 place-items-center rounded bg-surface-sunken text-[10px]">
+                        sem foto
+                      </span>
+                    )}
+                    <span className="line-clamp-2 w-full text-center">{c.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
           {/* Elenco oficial vira autocomplete quando o anime resolveu online. */}
           {roster.length > 0 && (
             <datalist id={listId}>

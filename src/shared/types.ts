@@ -196,6 +196,16 @@ export interface DiscoveryGroup {
    * preenchia toda sugestão.
    */
   known?: boolean
+  /** Até 3 palpites, do mais parecido pro menos. A foto vem em `cast`.
+   *  Motor anterior à 0.17.0 não manda. */
+  candidates?: { name: string; sim: number }[]
+}
+
+/** Um personagem do elenco com a foto pra comparar (relativa ao episodeRoot;
+ *  vazia quando não há nenhuma). */
+export interface CastMember {
+  name: string
+  photo: string
 }
 
 export interface DiscoveryReadyEvent {
@@ -208,6 +218,9 @@ export interface DiscoveryReadyEvent {
   /** True quando o anime resolveu online — aí o elenco oficial vira sugestão. */
   online: boolean
   roster: string[]
+  /** O elenco com foto. Motor anterior à 0.17.0 não manda — aí a tela volta
+   *  a ser só o autocompletar de nomes. */
+  cast?: CastMember[]
   groups: DiscoveryGroup[]
 }
 
