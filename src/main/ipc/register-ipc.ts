@@ -297,7 +297,11 @@ export function registerIpc(
         params: req.params,
         useDanbooru: req.useDanbooru
       })
-      return { runId: await python.start(req) }
+      // O "pular o que o arquivo marca" vem das configurações, não da tela
+      // que pediu: análise, fila e identificação montam o pedido cada uma no
+      // seu canto, e o interruptor tem que valer igual pras três.
+      const { skipChapters } = await settings.get()
+      return { runId: await python.start({ ...req, skipChapters }) }
     }
   )
 

@@ -255,7 +255,58 @@ export function EpisodeForm({ disabled }: { disabled: boolean }): JSX.Element {
           />
         </Field>
       </div>
+
+      <MarcacoesDoArquivo />
     </Panel>
+  )
+}
+
+const NOME_DO_CAPITULO: Record<string, string> = {
+  OP: 'Abertura',
+  ED: 'Encerramento',
+  RECAP: 'Recapitulação',
+  PREVIEW: 'Prévia'
+}
+
+/**
+ * O que o próprio arquivo marca como abertura, encerramento, recapitulação e
+ * prévia — e o interruptor de pular.
+ *
+ * Grupos de release (a VARYG, que o FAAH usa) marcam isso em capítulos do
+ * MKV; o DaVinci e o Premiere já importam. A abertura nem sempre vem no
+ * começo — no Black Clover ela vai de 03:35 a 04:56, depois da cena fria —,
+ * e é por isso que os campos de "ignorar" acima não davam conta.
+ */
+function MarcacoesDoArquivo(): JSX.Element | null {
+  const ep = useEpisodeStore()
+  const pulaveis = ep.chapters.filter((c) => c.kind)
+  if (pulaveis.length === 0) return null
+  const arquivoEhAbertura = ep.kind === 'OP' || ep.kind === 'ED'
+  return (
+    <div className="mt-2.5 rounded-md border border-border bg-surface-sunken/60 px-3 py-2 text-[12px]">
+      <label className="flex cursor-pointer items-center gap-2 font-medium">
+        <input
+          type="checkbox"
+          className="accent-primary"
+          checked={ep.skipChapters}
+          disabled={arquivoEhAbertura}
+          onChange={(e) => ep.setSkipChapters(e.target.checked)}
+        />
+        Pular o que o arquivo marca
+      </label>
+      <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 pl-5 text-[11.5px] text-muted-foreground">
+        {pulaveis.map((c) => (
+          <span key={`${c.kind}-${c.start}`} className={cn(!ep.skipChapters && 'line-through opacity-60')}>
+            {NOME_DO_CAPITULO[c.kind] ?? c.title} {mmss(c.start) || '00:00'}–{mmss(c.end)}
+          </span>
+        ))}
+      </p>
+      {arquivoEhAbertura && (
+        <p className="mt-1 pl-5 text-[11.5px] text-muted-foreground">
+          Este arquivo é uma abertura/encerramento: nada é pulado.
+        </p>
+      )}
+    </div>
   )
 }
 

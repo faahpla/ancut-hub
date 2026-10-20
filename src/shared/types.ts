@@ -62,6 +62,10 @@ export interface AnalysisRequest {
   cutOnly: boolean
   /** Reanálise: somar por cima em vez de substituir. */
   mergePrevious: boolean
+  /** Pular os capítulos marcados no arquivo. Quem preenche é o main, pelo
+   *  que está nas configurações — vale igual pra análise, fila e
+   *  identificação. */
+  skipChapters?: boolean
   skipCreditShots: boolean
   useDanbooru: boolean
   /** Que par de modelos olha o rosto. Ver `MediaKind`. */
@@ -692,6 +696,9 @@ export interface AppSettings {
   preset: PresetKey
   params: MatchParams
   skipCreditShots: boolean
+  /** Pular abertura, encerramento, recapitulação e prévia marcados no
+   *  arquivo. Ligado por padrão. */
+  skipChapters: boolean
   useDanbooru: boolean
   mediaKind: MediaKind
   /** Chave do TMDB — o elenco de filme e série. Vazia, live action funciona
@@ -816,6 +823,21 @@ export interface ParsedFilename extends SkipRanges {
   season: number
   episode: number
   kind: EpisodeKind
+  /** Capítulos marcados no próprio arquivo (MKV). Motor anterior à 0.18.0
+   *  não manda. */
+  chapters?: FileChapter[]
+}
+
+/**
+ * Um capítulo marcado no arquivo pelo grupo de release ("Intro", "Credits").
+ * `kind` é o que o motor entendeu do título: abertura, encerramento,
+ * recapitulação, prévia — ou vazio, que é conteúdo e fica.
+ */
+export interface FileChapter {
+  title: string
+  start: number
+  end: number
+  kind: '' | 'OP' | 'ED' | 'RECAP' | 'PREVIEW'
 }
 
 // ------------------------------------------------------- ponte do preload

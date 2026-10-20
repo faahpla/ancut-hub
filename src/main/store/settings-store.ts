@@ -97,6 +97,7 @@ function toSettings(raw: RawConfig): AppSettings {
     params,
     // Não é persistido no Python de propósito (heurística frágil, fica OFF).
     skipCreditShots: false,
+    skipChapters: bool(raw, 'pular_capitulos', true),
     useDanbooru: bool(raw, 'use_danbooru', false),
     mediaKind: str(raw, 'media_kind', 'anime') === 'live' ? 'live' : 'anime',
     tmdbApiKey: str(raw, 'tmdb_api_key'),
@@ -126,6 +127,7 @@ function applyPatch(raw: RawConfig, patch: Partial<AppSettings>): RawConfig {
   set('last_season', patch.lastSeason)
   set('last_episode', patch.lastEpisode)
   set('use_danbooru', patch.useDanbooru)
+  set('pular_capitulos', patch.skipChapters)
   set('media_kind', patch.mediaKind)
   set('tmdb_api_key', patch.tmdbApiKey)
   set('render_export_mode', patch.renderExportMode)

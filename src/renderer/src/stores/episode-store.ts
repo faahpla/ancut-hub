@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type {
-  MediaKind, EpisodeKind, MatchParams, PresetKey, RenderExportMode } from '@shared/types'
+  MediaKind, EpisodeKind, FileChapter, MatchParams, PresetKey, RenderExportMode } from '@shared/types'
 import { PRESETS } from './analysis-store'
 
 /**
@@ -31,6 +31,12 @@ interface EpisodeState {
   /** Guardados como texto "mm:ss" — é o que o usuário digita. */
   skipHead: string
   skipTail: string
+  /** Capítulos marcados no arquivo escolhido (vazio = sem marcação). */
+  chapters: FileChapter[]
+  /** Pular o que o arquivo marca como abertura/encerramento. Espelha a
+   *  configuração; a tela troca as duas juntas. */
+  skipChapters: boolean
+  setSkipChapters: (v: boolean) => void
   preset: PresetKey
   params: MatchParams
   useDanbooru: boolean
@@ -80,6 +86,12 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
   folderRemembered: false,
   existingFolders: [],
   skipHead: '',
+  chapters: [],
+  skipChapters: true,
+  setSkipChapters: (v) => {
+    set({ skipChapters: v })
+    void window.ancut.settings.set({ skipChapters: v })
+  },
   skipTail: '',
   preset: 'auto',
   params: PRESETS.auto.params,
@@ -97,7 +109,13 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
     set({ videoPath: path })
     const parsed = await window.ancut.episode.parseFilename(path)
     if (!parsed) return
+    const chapters = parsed.chapters ?? []
+    // Com abertura/encerramento marcados no arquivo e o pulo ligado, o
+    // "ignorar 01:30" guardado pro anime NÃO entra: a marcação é exata, e o
+    // número fixo cortaria a cena fria que vem antes da abertura.
+    const marcado = get().skipChapters && chapters.some((c) => c.kind === 'OP' || c.kind === 'ED')
     set({
+      chapters,
       anime: parsed.anime,
       season: parsed.season,
       episode: parsed.episode,
@@ -108,8 +126,8 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
       // Num arquivo que É a abertura eles não significam nada — preencher com
       // o 01:30 salvo do anime cortaria o arquivo inteiro e não sobraria cena
       // nenhuma. Ficam vazios, mas seguem editáveis: quem manda é você.
-      skipHead: parsed.kind ? '' : formatMmss(parsed.skipHeadSeconds),
-      skipTail: parsed.kind ? '' : formatMmss(parsed.skipTailSeconds)
+      skipHead: parsed.kind || marcado ? '' : formatMmss(parsed.skipHeadSeconds),
+      skipTail: parsed.kind || marcado ? '' : formatMmss(parsed.skipTailSeconds)
     })
     await get().refreshFolder()
   },
@@ -144,6 +162,7 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
       useDanbooru: s.useDanbooru,
       mediaKind: s.mediaKind,
       renderExportMode: s.renderExportMode,
+      skipChapters: s.skipChapters,
       hydrated: true
     })
   }

@@ -160,6 +160,7 @@ function toWireRequest(req: AnalysisRequest): Record<string, unknown> {
     cutOnly: req.cutOnly,
     mergePrevious: req.mergePrevious,
     skipCreditShots: req.skipCreditShots,
+    skipChapters: req.skipChapters ?? true,
     useDanbooru: req.useDanbooru,
     mediaKind: req.mediaKind,
     renderExportMode: req.renderExportMode
