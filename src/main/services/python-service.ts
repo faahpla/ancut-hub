@@ -19,6 +19,7 @@ import type {
   TagShot,
   RemoveCharacter,
   FavoritesIndex,
+  CastPackResult,
   ReclassifyPlan,
   RelinkResult,
   ReclassifyRequest,
@@ -376,6 +377,18 @@ export class PythonService {
   async orphanEpisodes(): Promise<OrphanEpisode[]> {
     const r = await this.runOneShot<{ episodes: OrphanEpisode[] }>(['orphans'], 'orphans')
     return r?.episodes ?? []
+  }
+
+  /** Pacote de personagens. Ver `storage/elenco_pacote.py` no motor. */
+  castExport(file: string, episodeIds: number[]): Promise<CastPackResult | null> {
+    return this.runOneShot<CastPackResult>(
+      ['cast-export', file, episodeIds.map((i) => String(Math.trunc(i))).join(',')],
+      'cast-export'
+    )
+  }
+
+  castImport(file: string): Promise<CastPackResult | null> {
+    return this.runOneShot<CastPackResult>(['cast-import', file], 'cast-import')
   }
 
   /** Religa episódios cuja pasta mudou de lugar. Ver `reencontrar.py`. */

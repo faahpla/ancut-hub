@@ -13,6 +13,8 @@ import {
   Move,
   PlayCircle,
   RefreshCw,
+  Share2,
+  Download,
   Search,
   Shapes,
   Star,
@@ -66,6 +68,36 @@ export function LibraryView({
     ultimoReligar,
     atualizarBiblioteca
   } = useResultsStore()
+
+  /** O que o último exportar/importar de personagens fez — uma linha no topo. */
+  const [avisoPacote, setAvisoPacote] = useState<{ ok: boolean; texto: string } | null>(null)
+
+  const exportarPersonagens = async (anime: Anime): Promise<void> => {
+    const ids = anime.temporadas.flatMap((t) => t.episodios.map((e) => e.episodeId))
+    const r = await window.ancut.results.castExport(ids, anime.nome)
+    if (!r) return
+    setAvisoPacote(
+      r.erro || r.characters === 0
+        ? { ok: false, texto: r.erro || `“${anime.nome}” ainda não tem personagem batizado pra exportar.` }
+        : {
+            ok: true,
+            texto: `Exportado: ${r.characters} personagens e ${r.photos} fotos de “${anime.nome}”. Mande o arquivo .zip pra quem quiser — no AnCut dele, é “Importar personagens” aqui na Biblioteca.`
+          }
+    )
+  }
+
+  const importarPersonagens = async (): Promise<void> => {
+    const r = await window.ancut.results.castImport()
+    if (!r) return
+    setAvisoPacote(
+      r.erro
+        ? { ok: false, texto: r.erro }
+        : {
+            ok: true,
+            texto: `Importado: ${r.characters} personagens de ${r.titles.join(', ')}, com ${r.photos} fotos novas. A próxima análise desse anime já reconhece eles.`
+          }
+    )
+  }
 
   /** Procurar também numa pasta escolhida — pro acervo que foi pra longe. */
   const procurarEmOutraPasta = async (): Promise<void> => {
@@ -177,6 +209,18 @@ export function LibraryView({
             size="sm"
             variant="ghost"
             className="shrink-0 gap-1.5"
+            title="Abre um pacote de personagens exportado por outro AnCut: nomes, fotos de rosto e o reconhecimento de cada um. Só soma — nada daqui é apagado."
+            onClick={() => void importarPersonagens()}
+          >
+            <Download />
+            Importar personagens
+          </Button>
+        )}
+        {modo === 'anime' && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="shrink-0 gap-1.5"
             disabled={religando}
             title="Procura de novo as pastas dos episódios — pra quando você mudou anime de pasta no Explorer. Nada é movido nem apagado."
             onClick={() => void atualizarBiblioteca()}
@@ -252,6 +296,27 @@ export function LibraryView({
         )}
       </header>
 
+      {avisoPacote && (
+        <p
+          className={cn(
+            'mx-1 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px] leading-relaxed',
+            avisoPacote.ok
+              ? 'border-primary/40 bg-primary/[0.08] text-foreground'
+              : 'border-warning/40 bg-warning/[0.08] text-muted-foreground'
+          )}
+        >
+          <span className="flex-1">{avisoPacote.texto}</span>
+          <button
+            type="button"
+            aria-label="Fechar aviso"
+            onClick={() => setAvisoPacote(null)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="size-3.5" />
+          </button>
+        </p>
+      )}
+
       {ultimoReligar && ultimoReligar.religados.length > 0 && (
         <p className="mx-1 rounded-md border border-primary/40 bg-primary/[0.08] px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
           <span className="font-medium text-primary">
@@ -312,6 +377,7 @@ export function LibraryView({
                 onMudarTemporada={setMudandoTemporada}
                 onMenu={(x, y, ep, temporada) => setMenu({ x, y, ep, temporada })}
                 onDescobrir={onDescobrir}
+                onExportar={() => void exportarPersonagens(anime)}
               />
             </li>
           ))}
@@ -500,7 +566,8 @@ function AnimeCard({
   podeJuntar,
   onMudarTemporada,
   onMenu,
-  onDescobrir
+  onDescobrir,
+  onExportar
 }: {
   anime: Anime
   aberto: boolean
@@ -516,6 +583,8 @@ function AnimeCard({
   }) => void
   onMenu: (x: number, y: number, ep: RecentEpisode, temporada: number) => void
   onDescobrir: (eps: RecentEpisode[]) => void
+  /** Pacote de personagens deste anime, pra levar pra outro AnCut. */
+  onExportar: () => void
 }): JSX.Element {
   /** Temporada cujo cabeçalho está sob o episódio sendo arrastado. */
   const [alvoArrasto, setAlvoArrasto] = useState<number | null>(null)
@@ -609,6 +678,14 @@ function AnimeCard({
             <Combine />
           </Button>
         )}
+        <Button
+          size="sm"
+          variant="ghost"
+          title="Exportar personagens: um .zip com os nomes, as fotos de rosto e o reconhecimento de cada um, pra outra pessoa importar no AnCut dela"
+          onClick={onExportar}
+        >
+          <Share2 />
+        </Button>
         <Button
           size="sm"
           variant="ghost"

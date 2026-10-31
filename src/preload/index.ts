@@ -57,6 +57,9 @@ const bridge: AnCutBridge = {
     orphans: () => ipcRenderer.invoke(CH.orphanScan),
     restore: (root: string) => ipcRenderer.invoke(CH.orphanRestore, root),
     relink: (extras?: string[]) => ipcRenderer.invoke(CH.relink, extras ?? []),
+    castExport: (episodeIds: number[], nomeSugerido: string) =>
+      ipcRenderer.invoke(CH.castExport, episodeIds, nomeSugerido),
+    castImport: () => ipcRenderer.invoke(CH.castImport),
     mergeAnimePlan: (origem: string, destino: string) =>
       ipcRenderer.invoke(CH.mergeAnimePlan, origem, destino),
     mergeAnimeApply: (origem: string, destino: string) =>

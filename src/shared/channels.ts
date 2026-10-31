@@ -56,6 +56,10 @@ export const CH = {
   orphanRestore: 'results:restore',
   /** Religa episódios cuja pasta mudou de lugar (Explorer). */
   relink: 'results:relink',
+  /** Exporta o pacote de personagens de um anime (abre o "Salvar como"). */
+  castExport: 'results:cast-export',
+  /** Importa um pacote de personagens (abre o "Abrir"). */
+  castImport: 'results:cast-import',
   /** Em que pasta de anime este nome cai, e quais pastas já existem. */
   animeFolder: 'episode:anime-folder',
   /** Simula juntar duas pastas de anime. Não move nada. */

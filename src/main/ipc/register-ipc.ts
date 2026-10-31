@@ -133,6 +133,33 @@ export function registerIpc(
   )
   ipcMain.handle(CH.orphanScan, async () => python.orphanEpisodes())
   ipcMain.handle(CH.orphanRestore, async (_e, root: string) => python.restoreEpisode(root))
+  ipcMain.handle(
+    CH.castExport,
+    async (_e, episodeIds: number[], nomeSugerido: string) => {
+      const win = windows.getMain()
+      const seguro = String(nomeSugerido || 'anime').replace(/[<>:"/\\|?*]+/g, ' ').trim()
+      const opts: Electron.SaveDialogOptions = {
+        title: 'Exportar personagens',
+        defaultPath: join(app.getPath('desktop'), `${seguro} - personagens AnCut.zip`),
+        filters: [{ name: 'Pacote de personagens do AnCut', extensions: ['zip'] }]
+      }
+      const res = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+      if (res.canceled || !res.filePath) return null
+      const ids = Array.isArray(episodeIds) ? episodeIds.filter((i) => Number.isInteger(i)) : []
+      return python.castExport(res.filePath, ids)
+    }
+  )
+  ipcMain.handle(CH.castImport, async () => {
+    const win = windows.getMain()
+    const opts: Electron.OpenDialogOptions = {
+      title: 'Importar personagens',
+      properties: ['openFile'],
+      filters: [{ name: 'Pacote de personagens do AnCut', extensions: ['zip'] }]
+    }
+    const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
+    if (res.canceled || res.filePaths.length === 0) return null
+    return python.castImport(res.filePaths[0])
+  })
   ipcMain.handle(CH.relink, async (_e, extras: string[]) =>
     python.relink(Array.isArray(extras) ? extras.filter((e) => typeof e === 'string') : [])
   )

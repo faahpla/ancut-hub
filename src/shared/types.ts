@@ -620,6 +620,21 @@ export interface OrphanEpisode {
   characters: string[]
 }
 
+/**
+ * Resultado de exportar/importar um pacote de personagens: o "quem é quem"
+ * de um anime (nomes, fotos de rosto, centroide) levado pra outro AnCut.
+ */
+export interface CastPackResult {
+  animes: number
+  characters: number
+  photos: number
+  centroids: number
+  titles: string[]
+  erro: string
+  /** Só no exportar: onde o arquivo foi gravado. */
+  file?: string
+}
+
 /** Resultado de "Atualizar biblioteca". */
 export interface RelinkResult {
   /** Episódios que estavam sem pasta e foram reencontrados. */
@@ -907,6 +922,11 @@ export interface AnCutBridge {
      * onde os outros episódios já estão. Nada é movido no disco.
      */
     relink(extras?: string[]): Promise<RelinkResult | null>
+    /** Pacote de personagens dos animes destes episódios. Abre o "Salvar
+     *  como"; null = a pessoa cancelou. */
+    castExport(episodeIds: number[], nomeSugerido: string): Promise<CastPackResult | null>
+    /** Abre o "Abrir" e importa o pacote escolhido; null = cancelou. */
+    castImport(): Promise<CastPackResult | null>
     /** Simula juntar duas pastas de anime — não move nada. */
     mergeAnimePlan(origem: string, destino: string): Promise<AnimeMergePlan | null>
     /** Junta de verdade. Só depois de o usuário ver o plano. */
