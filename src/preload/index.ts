@@ -59,7 +59,9 @@ const bridge: AnCutBridge = {
     relink: (extras?: string[]) => ipcRenderer.invoke(CH.relink, extras ?? []),
     castExport: (episodeIds: number[], nomeSugerido: string) =>
       ipcRenderer.invoke(CH.castExport, episodeIds, nomeSugerido),
-    castImport: () => ipcRenderer.invoke(CH.castImport),
+    castPick: () => ipcRenderer.invoke(CH.castPick),
+    castInspect: (file: string) => ipcRenderer.invoke(CH.castInspect, file),
+    castImport: (file: string, titulo: string) => ipcRenderer.invoke(CH.castImport, file, titulo),
     mergeAnimePlan: (origem: string, destino: string) =>
       ipcRenderer.invoke(CH.mergeAnimePlan, origem, destino),
     mergeAnimeApply: (origem: string, destino: string) =>

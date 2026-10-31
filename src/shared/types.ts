@@ -627,12 +627,34 @@ export interface OrphanEpisode {
 export interface CastPackResult {
   animes: number
   characters: number
+  /** Quantos personagens têm pelo menos uma foto. */
+  withPhotos: number
+  /** Os nomes que ficaram sem foto nenhuma (só servem no Modo Descoberta). */
+  withoutPhotos: string[]
   photos: number
   centroids: number
+  /** Nomes do mesmo personagem em formatos diferentes que viraram um. */
+  merged: number
+  title: string
   titles: string[]
   erro: string
   /** Só no exportar: onde o arquivo foi gravado. */
   file?: string
+}
+
+/** O que um pacote de personagens traz — mostrado antes de importar. */
+export interface CastPackInfo {
+  erro: string
+  title: string
+  titles: string[]
+  /** O pacote traz ids do AniList (aí a ligação também é pelo id). */
+  hasIds: boolean
+  characters: number
+  withPhotos: number
+  photos: number
+  centroids: number
+  /** Um arquivo de episódio de quem exportou, pra reconhecer o anime. */
+  sampleFile?: string | null
 }
 
 /** Resultado de "Atualizar biblioteca". */
@@ -925,8 +947,13 @@ export interface AnCutBridge {
     /** Pacote de personagens dos animes destes episódios. Abre o "Salvar
      *  como"; null = a pessoa cancelou. */
     castExport(episodeIds: number[], nomeSugerido: string): Promise<CastPackResult | null>
-    /** Abre o "Abrir" e importa o pacote escolhido; null = cancelou. */
-    castImport(): Promise<CastPackResult | null>
+    /** Abre o "Abrir" pra escolher o pacote; null = cancelou. */
+    castPick(): Promise<string | null>
+    /** O que o pacote traz, sem importar nada. */
+    castInspect(file: string): Promise<CastPackInfo | null>
+    /** Guarda o pacote como elenco importado, ligado a `titulo` (e a
+     *  qualquer temporada com esse nome). */
+    castImport(file: string, titulo: string): Promise<CastPackResult | null>
     /** Simula juntar duas pastas de anime — não move nada. */
     mergeAnimePlan(origem: string, destino: string): Promise<AnimeMergePlan | null>
     /** Junta de verdade. Só depois de o usuário ver o plano. */

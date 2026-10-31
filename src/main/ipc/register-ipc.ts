@@ -146,10 +146,10 @@ export function registerIpc(
       const res = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
       if (res.canceled || !res.filePath) return null
       const ids = Array.isArray(episodeIds) ? episodeIds.filter((i) => Number.isInteger(i)) : []
-      return python.castExport(res.filePath, ids)
+      return python.castExport(res.filePath, ids, String(nomeSugerido || ''))
     }
   )
-  ipcMain.handle(CH.castImport, async () => {
+  ipcMain.handle(CH.castPick, async () => {
     const win = windows.getMain()
     const opts: Electron.OpenDialogOptions = {
       title: 'Importar personagens',
@@ -157,9 +157,14 @@ export function registerIpc(
       filters: [{ name: 'Pacote de personagens do AnCut', extensions: ['zip'] }]
     }
     const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
-    if (res.canceled || res.filePaths.length === 0) return null
-    return python.castImport(res.filePaths[0])
+    return res.canceled || res.filePaths.length === 0 ? null : res.filePaths[0]
   })
+  ipcMain.handle(CH.castInspect, async (_e, file: string) =>
+    typeof file === 'string' ? python.castInspect(file) : null
+  )
+  ipcMain.handle(CH.castImport, async (_e, file: string, titulo: string) =>
+    typeof file === 'string' ? python.castImport(file, String(titulo || '')) : null
+  )
   ipcMain.handle(CH.relink, async (_e, extras: string[]) =>
     python.relink(Array.isArray(extras) ? extras.filter((e) => typeof e === 'string') : [])
   )

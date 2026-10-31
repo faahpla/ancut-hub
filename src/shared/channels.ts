@@ -58,7 +58,11 @@ export const CH = {
   relink: 'results:relink',
   /** Exporta o pacote de personagens de um anime (abre o "Salvar como"). */
   castExport: 'results:cast-export',
-  /** Importa um pacote de personagens (abre o "Abrir"). */
+  /** Abre o "Abrir" pra escolher um pacote de personagens. */
+  castPick: 'results:cast-pick',
+  /** O que um pacote traz (antes de importar). */
+  castInspect: 'results:cast-inspect',
+  /** Importa o pacote, ligado ao título escolhido. */
   castImport: 'results:cast-import',
   /** Em que pasta de anime este nome cai, e quais pastas já existem. */
   animeFolder: 'episode:anime-folder',

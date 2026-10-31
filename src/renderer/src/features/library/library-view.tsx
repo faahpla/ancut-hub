@@ -31,6 +31,7 @@ import { agruparPorAnime, filtrar, type Anime } from './group-episodes'
 import { MergeAnimeDialog } from './merge-anime-dialog'
 import { SeasonDialog } from './season-dialog'
 import { OrganizeDialog } from './organize-dialog'
+import { ImportCastDialog } from './import-cast-dialog'
 import { DeleteEpisodeDialog } from './delete-episode-dialog'
 import { CharactersView } from './characters-view'
 import { FavoritesView } from './favorites-view'
@@ -76,27 +77,40 @@ export function LibraryView({
     const ids = anime.temporadas.flatMap((t) => t.episodios.map((e) => e.episodeId))
     const r = await window.ancut.results.castExport(ids, anime.nome)
     if (!r) return
-    setAvisoPacote(
-      r.erro || r.characters === 0
-        ? { ok: false, texto: r.erro || `“${anime.nome}” ainda não tem personagem batizado pra exportar.` }
-        : {
-            ok: true,
-            texto: `Exportado: ${r.characters} personagens e ${r.photos} fotos de “${anime.nome}”. Mande o arquivo .zip pra quem quiser — no AnCut dele, é “Importar personagens” aqui na Biblioteca.`
-          }
-    )
+    if (r.erro || r.characters === 0) {
+      setAvisoPacote({
+        ok: false,
+        texto: r.erro || `“${anime.nome}” ainda não tem personagem batizado pra exportar.`
+      })
+      return
+    }
+    // Nunca "ok" calado com pacote pela metade: foi assim que o Black Clover
+    // chegou no Levi sem foto nenhuma e ninguém percebeu.
+    const semFoto = r.withoutPhotos ?? []
+    const base = `Exportado: ${r.characters} personagens de “${anime.nome}”, ${r.photos} fotos${r.merged ? `, ${r.merged} nomes repetidos juntados` : ''}.`
+    if (semFoto.length === r.characters) {
+      setAvisoPacote({
+        ok: false,
+        texto: `${base} ATENÇÃO: nenhum personagem saiu com foto — este pacote só ajuda no Modo Descoberta.`
+      })
+    } else if (semFoto.length > 0) {
+      setAvisoPacote({
+        ok: false,
+        texto: `${base} ${semFoto.length} sem foto (só ajudam no Modo Descoberta): ${semFoto.slice(0, 5).join(', ')}${semFoto.length > 5 ? '…' : ''}.`
+      })
+    } else {
+      setAvisoPacote({
+        ok: true,
+        texto: `${base} Todos com foto. Mande o .zip pra quem quiser — no AnCut dele, é “Importar personagens” aqui na Biblioteca.`
+      })
+    }
   }
 
+  /** Pacote escolhido pra importar: a janela mostra o que ele traz e pergunta o anime. */
+  const [importando, setImportando] = useState<string | null>(null)
   const importarPersonagens = async (): Promise<void> => {
-    const r = await window.ancut.results.castImport()
-    if (!r) return
-    setAvisoPacote(
-      r.erro
-        ? { ok: false, texto: r.erro }
-        : {
-            ok: true,
-            texto: `Importado: ${r.characters} personagens de ${r.titles.join(', ')}, com ${r.photos} fotos novas. A próxima análise desse anime já reconhece eles.`
-          }
-    )
+    const arq = await window.ancut.results.castPick()
+    if (arq) setImportando(arq)
   }
 
   /** Procurar também numa pasta escolhida — pro acervo que foi pra longe. */
@@ -454,6 +468,26 @@ export function LibraryView({
                 })
             }
           ]}
+        />
+      )}
+
+      {importando && (
+        <ImportCastDialog
+          file={importando}
+          sugestoes={animes.map((a) => a.nome)}
+          onClose={() => setImportando(null)}
+          onDone={(r) => {
+            setImportando(null)
+            const semFoto = r.withoutPhotos ?? []
+            setAvisoPacote({
+              ok: semFoto.length < r.characters,
+              texto:
+                `Importado: ${r.characters} personagens ligados a “${r.title}”, ${r.photos} fotos novas. ` +
+                (semFoto.length === r.characters
+                  ? 'Nenhum veio com foto: eles só ajudam no Modo Descoberta.'
+                  : 'A próxima análise desse anime — de qualquer temporada — já reconhece eles.')
+            })
+          }}
         />
       )}
 

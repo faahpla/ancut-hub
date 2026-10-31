@@ -19,6 +19,7 @@ import type {
   TagShot,
   RemoveCharacter,
   FavoritesIndex,
+  CastPackInfo,
   CastPackResult,
   ReclassifyPlan,
   RelinkResult,
@@ -380,15 +381,19 @@ export class PythonService {
   }
 
   /** Pacote de personagens. Ver `storage/elenco_pacote.py` no motor. */
-  castExport(file: string, episodeIds: number[]): Promise<CastPackResult | null> {
+  castExport(file: string, episodeIds: number[], nomePasta: string): Promise<CastPackResult | null> {
     return this.runOneShot<CastPackResult>(
-      ['cast-export', file, episodeIds.map((i) => String(Math.trunc(i))).join(',')],
+      ['cast-export', file, episodeIds.map((i) => String(Math.trunc(i))).join(','), nomePasta],
       'cast-export'
     )
   }
 
-  castImport(file: string): Promise<CastPackResult | null> {
-    return this.runOneShot<CastPackResult>(['cast-import', file], 'cast-import')
+  castInspect(file: string): Promise<CastPackInfo | null> {
+    return this.runOneShot<CastPackInfo>(['cast-inspect', file], 'cast-inspect')
+  }
+
+  castImport(file: string, titulo: string): Promise<CastPackResult | null> {
+    return this.runOneShot<CastPackResult>(['cast-import', file, titulo], 'cast-import')
   }
 
   /** Religa episódios cuja pasta mudou de lugar. Ver `reencontrar.py`. */
