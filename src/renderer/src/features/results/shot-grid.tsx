@@ -99,6 +99,39 @@ export function ShotGrid(): JSX.Element {
   }
 
   /**
+   * Aceita o palpite da repescagem ("Lucy?") de uma cena sem ninguém. Com
+   * cenas marcadas, aceita o palpite de cada uma delas que tiver um — é o
+   * jeito de limpar a lista "Sem personagem" de uma vez.
+   */
+  const aceitarPalpite = async (shot: ShotRow): Promise<void> => {
+    const alvos = selection.includes(shot.id)
+      ? shots.filter((s) => selection.includes(s.id) && s.sugestao)
+      : [shot]
+    const porPersonagem = new Map<number, number[]>()
+    for (const s of alvos) {
+      if (!s.sugestao) continue
+      porPersonagem.set(s.sugestao.id, [...(porPersonagem.get(s.sugestao.id) ?? []), s.id])
+    }
+    for (const [cid, ids] of porPersonagem) {
+      await window.ancut.results.tagShot(ids, cid)
+    }
+    clearSelection()
+    await refresh()
+  }
+
+  /** Marca com um personagem que ainda não existe — criado pelo nome. */
+  const marcarNovo = async (nome: string): Promise<void> => {
+    const alvos = marcando ?? []
+    setMarcando(null)
+    if (alvos.length === 0) return
+    await window.ancut.results.tagShotNew(alvos, nome)
+    // O índice de personagens mudou (entrou um nome novo): relê da próxima vez.
+    setElenco(null)
+    clearSelection()
+    await refresh()
+  }
+
+  /**
    * Atalhos de teclado da grade.
    *
    * No `window`, e não num container com foco: a pessoa acabou de clicar num
@@ -374,6 +407,7 @@ export function ShotGrid(): JSX.Element {
                 onDrag={() => arrastar(shot)}
                 onMenu={(x, y) => setMenu({ x, y, shot })}
                 onFavoritar={() => void toggleFavorite(shot.id)}
+                onAceitarPalpite={() => void aceitarPalpite(shot)}
               />
             ))}
           </div>
@@ -387,6 +421,7 @@ export function ShotGrid(): JSX.Element {
           lista={elenco}
           onFechar={() => setMarcando(null)}
           onEscolher={(c) => void marcarPersonagem(c)}
+          onCriar={(nome) => void marcarNovo(nome)}
         />
       )}
 
@@ -477,7 +512,8 @@ function ShotCard({
   onCard,
   onDrag,
   onMenu,
-  onFavoritar
+  onFavoritar,
+  onAceitarPalpite
 }: {
   shot: ShotRow
   prefix: string
@@ -491,6 +527,7 @@ function ShotCard({
   onDrag: () => void
   onMenu: (x: number, y: number) => void
   onFavoritar: () => void
+  onAceitarPalpite: () => void
 }): JSX.Element {
   const thumb = mediaUrl(prefix, shot.keyframe)
   const conf = shot.confidence
@@ -581,6 +618,22 @@ function ShotCard({
           >
             {conf.toFixed(2)}
           </span>
+        )}
+        {/* O palpite: o nome com "?" e um clique pra virar marcação. Fora do
+            clique do card, como a estrela — ver é uma coisa, marcar é outra. */}
+        {shot.sugestao && (
+          <button
+            type="button"
+            title={`Parece ${shot.sugestao.name} — clique pra marcar (com cenas selecionadas, aceita o palpite de todas)`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onAceitarPalpite()
+            }}
+            className="absolute bottom-1 left-1 z-10 flex max-w-[calc(100%-0.5rem)] items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10.5px] font-medium text-white transition-colors hover:bg-primary hover:text-primary-foreground"
+          >
+            <Check className="size-3 shrink-0" strokeWidth={3} />
+            <span className="truncate">{shot.sugestao.name}?</span>
+          </button>
         )}
       </div>
       <div className="flex items-center justify-between px-2 py-1.5">

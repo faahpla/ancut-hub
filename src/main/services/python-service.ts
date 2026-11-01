@@ -27,6 +27,8 @@ import type {
   SeasonPlan,
   HarvestDone,
   HarvestEvent,
+  RepescarEvent,
+  RepescarFim,
   MergeResult,
   OrphanEpisode,
   RestoreResult,
@@ -388,6 +390,13 @@ export class PythonService {
     )
   }
 
+  tagShotNew(shotIds: number[], nome: string): Promise<TagShot | null> {
+    return this.runOneShot<TagShot>(
+      ['tag-shot-new', shotIds.map((i) => String(Math.trunc(i))).join(','), nome],
+      'tag-shot'
+    )
+  }
+
   castInspect(file: string): Promise<CastPackInfo | null> {
     return this.runOneShot<CastPackInfo>(['cast-inspect', file], 'cast-inspect')
   }
@@ -571,6 +580,46 @@ export class PythonService {
         }
         if (parsed.type === 'harvest-done') resultado = parsed as HarvestDone
         onEvent(parsed as HarvestEvent)
+      })
+      child.stdout.setEncoding('utf-8')
+      child.stdout.on('data', (chunk: string) => reader.push(chunk))
+      child.stderr.setEncoding('utf-8')
+      child.stderr.on('data', (chunk: string) => process.stderr.write(chunk))
+      child.on('error', () => resolve(null))
+      child.on('close', () => resolve(resultado))
+    })
+  }
+
+  /**
+   * Repescagem dos episódios já analisados. Mesmo desenho do harvest: sem
+   * timeout (carrega a segunda IA e passa por cada episódio) e com um evento
+   * de progresso por episódio.
+   */
+  repescar(
+    episodeIds: number[],
+    onEvent: (event: RepescarEvent) => void
+  ): Promise<RepescarFim | null> {
+    const backend = resolveBackend()
+    if (!backend || episodeIds.length === 0) return Promise.resolve(null)
+
+    return new Promise((resolve) => {
+      let resultado: RepescarFim | null = null
+      const child = spawn(
+        backend.cmd,
+        [...backend.args, 'repescar', episodeIds.map((i) => String(Math.trunc(i))).join(',')],
+        { cwd: backend.cwd, windowsHide: true, env: ENGINE_ENV }
+      )
+      const reader = new LineReader((line) => {
+        let parsed: { type?: string }
+        try {
+          parsed = JSON.parse(line) as { type?: string }
+        } catch {
+          return
+        }
+        if (parsed.type === 'repescar-fim') resultado = parsed as RepescarFim
+        if (parsed.type === 'repescar-fim' || parsed.type === 'repescar-progresso') {
+          onEvent(parsed as RepescarEvent)
+        }
       })
       child.stdout.setEncoding('utf-8')
       child.stdout.on('data', (chunk: string) => reader.push(chunk))

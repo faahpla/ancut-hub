@@ -229,6 +229,18 @@ export function FavoritesView(): JSX.Element {
             setMarcando(null)
             void marcar(alvo.id, c.ids[0])
           }}
+          onCriar={(nome) => {
+            const alvo = marcando.shot
+            setMarcando(null)
+            void window.ancut.results.tagShotNew([alvo.id], nome).then((r) => {
+              if (r?.error) setAviso(r.error)
+              else {
+                setAviso(null)
+                setElenco(null)
+                carregar()
+              }
+            })
+          }}
         />
       )}
     </div>

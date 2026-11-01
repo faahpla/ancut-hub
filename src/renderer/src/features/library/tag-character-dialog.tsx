@@ -1,4 +1,4 @@
-import { Loader2, Search, Tag, X } from 'lucide-react'
+import { Loader2, Plus, Search, Tag, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -21,6 +21,7 @@ export function TagCharacterDialog({
   atuais,
   lista,
   onEscolher,
+  onCriar,
   onFechar
 }: {
   /** Pasta do anime da cena. Só o elenco dele aparece. */
@@ -30,6 +31,8 @@ export function TagCharacterDialog({
   /** O índice de personagens do acervo. `null` enquanto carrega. */
   lista: CharacterEntry[] | null
   onEscolher: (c: CharacterEntry) => void
+  /** Marcar com um personagem que ainda não existe, pelo nome digitado. */
+  onCriar?: (nome: string) => void
   onFechar: () => void
 }): JSX.Element {
   const [busca, setBusca] = useState('')
@@ -53,6 +56,20 @@ export function TagCharacterDialog({
         c.aliases.some((a) => a.toLowerCase().includes(alvo))
     )
   }, [lista, anime, busca])
+
+  // A lista só tem quem JÁ tem cena no acervo. Personagem que o
+  // reconhecimento nunca achou (o Adam Smasher do Cyberpunk) não tinha como
+  // entrar: agora o nome digitado vira um personagem novo. Só aparece quando
+  // ninguém da lista tem exatamente esse nome, pra não criar o repetido.
+  const digitado = busca.trim()
+  const podeCriar =
+    !!onCriar &&
+    digitado.length > 0 &&
+    !visiveis.some(
+      (c) =>
+        c.name.toLowerCase() === digitado.toLowerCase() ||
+        c.aliases.some((a) => a.toLowerCase() === digitado.toLowerCase())
+    )
 
   return (
     <Dialog open onOpenChange={(v) => !v && onFechar()}>
@@ -81,7 +98,9 @@ export function TagCharacterDialog({
             onKeyDown={(e) => {
               // Enter marca o primeiro da lista: com a busca filtrando, ele é
               // quase sempre o que a pessoa queria.
-              if (e.key === 'Enter' && visiveis[0]) onEscolher(visiveis[0])
+              if (e.key !== 'Enter') return
+              if (visiveis[0]) onEscolher(visiveis[0])
+              else if (podeCriar) onCriar?.(digitado)
             }}
             placeholder="Procurar no elenco…"
             className="h-9 w-full rounded-md border border-border bg-surface-sunken pl-8 pr-7 text-[13px] outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
@@ -102,12 +121,32 @@ export function TagCharacterDialog({
           <div className="grid min-h-[120px] place-items-center">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </div>
-        ) : visiveis.length === 0 ? (
+        ) : visiveis.length === 0 && !podeCriar ? (
           <p className="py-8 text-center text-[12.5px] text-muted-foreground">
             {busca ? `Ninguém com “${busca}” em ${anime}.` : `Nenhum personagem em ${anime}.`}
           </p>
         ) : (
           <ul className="-mx-1 max-h-[46vh] overflow-y-auto px-1">
+            {podeCriar && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onCriar?.(digitado)}
+                  className="flex w-full items-center gap-2.5 rounded-md border border-dashed border-primary/40 px-2 py-1.5 text-left transition-colors hover:bg-primary/10"
+                >
+                  <Plus className="size-3.5 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium">
+                      Marcar como “{digitado}”
+                    </span>
+                    <span className="block truncate text-[11px] text-muted-foreground/80">
+                      personagem novo em {anime || 'este anime'}
+                      {visiveis.length === 0 ? ' — ninguém do elenco tem esse nome' : ''}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            )}
             {visiveis.map((c) => {
               const ja = atuais.some((n) => n === c.name)
               return (

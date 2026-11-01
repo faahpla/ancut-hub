@@ -20,6 +20,7 @@ import {
   Star,
   Users,
   Trash2,
+  UserSearch,
   X
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -103,6 +104,53 @@ export function LibraryView({
         ok: true,
         texto: `${base} Todos com foto. Mande o .zip pra quem quiser — no AnCut dele, é “Importar personagens” aqui na Biblioteca.`
       })
+    }
+  }
+
+  /**
+   * Repescagem: cena com rosto e sem ninguém ganha o personagem quando as
+   * duas IAs concordam. Pros episódios analisados antes dela existir — o
+   * acervo do FAAH tinha 1.442 cenas assim só no Cyberpunk.
+   */
+  const [repescando, setRepescando] = useState<string | null>(null)
+  const repescar = async (anime: Anime): Promise<void> => {
+    if (repescando) return
+    const ids = anime.temporadas.flatMap((t) => t.episodios.map((e) => e.episodeId))
+    setRepescando(anime.pasta)
+    setAvisoPacote({ ok: true, texto: `Procurando personagem nas cenas sem ninguém de “${anime.nome}”...` })
+    const parar = window.ancut.results.onRepescarEvent((ev) => {
+      if (ev.type !== 'repescar-progresso') return
+      setAvisoPacote({
+        ok: true,
+        texto: `Procurando personagem nas cenas sem ninguém de “${anime.nome}”: episódio ${ev.feitos} de ${ev.total}, ${ev.cenas} cenas marcadas até agora...`
+      })
+    })
+    try {
+      const r = await window.ancut.results.repescar(ids)
+      if (!r) {
+        setAvisoPacote({ ok: false, texto: 'A procura não terminou — tente de novo.' })
+      } else if (r.erro) {
+        setAvisoPacote({ ok: false, texto: r.erro })
+      } else if (r.cenas === 0) {
+        setAvisoPacote({
+          ok: true,
+          texto: `“${anime.nome}”: nenhuma cena nova com certeza suficiente. O que sobrou sem ninguém dá pra marcar à mão.`
+        })
+      } else {
+        const quem = Object.entries(r.porPersonagem)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 6)
+          .map(([n, c]) => `${n} (${c})`)
+          .join(', ')
+        setAvisoPacote({
+          ok: true,
+          texto: `“${anime.nome}”: mais ${r.cenas} cenas com personagem em ${r.episodios} episódios — ${quem}${Object.keys(r.porPersonagem).length > 6 ? '…' : ''}.`
+        })
+        void loadRecent()
+      }
+    } finally {
+      parar()
+      setRepescando(null)
     }
   }
 
@@ -392,6 +440,9 @@ export function LibraryView({
                 onMenu={(x, y, ep, temporada) => setMenu({ x, y, ep, temporada })}
                 onDescobrir={onDescobrir}
                 onExportar={() => void exportarPersonagens(anime)}
+                onRepescar={() => void repescar(anime)}
+                repescando={repescando === anime.pasta}
+                ocupado={repescando !== null}
               />
             </li>
           ))}
@@ -601,7 +652,10 @@ function AnimeCard({
   onMudarTemporada,
   onMenu,
   onDescobrir,
-  onExportar
+  onExportar,
+  onRepescar,
+  repescando,
+  ocupado
 }: {
   anime: Anime
   aberto: boolean
@@ -619,6 +673,11 @@ function AnimeCard({
   onDescobrir: (eps: RecentEpisode[]) => void
   /** Pacote de personagens deste anime, pra levar pra outro AnCut. */
   onExportar: () => void
+  /** Marcar quem ficou sem marcação nos episódios deste anime. */
+  onRepescar: () => void
+  repescando: boolean
+  /** Outra repescagem rodando: uma por vez. */
+  ocupado: boolean
 }): JSX.Element {
   /** Temporada cujo cabeçalho está sob o episódio sendo arrastado. */
   const [alvoArrasto, setAlvoArrasto] = useState<number | null>(null)
@@ -712,6 +771,15 @@ function AnimeCard({
             <Combine />
           </Button>
         )}
+        <Button
+          size="sm"
+          variant="ghost"
+          title="Achar personagem nas cenas que ficaram sem ninguém: compara com quem já está marcado e só marca quando as duas IAs concordam"
+          disabled={ocupado}
+          onClick={onRepescar}
+        >
+          {repescando ? <Loader2 className="animate-spin" /> : <UserSearch />}
+        </Button>
         <Button
           size="sm"
           variant="ghost"

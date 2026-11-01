@@ -538,6 +538,9 @@ export interface ShotRow {
    *  (cena, personagem), e ali uma cena pode ter vários ou nenhum. */
   confidence: number | null
   approved: number | null
+  /** Só na lista "Sem personagem": quem a repescagem ACHA que é, sem
+   *  certeza pra marcar sozinha. Um clique confirma. */
+  sugestao?: { id: number; name: string } | null
 }
 
 export interface MergeResult {
@@ -547,6 +550,28 @@ export interface MergeResult {
   removed: number
   seconds: number
 }
+
+/** Repescagem: um evento por episódio terminado. */
+export interface RepescarProgresso {
+  type: 'repescar-progresso'
+  feitos: number
+  total: number
+  /** Cenas marcadas até aqui, somando os episódios já feitos. */
+  cenas: number
+}
+
+export interface RepescarFim {
+  type: 'repescar-fim'
+  episodios: number
+  /** Cenas que ganharam personagem. */
+  cenas: number
+  /** nome → cenas que ganhou. */
+  porPersonagem: Record<string, number>
+  /** Motivo de não ter feito nada (sem a segunda IA, por exemplo). */
+  erro?: string
+}
+
+export type RepescarEvent = RepescarProgresso | RepescarFim
 
 /** Progresso do reforço de refs: um evento por personagem. */
 export interface HarvestProgress {
@@ -944,6 +969,9 @@ export interface AnCutBridge {
      * onde os outros episódios já estão. Nada é movido no disco.
      */
     relink(extras?: string[]): Promise<RelinkResult | null>
+    /** Marca as cenas com um personagem que ainda não existe — criado com
+     *  esse nome no anime da cena (ou o mesmo escrito de outro jeito). */
+    tagShotNew(shotIds: number[], nome: string): Promise<TagShot | null>
     /** Pacote de personagens dos animes destes episódios. Abre o "Salvar
      *  como"; null = a pessoa cancelou. */
     castExport(episodeIds: number[], nomeSugerido: string): Promise<CastPackResult | null>
@@ -1009,6 +1037,13 @@ export interface AnCutBridge {
      */
     harvest(episodeId: number): Promise<HarvestDone | null>
     onHarvestEvent(handler: (event: HarvestEvent) => void): () => void
+    /**
+     * Repescagem: nos episódios dados, as cenas com rosto e sem ninguém
+     * ganham o personagem quando as duas IAs concordam. Grava banco, pastas
+     * e o shots.json (o que o Dangai lê).
+     */
+    repescar(episodeIds: number[]): Promise<RepescarFim | null>
+    onRepescarEvent(handler: (event: RepescarEvent) => void): () => void
     /**
      * Congela este episódio como gabarito: o estado atual — inclusive a
      * curadoria manual — vira a resposta certa contra a qual as próximas

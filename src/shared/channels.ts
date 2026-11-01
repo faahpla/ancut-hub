@@ -40,6 +40,10 @@ export const CH = {
   harvestStart: 'results:harvest',
   /** Main → renderer: progresso do reforço, um evento por personagem. */
   harvestEvent: 'results:harvest-event',
+  /** Repescagem: marca quem ficou sem marcação em episódios já analisados. */
+  repescarStart: 'results:repescar',
+  /** Main → renderer: progresso da repescagem, um evento por episódio. */
+  repescarEvent: 'results:repescar-event',
   /** Converte caminho do disco em URL media:// (e libera a raiz). */
   mediaUrls: 'results:media-urls',
   /** Tira de quadros de um clipe, pra prévia guiada pelo mouse. */
@@ -56,6 +60,8 @@ export const CH = {
   orphanRestore: 'results:restore',
   /** Religa episódios cuja pasta mudou de lugar (Explorer). */
   relink: 'results:relink',
+  /** Marca cenas com um personagem NOVO (criado pelo nome). */
+  tagShotNew: 'results:tag-shot-new',
   /** Exporta o pacote de personagens de um anime (abre o "Salvar como"). */
   castExport: 'results:cast-export',
   /** Abre o "Abrir" pra escolher um pacote de personagens. */

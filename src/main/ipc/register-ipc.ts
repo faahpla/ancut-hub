@@ -149,6 +149,11 @@ export function registerIpc(
       return python.castExport(res.filePath, ids, String(nomeSugerido || ''))
     }
   )
+  ipcMain.handle(CH.tagShotNew, async (_e, shotIds: number[], nome: string) =>
+    Array.isArray(shotIds) && typeof nome === 'string' && nome.trim()
+      ? python.tagShotNew(shotIds.filter((i) => Number.isInteger(i)), nome.trim())
+      : null
+  )
   ipcMain.handle(CH.castPick, async () => {
     const win = windows.getMain()
     const opts: Electron.OpenDialogOptions = {
@@ -261,6 +266,14 @@ export function registerIpc(
     python.markBenchmark(episodeId, label ?? '')
   )
 
+  ipcMain.handle(CH.repescarStart, async (_e, episodeIds: number[]) =>
+    Array.isArray(episodeIds)
+      ? python.repescar(
+          episodeIds.filter((i) => Number.isInteger(i)),
+          (event) => windows.send(CH.repescarEvent, event)
+        )
+      : null
+  )
   ipcMain.handle(CH.harvestStart, async (_e, episodeId: number) =>
     python.harvest(episodeId, (event) => windows.send(CH.harvestEvent, event))
   )

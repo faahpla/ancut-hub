@@ -8,6 +8,7 @@ import type {
   AppSettings,
   EpisodeKind,
   HarvestEvent,
+  RepescarEvent,
   UpdateStatus
 } from '../shared/types'
 
@@ -59,6 +60,8 @@ const bridge: AnCutBridge = {
     relink: (extras?: string[]) => ipcRenderer.invoke(CH.relink, extras ?? []),
     castExport: (episodeIds: number[], nomeSugerido: string) =>
       ipcRenderer.invoke(CH.castExport, episodeIds, nomeSugerido),
+    tagShotNew: (shotIds: number[], nome: string) =>
+      ipcRenderer.invoke(CH.tagShotNew, shotIds, nome),
     castPick: () => ipcRenderer.invoke(CH.castPick),
     castInspect: (file: string) => ipcRenderer.invoke(CH.castInspect, file),
     castImport: (file: string, titulo: string) => ipcRenderer.invoke(CH.castImport, file, titulo),
@@ -98,6 +101,14 @@ const bridge: AnCutBridge = {
       ipcRenderer.on(CH.harvestEvent, listener)
       return () => {
         ipcRenderer.off(CH.harvestEvent, listener)
+      }
+    },
+    repescar: (episodeIds: number[]) => ipcRenderer.invoke(CH.repescarStart, episodeIds),
+    onRepescarEvent: (handler: (event: RepescarEvent) => void) => {
+      const listener = (_e: unknown, payload: RepescarEvent): void => handler(payload)
+      ipcRenderer.on(CH.repescarEvent, listener)
+      return () => {
+        ipcRenderer.off(CH.repescarEvent, listener)
       }
     },
     markBenchmark: (episodeId: number, label = '') =>
