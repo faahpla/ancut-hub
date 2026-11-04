@@ -345,6 +345,9 @@ export interface EpisodeDeletePlan {
   aplicado: boolean
   /** Só no apply: a pasta foi de fato removida do disco? */
   folderDeleted?: boolean
+  /** Outros episódios do histórico que usam a MESMA pasta. Com algum, a
+   *  pasta fica (é deles também) e só esta entrada sai. */
+  sharedWith?: number
 }
 
 /**
@@ -619,6 +622,9 @@ export interface ExplorerChanges {
   missingFolders: { id: number; character: string; shots: number }[]
   /** Pastas existentes cujos arquivos não batem (renomeados, copiados). */
   unreadableFolders: string[]
+  /** Clipe que APARECEU numa pasta de personagem: vira marcação. `isNew` =
+   *  pasta com nome que o anime não conhece (cria o personagem). */
+  newPairs?: { shotIdx: number; character: string; isNew: boolean }[]
 }
 
 export interface ExplorerApplied {
@@ -626,6 +632,8 @@ export interface ExplorerApplied {
   clips: number
   pairs: number
   characters: number
+  /** Cenas que ganharam personagem pelo Explorer. */
+  added?: number
 }
 
 /**

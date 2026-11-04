@@ -107,6 +107,14 @@ export function DeleteEpisodeDialog({
               </p>
             )}
 
+            {plano.rootExists && (plano.sharedWith ?? 0) > 0 && (
+              <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+                Esta pasta também é de{' '}
+                {plano.sharedWith === 1 ? 'outro episódio' : `${plano.sharedWith} outros episódios`}{' '}
+                do histórico — ela fica no disco, e só esta entrada sai.
+              </p>
+            )}
+
             {impedido ? (
               <div className="flex gap-2 rounded-md border border-danger/40 bg-danger/[0.08] px-3 py-2">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" />
@@ -117,7 +125,7 @@ export function DeleteEpisodeDialog({
                   Apague pelo Explorer se for isso mesmo que você quer.
                 </p>
               </div>
-            ) : (
+            ) : (plano.sharedWith ?? 0) > 0 ? null : (
               <div className="flex gap-2 rounded-md border border-danger/40 bg-danger/[0.08] px-3 py-2">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0 text-danger" />
                 <p className="text-[12.5px] leading-relaxed">

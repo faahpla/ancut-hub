@@ -343,7 +343,8 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
       explorer.safe &&
       (explorer.missingClips > 0 ||
         explorer.unlinkedPairs.length > 0 ||
-        explorer.missingFolders.length > 0)
+        explorer.missingFolders.length > 0 ||
+        (explorer.newPairs?.length ?? 0) > 0)
     ) {
       set({ explorer })
     }

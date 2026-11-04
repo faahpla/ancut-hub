@@ -26,6 +26,12 @@ export function ExplorerSyncBar(): JSX.Element | null {
   for (const p of explorer.unlinkedPairs) {
     porPersonagem.set(p.character, (porPersonagem.get(p.character) ?? 0) + 1)
   }
+  // O contrário: clipe que entrou numa pasta de personagem.
+  const entraram = new Map<string, { n: number; novo: boolean }>()
+  for (const p of explorer.newPairs ?? []) {
+    const atual = entraram.get(p.character)
+    entraram.set(p.character, { n: (atual?.n ?? 0) + 1, novo: p.isNew })
+  }
 
   const aplicar = async (): Promise<void> => {
     setAplicando(true)
@@ -62,6 +68,14 @@ export function ExplorerSyncBar(): JSX.Element | null {
             {n} {n === 1 ? 'cena saiu' : 'cenas saíram'} da pasta de{' '}
             <span className="font-medium text-foreground">{nome}</span> — vira
             correção lembrada, e a próxima análise não devolve.
+          </li>
+        ))}
+        {[...entraram].map(([nome, { n, novo }]) => (
+          <li key={`+${nome}`}>
+            {n} {n === 1 ? 'cena entrou' : 'cenas entraram'} na pasta de{' '}
+            <span className="font-medium text-foreground">{nome}</span>
+            {novo ? ' (personagem novo)' : ''} — vira marcação, como marcar pela
+            tela.
           </li>
         ))}
       </ul>
