@@ -543,7 +543,12 @@ export interface ShotRow {
   approved: number | null
   /** Só na lista "Sem personagem": quem a repescagem ACHA que é, sem
    *  certeza pra marcar sozinha. Um clique confirma. */
-  sugestao?: { id: number; name: string } | null
+  sugestao?: {
+    id: number
+    name: string
+    /** Veio só da legenda: a cena não tem rosto, e essa pessoa fala nela. */
+    porFala?: boolean
+  } | null
 }
 
 export interface MergeResult {
@@ -553,6 +558,46 @@ export interface MergeResult {
   removed: number
   seconds: number
 }
+
+/** Uma cena achada pela busca por descrição. */
+export interface SceneShot extends CharacterShot {
+  /** Quanto a cena parece com a descrição (cosseno do CLIP; ~0,2-0,35). */
+  relevancia: number
+  /** Nota de beleza (LAION aesthetic, ~3-8). */
+  beleza: number
+}
+
+export interface SceneSearchRequest {
+  /** O que procurar, em português ou inglês. Nome de personagem filtra. */
+  consulta: string
+  /** Onde procurar (os episódios do anime escolhido, ou do acervo inteiro). */
+  episodios: number[]
+  /** "relevancia" = as mais parecidas; "beleza" = as mais bonitas. */
+  ordem: 'relevancia' | 'beleza'
+  limite?: number
+}
+
+/** O acervo ainda sem índice está sendo indexado: um evento por episódio. */
+export interface SceneSearchProgress {
+  type: 'cenas-progresso'
+  feitos: number
+  total: number
+}
+
+export interface SceneSearchResult {
+  type: 'cenas-resultado'
+  shots: SceneShot[]
+  /** Como a descrição foi entendida (em inglês, que é o que o CLIP lê). */
+  consultaEn: string
+  /** Personagens que a busca citou — viraram filtro. */
+  personagens: string[]
+  /** Quantas cenas entraram na conta. */
+  total: number
+  outputDir: string
+  mediaPrefix?: string
+}
+
+export type SceneSearchEvent = SceneSearchProgress | SceneSearchResult
 
 /** Repescagem: um evento por episódio terminado. */
 export interface RepescarProgresso {
@@ -1052,6 +1097,9 @@ export interface AnCutBridge {
      */
     repescar(episodeIds: number[]): Promise<RepescarFim | null>
     onRepescarEvent(handler: (event: RepescarEvent) => void): () => void
+    /** Busca de cena por descrição. Indexa antes o que faltar no acervo. */
+    searchScenes(req: SceneSearchRequest): Promise<SceneSearchResult | null>
+    onScenesEvent(handler: (event: SceneSearchEvent) => void): () => void
     /**
      * Congela este episódio como gabarito: o estado atual — inclusive a
      * curadoria manual — vira a resposta certa contra a qual as próximas

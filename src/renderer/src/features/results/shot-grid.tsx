@@ -3,6 +3,7 @@ import {
   Combine,
   FolderOpen,
   Loader2,
+  MessageSquare,
   PlayCircle,
   SquareCheck,
   Star,
@@ -624,14 +625,22 @@ function ShotCard({
         {shot.sugestao && (
           <button
             type="button"
-            title={`Parece ${shot.sugestao.name} — clique pra marcar (com cenas selecionadas, aceita o palpite de todas)`}
+            title={
+              shot.sugestao.porFala
+                ? `${shot.sugestao.name} está falando nesta cena (pela legenda) — clique pra marcar. Confira: quem fala pode estar fora do quadro.`
+                : `Parece ${shot.sugestao.name} — clique pra marcar (com cenas selecionadas, aceita o palpite de todas)`
+            }
             onClick={(e) => {
               e.stopPropagation()
               onAceitarPalpite()
             }}
             className="absolute bottom-1 left-1 z-10 flex max-w-[calc(100%-0.5rem)] items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10.5px] font-medium text-white transition-colors hover:bg-primary hover:text-primary-foreground"
           >
-            <Check className="size-3 shrink-0" strokeWidth={3} />
+            {shot.sugestao.porFala ? (
+              <MessageSquare className="size-3 shrink-0" />
+            ) : (
+              <Check className="size-3 shrink-0" strokeWidth={3} />
+            )}
             <span className="truncate">{shot.sugestao.name}?</span>
           </button>
         )}

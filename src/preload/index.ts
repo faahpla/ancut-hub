@@ -9,6 +9,8 @@ import type {
   EpisodeKind,
   HarvestEvent,
   RepescarEvent,
+  SceneSearchEvent,
+  SceneSearchRequest,
   UpdateStatus
 } from '../shared/types'
 
@@ -104,6 +106,14 @@ const bridge: AnCutBridge = {
       }
     },
     repescar: (episodeIds: number[]) => ipcRenderer.invoke(CH.repescarStart, episodeIds),
+    searchScenes: (req: SceneSearchRequest) => ipcRenderer.invoke(CH.scenesSearch, req),
+    onScenesEvent: (handler: (event: SceneSearchEvent) => void) => {
+      const listener = (_e: unknown, payload: SceneSearchEvent): void => handler(payload)
+      ipcRenderer.on(CH.scenesEvent, listener)
+      return () => {
+        ipcRenderer.off(CH.scenesEvent, listener)
+      }
+    },
     onRepescarEvent: (handler: (event: RepescarEvent) => void) => {
       const listener = (_e: unknown, payload: RepescarEvent): void => handler(payload)
       ipcRenderer.on(CH.repescarEvent, listener)

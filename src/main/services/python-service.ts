@@ -29,6 +29,9 @@ import type {
   HarvestEvent,
   RepescarEvent,
   RepescarFim,
+  SceneSearchEvent,
+  SceneSearchRequest,
+  SceneSearchResult,
   MergeResult,
   OrphanEpisode,
   RestoreResult,
@@ -620,6 +623,43 @@ export class PythonService {
         if (parsed.type === 'repescar-fim' || parsed.type === 'repescar-progresso') {
           onEvent(parsed as RepescarEvent)
         }
+      })
+      child.stdout.setEncoding('utf-8')
+      child.stdout.on('data', (chunk: string) => reader.push(chunk))
+      child.stderr.setEncoding('utf-8')
+      child.stderr.on('data', (chunk: string) => process.stderr.write(chunk))
+      child.on('error', () => resolve(null))
+      child.on('close', () => resolve(resultado))
+    })
+  }
+
+  /**
+   * Busca de cena por descrição. Sem timeout, como a repescagem: no acervo
+   * antigo ela indexa antes (uns 20 s por episódio, uma vez só).
+   */
+  searchScenes(
+    req: SceneSearchRequest,
+    onEvent: (event: SceneSearchEvent) => void
+  ): Promise<SceneSearchResult | null> {
+    const backend = resolveBackend()
+    if (!backend) return Promise.resolve(null)
+
+    return new Promise((resolve) => {
+      let resultado: SceneSearchResult | null = null
+      const child = spawn(backend.cmd, [...backend.args, 'cenas-buscar', JSON.stringify(req)], {
+        cwd: backend.cwd,
+        windowsHide: true,
+        env: ENGINE_ENV
+      })
+      const reader = new LineReader((line) => {
+        let parsed: { type?: string }
+        try {
+          parsed = JSON.parse(line) as { type?: string }
+        } catch {
+          return
+        }
+        if (parsed.type === 'cenas-resultado') resultado = parsed as SceneSearchResult
+        if (parsed.type === 'cenas-progresso') onEvent(parsed as SceneSearchEvent)
       })
       child.stdout.setEncoding('utf-8')
       child.stdout.on('data', (chunk: string) => reader.push(chunk))

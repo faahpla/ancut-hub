@@ -1,7 +1,13 @@
 import { app, dialog, ipcMain, nativeImage, shell } from 'electron'
 import { join } from 'node:path'
 import { CH } from '../../shared/channels'
-import type { AnalysisRequest, AppInfo, AppSettings, ReclassifyRequest } from '../../shared/types'
+import type {
+  AnalysisRequest,
+  AppInfo,
+  AppSettings,
+  ReclassifyRequest,
+  SceneSearchRequest
+} from '../../shared/types'
 import { allowMediaRoot, caminhoDaMidia, mediaUrlPrefix } from '../register-protocol'
 import { tiraDoClipe } from '../services/strip-service'
 import type { PythonService } from '../services/python-service'
@@ -266,6 +272,21 @@ export function registerIpc(
     python.markBenchmark(episodeId, label ?? '')
   )
 
+  /** A raiz do media:// é a saída inteira, como na busca por personagem. */
+  ipcMain.handle(CH.scenesSearch, async (_e, req: SceneSearchRequest) => {
+    if (!req || !Array.isArray(req.episodios)) return null
+    const r = await python.searchScenes(
+      {
+        consulta: String(req.consulta ?? '').slice(0, 300),
+        episodios: req.episodios.filter((i) => Number.isInteger(i)),
+        ordem: req.ordem === 'beleza' ? 'beleza' : 'relevancia',
+        limite: Math.min(Math.max(Number(req.limite) || 300, 1), 2000)
+      },
+      (event) => windows.send(CH.scenesEvent, event)
+    )
+    if (r?.outputDir) allowMediaRoot(r.outputDir)
+    return r ? { ...r, mediaPrefix: mediaUrlPrefix(r.outputDir) } : null
+  })
   ipcMain.handle(CH.repescarStart, async (_e, episodeIds: number[]) =>
     Array.isArray(episodeIds)
       ? python.repescar(

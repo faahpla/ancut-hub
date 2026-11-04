@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Share2,
   Download,
+  ScanSearch,
   Search,
   Shapes,
   Star,
@@ -36,6 +37,7 @@ import { ImportCastDialog } from './import-cast-dialog'
 import { DeleteEpisodeDialog } from './delete-episode-dialog'
 import { CharactersView } from './characters-view'
 import { FavoritesView } from './favorites-view'
+import { ScenesView } from './scenes-view'
 import { ContextMenu } from '@/components/ui/context-menu'
 import type { RecentEpisode } from '@shared/types'
 
@@ -180,7 +182,7 @@ export function LibraryView({
    */
   const { modo, busca, abertos } = useResultsStore((s) => s.biblioteca)
   const setBiblioteca = useResultsStore((s) => s.setBiblioteca)
-  const setModo = (m: 'anime' | 'personagem' | 'favorito'): void =>
+  const setModo = (m: 'anime' | 'personagem' | 'favorito' | 'cena'): void =>
     setBiblioteca({ modo: m })
   const setBusca = (b: string): void => setBiblioteca({ busca: b })
   /** Anime que o usuário quer fazer sumir dentro de outro. */
@@ -313,6 +315,12 @@ export function LibraryView({
             icone={Star}
             rotulo="Favoritos"
           />
+          <ModoBotao
+            ativo={modo === 'cena'}
+            onClick={() => setModo('cena')}
+            icone={ScanSearch}
+            rotulo="Cenas"
+          />
         </div>
         {modo === 'anime' && (
           <Button
@@ -421,6 +429,8 @@ export function LibraryView({
         <CharactersView />
       ) : modo === 'favorito' ? (
         <FavoritesView />
+      ) : modo === 'cena' ? (
+        <ScenesView animes={animes} />
       ) : visiveis.length === 0 ? (
         <p className="px-1 py-6 text-center text-[12.5px] text-muted-foreground">
           Nada com “{busca}”.

@@ -44,6 +44,10 @@ export const CH = {
   repescarStart: 'results:repescar',
   /** Main → renderer: progresso da repescagem, um evento por episódio. */
   repescarEvent: 'results:repescar-event',
+  /** Busca de cena por descrição ("luta na chuva") e as mais bonitas. */
+  scenesSearch: 'results:scenes-search',
+  /** Main → renderer: progresso da busca (episódios sendo indexados). */
+  scenesEvent: 'results:scenes-event',
   /** Converte caminho do disco em URL media:// (e libera a raiz). */
   mediaUrls: 'results:media-urls',
   /** Tira de quadros de um clipe, pra prévia guiada pelo mouse. */

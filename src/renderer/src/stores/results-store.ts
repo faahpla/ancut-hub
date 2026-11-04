@@ -160,7 +160,7 @@ export const SEM_PERSONAGEM = -2
 /** O estado da Biblioteca que precisa sobreviver a uma ida e volta. */
 export interface EstadoBiblioteca {
   /** Em que ângulo o acervo está: por anime, por personagem ou favoritos. */
-  modo: 'anime' | 'personagem' | 'favorito'
+  modo: 'anime' | 'personagem' | 'favorito' | 'cena'
   busca: string
   /** Animes destrinchados, pelo nome da pasta. */
   abertos: string[]
