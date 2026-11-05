@@ -17,6 +17,8 @@ interface EpisodeState {
   episode: number
   /** '' = episódio, 'OP' = abertura, 'ED' = encerramento. */
   kind: EpisodeKind
+  /** B-roll: o nome do vídeo, que vira o nome da pasta. */
+  titulo: string
   outputDir: string
   /**
    * Subpasta do anime dentro de `outputDir`. Quem responde é o motor: ele
@@ -81,6 +83,7 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
   season: 1,
   episode: 1,
   kind: '',
+  titulo: '',
   outputDir: '',
   animeFolder: '',
   folderRemembered: false,
@@ -106,7 +109,7 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
   choosePreset: (key) => set({ preset: key, params: PRESETS[key].params }),
 
   applyFile: async (path) => {
-    set({ videoPath: path })
+    set({ videoPath: path, titulo: '' })
     const parsed = await window.ancut.episode.parseFilename(path)
     if (!parsed) return
     const chapters = parsed.chapters ?? []

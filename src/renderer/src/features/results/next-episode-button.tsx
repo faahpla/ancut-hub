@@ -61,7 +61,7 @@ export function NextEpisodeButton(): JSX.Element | null {
     }
   }
 
-  const rot = (e: RecentEpisode): string => episodeLabel(e.season, e.episode, e.kind)
+  const rot = (e: RecentEpisode): string => episodeLabel(e.season, e.episode, e.kind, e.titulo)
 
   return (
     <div className="flex shrink-0 items-center gap-0.5">

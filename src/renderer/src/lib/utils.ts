@@ -1,5 +1,22 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import type { EpisodeKind } from '@shared/types'
+
+/**
+ * O título do vídeo sem o nome do anime na frente.
+ *
+ * "Cyberpunk 2077 — Trailer de Lançamento Oficial — V" dentro da pasta
+ * Cyberpunk 2077 vira "Trailer de Lançamento Oficial — V": repetir o nome
+ * em todo B-roll só empurra o que importa pra fora da tela. Mesma regra de
+ * `titulo_do_arquivo` no motor.
+ */
+export function tituloSemAnime(titulo: string, anime: string): string {
+  const t = titulo.trim()
+  const a = anime.trim()
+  if (!a || !t.toLowerCase().startsWith(a.toLowerCase())) return t
+  const resto = t.slice(a.length).replace(/^[\s\-–—:|·]+/, '').trim()
+  return resto || t
+}
 
 /** Junta classes condicionais resolvendo conflitos do Tailwind. */
 export function cn(...inputs: ClassValue[]): string {
@@ -36,11 +53,17 @@ export function formatClock(seconds: number): string {
 export function episodeSlug(
   season: number,
   episode: number,
-  kind: '' | 'OP' | 'ED' | 'MOVIE'
+  kind: EpisodeKind,
+  titulo = ''
 ): string {
   // Tem que casar com `EpisodeInfo.slug` no motor — é o nome da pasta no
   // disco, e esta função é a prévia dele no formulário.
   if (kind === 'MOVIE') return episode > 1900 ? `Filme (${episode})` : 'Filme'
+  if (kind === 'BROLL') {
+    // Número 0 = novo: quem escolhe o número livre é o motor, na hora.
+    const n = episode > 0 ? ` ${String(episode).padStart(2, '0')}` : ''
+    return titulo.trim() ? `B-roll${n} - ${titulo.trim()}` : `B-roll${n}`
+  }
   const s = `S${String(season).padStart(2, '0')}`
   if (kind) return `${s}-${kind}${episode}`
   return `${s}E${String(episode).padStart(2, '0')}`
@@ -55,8 +78,11 @@ export function episodeSlug(
 export function episodeLabel(
   season: number,
   episode: number,
-  kind: '' | 'OP' | 'ED' | 'MOVIE'
+  kind: EpisodeKind,
+  titulo = ''
 ): string {
+  // B-roll se chama pelo nome do vídeo; o número só ordena.
+  if (kind === 'BROLL') return titulo.trim() || `B-roll ${episode}`
   // Filme não tem temporada nem episódio — mostrar "S01E01" nele seria
   // inventar uma numeração. O ano ocupa a vaga do episódio (ver
   // `EpisodeInfo.slug` no motor) e é ele que distingue um John Wick do outro.

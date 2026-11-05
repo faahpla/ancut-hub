@@ -88,6 +88,17 @@ export const CH = {
   reclassifyPlan: 'results:reclassify-plan',
   /** Move as pastas e reaponta o histórico. */
   reclassifyApply: 'results:reclassify-apply',
+  /** Simula passar episódios pra B-roll. Não move nada. */
+  toBrollPlan: 'results:to-broll-plan',
+  /** Passa de verdade: renomeia as pastas e reaponta o histórico. */
+  toBrollApply: 'results:to-broll-apply',
+
+  /** Baixar vídeo por link (B-roll): o que tem no link, baixar, cancelar. */
+  linkListar: 'link:listar',
+  linkBaixar: 'link:baixar',
+  linkCancelar: 'link:cancelar',
+  /** Main → renderer: progresso do download (e da ferramenta, na 1ª vez). */
+  linkEvento: 'link:evento',
   /** Liga/desliga o favorito de uma cena. */
   favToggle: 'results:fav-toggle',
   tagShot: 'results:tag-shot',

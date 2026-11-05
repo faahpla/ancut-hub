@@ -29,7 +29,11 @@ export interface MatchParams {
 /** '' = episódio, OP/ED = abertura e encerramento, MOVIE = filme (que não tem
  *  temporada nem episódio, e entra como S01E01). Faz parte da IDENTIDADE do
  *  episódio no banco. */
-export type EpisodeKind = '' | 'OP' | 'ED' | 'MOVIE'
+/**
+ * '' episódio, OP abertura, ED encerramento, MOVIE filme, BROLL vídeo avulso
+ * (trailer, gameplay, teaser) baixado por link ou solto como material de edição.
+ */
+export type EpisodeKind = '' | 'OP' | 'ED' | 'MOVIE' | 'BROLL'
 
 export interface AnalysisRequest {
   videoPath: string
@@ -71,6 +75,10 @@ export interface AnalysisRequest {
   /** Que par de modelos olha o rosto. Ver `MediaKind`. */
   mediaKind: MediaKind
   renderExportMode: RenderExportMode
+  /** B-roll: o título do vídeo (vira o nome da pasta) e o link de onde veio.
+   *  Com `kind: 'BROLL'` e `episode: 0`, o motor escolhe o número livre. */
+  titulo?: string
+  origem?: string
 }
 
 /**
@@ -255,6 +263,9 @@ export interface RecentEpisode {
   coverUrl?: string
   /** Cenas com pelo menos um personagem marcado. */
   tagged?: number
+  /** B-roll: nome do vídeo e o link de onde ele veio. */
+  titulo?: string
+  origem?: string
 }
 
 /**
@@ -506,6 +517,9 @@ export interface EpisodeResults {
   season: number
   episode: number
   kind: EpisodeKind
+  /** B-roll: nome do vídeo e o link de onde veio. */
+  titulo?: string
+  origem?: string
   episodeRoot: string
   totalShots: number
   /** Quantas cenas ficaram sem ninguém reconhecido. Motor anterior à 0.11.5
@@ -967,6 +981,48 @@ export interface FileChapter {
 
 // ------------------------------------------------------- ponte do preload
 
+/** Um vídeo achado num link (um link de playlist traz vários). */
+export interface VideoDoLink {
+  id: string
+  titulo: string
+  url: string
+  /** Segundos; 0 quando o site não diz. */
+  duracao: number
+}
+
+export type QualidadeDownload = '1080' | 'max'
+
+export interface PedidoDownload {
+  url: string
+  /** Pasta onde o vídeo baixado fica guardado. */
+  pasta: string
+  qualidade: QualidadeDownload
+  /** Só um trecho, em segundos. Os dois vazios = o vídeo inteiro. */
+  inicio?: number
+  fim?: number
+}
+
+export interface ResultadoDownload {
+  arquivo: string
+  titulo: string
+  /** O link do vídeo (não o da playlist): é a identidade do B-roll. */
+  origem: string
+}
+
+/** Main → renderer: o que o baixador está fazendo. */
+export type EventoLink =
+  | { tipo: 'ferramenta'; mensagem: string; fracao: number }
+  | { tipo: 'progresso'; fracao: number; velocidade: string; falta: string; fase: 'video' | 'audio' | 'juntando' }
+
+/** Passar episódios já cortados pra B-roll (o caso dos trailers do Cyberpunk). */
+export interface ToBrollPlan {
+  mudancas: { episodeId: number; de: string; para: string; titulo: string }[]
+  conflitos: string[]
+  erro: string
+  pode: boolean
+  aplicado?: boolean
+}
+
 export interface AnCutBridge {
   analysis: {
     start(req: AnalysisRequest): Promise<{ runId: string }>
@@ -1057,6 +1113,10 @@ export interface AnCutBridge {
     reclassifyPlan(req: ReclassifyRequest): Promise<ReclassifyPlan | null>
     /** Move as pastas e reaponta o histórico. */
     reclassifyApply(req: ReclassifyRequest): Promise<ReclassifyPlan | null>
+    /** Simula passar episódios pra B-roll — não move nada. */
+    toBrollPlan(episodeIds: number[]): Promise<ToBrollPlan | null>
+    /** Renomeia as pastas pra "B-roll NN - título" e reaponta o histórico. */
+    toBrollApply(episodeIds: number[]): Promise<ToBrollPlan | null>
     /** Liga/desliga o favorito. Devolve o estado novo. */
     favToggle(shotId: number, characterId?: number): Promise<FavToggle | null>
     /** Marca (ou desmarca) o personagem nesta cena. Mexe no banco, na pasta
@@ -1147,6 +1207,14 @@ export interface AnCutBridge {
      */
     apply(): Promise<boolean>
     onEvent(handler: (status: UpdateStatus) => void): () => void
+  }
+  /** Baixar vídeo por link (yt-dlp) pra virar B-roll. */
+  link: {
+    /** Os vídeos de um link — um de vídeo traz um, um de playlist traz todos. */
+    listar(url: string): Promise<{ itens: VideoDoLink[]; erro?: string }>
+    baixar(pedido: PedidoDownload): Promise<ResultadoDownload | { erro: string }>
+    cancelar(): Promise<void>
+    onEvento(handler: (evento: EventoLink) => void): () => void
   }
   shell: {
     reveal(path: string): Promise<void>

@@ -22,6 +22,7 @@ import type {
   CastPackInfo,
   CastPackResult,
   ReclassifyPlan,
+  ToBrollPlan,
   RelinkResult,
   ReclassifyRequest,
   SeasonPlan,
@@ -170,7 +171,9 @@ function toWireRequest(req: AnalysisRequest): Record<string, unknown> {
     skipChapters: req.skipChapters ?? true,
     useDanbooru: req.useDanbooru,
     mediaKind: req.mediaKind,
-    renderExportMode: req.renderExportMode
+    renderExportMode: req.renderExportMode,
+    titulo: req.titulo ?? '',
+    origem: req.origem ?? ''
   }
 }
 
@@ -471,6 +474,16 @@ export class PythonService {
         ...(aplicar ? ['apply'] : [])
       ],
       'reclassify'
+    )
+  }
+
+  /** Passa episódios já cortados pra B-roll. Dois tempos, como os outros:
+   *  `aplicar` false só devolve o plano. */
+  toBroll(ids: number[], aplicar: boolean): Promise<ToBrollPlan | null> {
+    const lista = ids.map((i) => String(Math.trunc(i))).join(',')
+    return this.runOneShot<ToBrollPlan>(
+      ['to-broll', lista, ...(aplicar ? ['apply'] : [])],
+      'to-broll'
     )
   }
 

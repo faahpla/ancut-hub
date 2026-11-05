@@ -20,6 +20,12 @@ export interface Anime {
    */
   titulos: string[]
   temporadas: Temporada[]
+  /**
+   * Trailer, gameplay, teaser: material de edição que mora na pasta do
+   * título mas não pertence a temporada nenhuma. Ficam numa aba própria.
+   */
+  broll: RecentEpisode[]
+  /** Episódios das temporadas (sem contar o B-roll). */
   episodios: number
   cenas: number
   /** Cenas com personagem marcado (a barrinha do cartão). */
@@ -28,8 +34,13 @@ export interface Anime {
   capaUrl?: string
   /** O mais recente que algum episódio dele foi processado. */
   recente: string
-  /** Tudo filme (kind MOVIE)? Vai pro filtro "Filmes e séries". */
+  /** Tudo filme (kind MOVIE)? Vai pro filtro "Filmes". B-roll não conta. */
   filme: boolean
+}
+
+/** Todo vídeo do anime: temporadas e B-roll, nessa ordem. */
+export function todosOsEpisodios(anime: Anime): RecentEpisode[] {
+  return [...anime.temporadas.flatMap((t) => t.episodios), ...anime.broll]
 }
 
 /**
@@ -72,7 +83,7 @@ export function pastaDoAnime(episodeRoot: string): string {
  * temporada inteira. Misturada na numeração, a OP1 aparecia empurrando o E01
  * pra baixo toda vez.
  */
-const PESO: Record<EpisodeKind, number> = { '': 0, OP: 1, ED: 2, MOVIE: 3 }
+const PESO: Record<EpisodeKind, number> = { '': 0, OP: 1, ED: 2, MOVIE: 3, BROLL: 4 }
 
 /** Compara ignorando maiúsculas e acentos, do jeito que gente ordena. */
 const porNome = new Intl.Collator('pt-BR', { numeric: true, sensitivity: 'base' })
@@ -101,21 +112,34 @@ export function agruparPorAnime(episodios: RecentEpisode[]): Anime[] {
         nome: pedacos(pasta).at(-1) || pasta || 'Sem pasta',
         titulos: [],
         temporadas: [],
+        broll: [],
         episodios: 0,
         cenas: 0,
         marcadas: 0,
         recente: '',
-        filme: true
+        // Vira true quando aparecer o primeiro filme, e false de vez com o
+        // primeiro episódio. Um título só de B-roll não é filme.
+        filme: false
       }
       grupos.set(chave, anime)
     }
     anime.marcadas += ep.tagged ?? 0
-    if (ep.kind !== 'MOVIE') anime.filme = false
     // O histórico chega do mais novo pro mais velho: a primeira capa que
     // aparecer é a do episódio mais recente.
     if (!anime.capaUrl && ep.coverUrl) anime.capaUrl = ep.coverUrl
     if ((ep.processedAt ?? '') > anime.recente) anime.recente = ep.processedAt ?? ''
     if (!anime.titulos.includes(ep.animeTitle)) anime.titulos.push(ep.animeTitle)
+    anime.cenas += ep.shotCount
+
+    if (ep.kind === 'BROLL') {
+      anime.broll.push(ep)
+      continue
+    }
+    if (ep.kind === 'MOVIE') {
+      if (anime.episodios === 0 || anime.filme) anime.filme = true
+    } else {
+      anime.filme = false
+    }
 
     let temporada = anime.temporadas.find((t) => t.numero === ep.season)
     if (!temporada) {
@@ -125,13 +149,13 @@ export function agruparPorAnime(episodios: RecentEpisode[]): Anime[] {
     temporada.episodios.push(ep)
     temporada.cenas += ep.shotCount
     anime.episodios += 1
-    anime.cenas += ep.shotCount
   }
 
   const lista = [...grupos.values()]
   for (const anime of lista) {
     anime.titulos.sort(porNome.compare)
     anime.temporadas.sort((a, b) => a.numero - b.numero)
+    anime.broll.sort((a, b) => a.episode - b.episode)
     for (const t of anime.temporadas) {
       t.episodios.sort(
         (a, b) => PESO[a.kind] - PESO[b.kind] || a.episode - b.episode
@@ -156,7 +180,7 @@ export function filtrar(animes: Anime[], busca: string): Anime[] {
 
   const saida: Anime[] = []
   for (const anime of animes) {
-    if (bate(anime.nome) || anime.titulos.some(bate)) {
+    if (bate(anime.nome) || anime.titulos.some(bate) || anime.broll.some((e) => bate(e.titulo ?? ''))) {
       saida.push(anime)
       continue
     }

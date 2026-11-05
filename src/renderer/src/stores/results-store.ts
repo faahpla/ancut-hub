@@ -197,7 +197,7 @@ const guardadas = new Map<number, Guardado>()
 /** "Mushoku Tensei S03E09" — a pasta, não o título da fonte, que é enorme. */
 function rotuloDe(r: EpisodeResults): string {
   const pasta = r.animeFolder || r.animeTitle
-  return `${pasta} ${episodeLabel(r.season, r.episode, r.kind)}`
+  return `${pasta} ${episodeLabel(r.season, r.episode, r.kind, r.titulo)}`
 }
 
 function guardarAtual(

@@ -3,7 +3,7 @@ import { useState, type DragEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
 import { useEpisodeStore } from '@/stores/episode-store'
-import { cn, episodeSlug } from '@/lib/utils'
+import { cn, episodeSlug, tituloSemAnime } from '@/lib/utils'
 import type { EpisodeKind, MediaKind } from '@shared/types'
 
 const VIDEO_RE = /\.(mp4|mkv|mov|avi|webm|ts|m2ts)$/i
@@ -24,6 +24,11 @@ const TIPOS: { valor: EpisodeKind; rotulo: string; dica: string }[] = [
     valor: 'MOVIE',
     rotulo: 'Filme',
     dica: 'Filme não tem temporada nem episódio: vai pra pasta "Filme (ano)".'
+  },
+  {
+    valor: 'BROLL',
+    rotulo: 'B-roll',
+    dica: 'Trailer, gameplay, teaser: material de edição. Vai pra aba B-roll do título, com o nome do vídeo.'
   }
 ]
 
@@ -54,7 +59,12 @@ function tiposDa(midia: MediaKind): { valor: EpisodeKind; rotulo: string; dica: 
   if (midia === 'live') {
     return [
       { valor: 'MOVIE', rotulo: 'Filme', dica: 'Vai pra pasta "Filme (ano)", sem temporada nem episódio.' },
-      { valor: '', rotulo: 'Episódio de série', dica: 'Um episódio, com temporada e número.' }
+      { valor: '', rotulo: 'Episódio de série', dica: 'Um episódio, com temporada e número.' },
+      {
+        valor: 'BROLL',
+        rotulo: 'B-roll',
+        dica: 'Trailer, teaser, making of: vai pra aba B-roll do título, com o nome do vídeo.'
+      }
     ]
   }
   return TIPOS
@@ -142,7 +152,9 @@ export function EpisodeForm({
   }
 
   const tipos = tiposDa(ep.mediaKind)
-  const ehFilme = ep.kind === 'MOVIE'
+  // Filme e B-roll não têm temporada nem episódio que signifique algo.
+  const ehFilme = ep.kind === 'MOVIE' || ep.kind === 'BROLL'
+  const ehBroll = ep.kind === 'BROLL'
 
   return (
     <article
@@ -192,11 +204,32 @@ export function EpisodeForm({
           </datalist>
         </Field>
         <Field label="O que é este arquivo">
-          <Segmentado opcoes={tipos} valor={ep.kind} disabled={disabled} onChange={(v) => ep.set({ kind: v as EpisodeKind })} />
+          <Segmentado
+            opcoes={tipos}
+            valor={ep.kind}
+            disabled={disabled}
+            onChange={(v) => {
+              const kind = v as EpisodeKind
+              // B-roll se chama pelo nome do vídeo: o palpite sai do nome do
+              // arquivo, sem o "[id]" do YouTube e sem o anime na frente.
+              const titulo =
+                kind === 'BROLL' && !ep.titulo.trim() ? tituloSemAnime(tituloDoArquivo(ep.videoPath), ep.anime) : ep.titulo
+              ep.set({ kind, titulo })
+            }}
+          />
         </Field>
       </div>
 
-      <div className={cn('grid gap-4', ehFilme ? 'grid-cols-1' : 'grid-cols-[96px_96px_minmax(0,1fr)]')}>
+      <div
+        className={cn(
+          'grid gap-4',
+          ehBroll
+            ? 'grid-cols-1 lg:grid-cols-2'
+            : ehFilme
+              ? 'grid-cols-1'
+              : 'grid-cols-[96px_96px_minmax(0,1fr)]'
+        )}
+      >
         {!ehFilme && (
           <>
             <Field label="Temporada">
@@ -221,6 +254,16 @@ export function EpisodeForm({
             </Field>
           </>
         )}
+        {ehBroll && (
+          <Field label="Título do vídeo">
+            <Input
+              value={ep.titulo}
+              disabled={disabled}
+              placeholder="Ex.: Official Launch Trailer"
+              onChange={(e) => ep.set({ titulo: e.target.value })}
+            />
+          </Field>
+        )}
         <Field label="Salvar em">
           <div className="flex gap-2">
             <Input value={ep.outputDir} disabled={disabled} onChange={(e) => ep.set({ outputDir: e.target.value })} />
@@ -236,7 +279,7 @@ export function EpisodeForm({
         <p className="-mt-1.5 truncate text-[12px] text-muted-foreground">
           Vai pra{' '}
           <span className="font-medium text-foreground">
-            {ep.animeFolder}\{episodeSlug(ep.season, ep.episode, ep.kind)}
+            {ep.animeFolder}\{episodeSlug(ep.season, ehBroll ? 0 : ep.episode, ep.kind, ep.titulo)}
           </span>
           {ep.folderRemembered && ep.animeFolder !== ep.anime.trim() && (
             <span className="text-primary"> · pasta já usada para este título</span>
@@ -388,4 +431,14 @@ function mmss(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = Math.round(seconds % 60)
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+/** Nome do arquivo sem pasta, extensão, "[id]" do YouTube e sublinhados. */
+function tituloDoArquivo(caminho: string): string {
+  const nome = caminho.split(/[\\/]/).pop() ?? ''
+  return nome
+    .replace(/\s*\[[A-Za-z0-9_-]{11}\].*$/, '')
+    .replace(/\.[^.]+$/, '')
+    .replace(/_+/g, ' ')
+    .trim()
 }

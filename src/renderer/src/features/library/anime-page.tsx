@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronRight,
   Combine,
+  Film,
   FolderOpen,
   Loader2,
   Move,
@@ -18,7 +19,7 @@ import { ContextMenu } from '@/components/ui/context-menu'
 import { cn, episodeLabel } from '@/lib/utils'
 import { useNav } from '@/stores/nav-store'
 import type { CharacterEntry, RecentEpisode } from '@shared/types'
-import type { Anime } from './group-episodes'
+import { todosOsEpisodios, type Anime } from './group-episodes'
 import { Capa, Cobertura, Rosto } from './capa'
 
 /**
@@ -44,7 +45,8 @@ export function AnimePage({
   onRepescar,
   repescando,
   ocupado,
-  onOrganizar
+  onOrganizar,
+  onBroll
 }: {
   anime: Anime
   onVoltar: () => void
@@ -59,9 +61,14 @@ export function AnimePage({
   repescando: boolean
   ocupado: boolean
   onOrganizar: () => void
+  /** Passar episódios pra B-roll (o conserto dos trailers cortados como episódio). */
+  onBroll: (ids: number[], rotulo: string) => void
 }): JSX.Element {
   const ir = useNav((s) => s.ir)
-  const [temporada, setTemporada] = useState(anime.temporadas[0]?.numero ?? 1)
+  /** A aba aberta: o número da temporada, ou 'broll'. */
+  const [temporada, setTemporada] = useState<number | 'broll'>(
+    anime.temporadas[0]?.numero ?? 'broll'
+  )
   const [alvoArrasto, setAlvoArrasto] = useState<number | null>(null)
   const [mais, setMais] = useState<{ x: number; y: number } | null>(null)
   const [gente, setGente] = useState<CharacterEntry[] | null>(null)
@@ -72,12 +79,12 @@ export function AnimePage({
    */
   const [marcando, setMarcando] = useState(false)
   const [marcados, setMarcados] = useState<Set<number>>(new Set())
-  const ordem = anime.temporadas.flatMap((t) => t.episodios)
+  const ordem = todosOsEpisodios(anime)
 
   useEffect(() => {
-    if (!anime.temporadas.some((t) => t.numero === temporada)) {
-      setTemporada(anime.temporadas[0]?.numero ?? 1)
-    }
+    const existe =
+      temporada === 'broll' ? anime.broll.length > 0 : anime.temporadas.some((t) => t.numero === temporada)
+    if (!existe) setTemporada(anime.temporadas[0]?.numero ?? 'broll')
   }, [anime, temporada])
 
   useEffect(() => {
@@ -97,7 +104,19 @@ export function AnimePage({
     }
   }, [anime.nome])
 
-  const atual = anime.temporadas.find((t) => t.numero === temporada) ?? anime.temporadas[0]
+  const naBroll = temporada === 'broll'
+  const atual = naBroll
+    ? undefined
+    : (anime.temporadas.find((t) => t.numero === temporada) ?? anime.temporadas[0])
+  const listaAberta = naBroll ? anime.broll : (atual?.episodios ?? [])
+  const abas = anime.temporadas.length + (anime.broll.length > 0 ? 1 : 0)
+  const resumo = [
+    anime.temporadas.length > 0 &&
+      `${anime.temporadas.length} ${anime.temporadas.length === 1 ? 'temporada' : 'temporadas'}`,
+    anime.episodios > 0 && `${anime.episodios} ${anime.episodios === 1 ? 'episódio' : 'episódios'}`,
+    anime.broll.length > 0 && `${anime.broll.length} de B-roll`,
+    `${anime.cenas.toLocaleString('pt-BR')} cenas`
+  ].filter(Boolean)
   const semNinguem = anime.cenas - anime.marcadas
   const pct = anime.cenas ? Math.round((anime.marcadas / anime.cenas) * 100) : 0
   const capa = useMemo(() => anime.capaUrl, [anime.capaUrl])
@@ -129,9 +148,7 @@ export function AnimePage({
         <div className="flex min-w-[360px] flex-1 flex-col justify-center gap-3.5">
           <h1 className="text-[30px] font-bold leading-tight tracking-tight">{anime.nome}</h1>
           <p className="text-[14px] text-muted-foreground">
-            {anime.temporadas.length} {anime.temporadas.length === 1 ? 'temporada' : 'temporadas'} ·{' '}
-            {anime.episodios} {anime.episodios === 1 ? 'episódio' : 'episódios'} ·{' '}
-            {anime.cenas.toLocaleString('pt-BR')} cenas
+            {resumo.join(' · ')}
             {gente && gente.length > 0 && ` · ${gente.length} personagens`}
           </p>
           {anime.titulos.length > 1 && (
@@ -227,8 +244,10 @@ export function AnimePage({
 
       <section className="flex flex-col gap-3.5">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-[16px] font-semibold">{anime.filme ? 'Arquivos' : 'Episódios'}</h2>
-          {anime.temporadas.length > 1 && (
+          <h2 className="text-[16px] font-semibold">
+            {anime.temporadas.length === 0 ? 'B-roll' : anime.filme ? 'Arquivos' : 'Episódios'}
+          </h2>
+          {abas > 1 && (
             <div className="inline-flex gap-1 rounded-xl border border-border/70 bg-surface-sunken/70 p-1">
               {anime.temporadas.map((t) => (
                 <button
@@ -260,13 +279,29 @@ export function AnimePage({
                   Temporada {t.numero} <span className="font-medium text-muted-foreground">{t.episodios.length}</span>
                 </button>
               ))}
+              {anime.broll.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setTemporada('broll')}
+                  title="Trailers, gameplay e teasers baixados pra edição"
+                  className={cn(
+                    'flex h-8 items-center gap-1.5 rounded-lg px-3.5 text-[13px] font-semibold transition-colors',
+                    naBroll ? 'bg-surface-hover text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Film className="size-3.5" />
+                  B-roll <span className="font-medium text-muted-foreground">{anime.broll.length}</span>
+                </button>
+              )}
             </div>
           )}
           <span className="flex-1" />
           <span className="text-[12.5px] text-muted-foreground">
-            {anime.temporadas.length > 1
-              ? 'Arraste um episódio até outra temporada pra mover · clique direito pra mais opções'
-              : 'Clique direito num episódio pra mais opções'}
+            {naBroll
+              ? 'Clique direito num vídeo pra mais opções'
+              : anime.temporadas.length > 1
+                ? 'Arraste um episódio até outra temporada pra mover · clique direito pra mais opções'
+                : 'Clique direito num episódio pra mais opções'}
           </span>
           {atual && (
             <button
@@ -288,7 +323,7 @@ export function AnimePage({
         </div>
 
         <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
-          {(atual?.episodios ?? []).map((ep) => (
+          {listaAberta.map((ep) => (
             <CartaoEpisodio
               key={ep.episodeId}
               ep={ep}
@@ -317,7 +352,7 @@ export function AnimePage({
               setMarcados(marcados.size === ordem.length ? new Set() : new Set(ordem.map((e) => e.episodeId)))
             }
           >
-            {marcados.size === ordem.length ? 'Desmarcar todos' : 'Marcar todos (todas as temporadas)'}
+            {marcados.size === ordem.length ? 'Desmarcar todos' : 'Marcar todos (todas as abas)'}
           </button>
           <span className="flex-1" />
           <Button size="sm" variant="ghost" onClick={sairDaMarcacao}>
@@ -350,7 +385,20 @@ export function AnimePage({
             ...(podeJuntar
               ? [{ label: 'Juntar com outra pasta…', icon: Combine, onSelect: onJuntar }]
               : []),
-            { label: 'Organizar os episódios (tipo, número, pasta)…', icon: Shapes, onSelect: onOrganizar }
+            { label: 'Organizar os episódios (tipo, número, pasta)…', icon: Shapes, onSelect: onOrganizar },
+            ...(anime.episodios > 0
+              ? [
+                  {
+                    label: 'Passar episódios pra B-roll…',
+                    icon: Film,
+                    onSelect: () =>
+                      onBroll(
+                        anime.temporadas.flatMap((t) => t.episodios.map((e) => e.episodeId)),
+                        `Os ${anime.episodios} episódios de “${anime.nome}”`
+                      )
+                  }
+                ]
+              : [])
           ]}
         />
       )}
@@ -374,15 +422,22 @@ function CartaoEpisodio({
   marcado?: boolean
   onMarcar: () => void
 }): JSX.Element {
-  const rotulo = episodeLabel(ep.season, ep.episode, ep.kind)
+  const broll = ep.kind === 'BROLL'
+  const rotulo = episodeLabel(ep.season, ep.episode, ep.kind, ep.titulo)
   const marcando = marcado !== undefined
   const pct = ep.shotCount ? Math.round(((ep.tagged ?? 0) / ep.shotCount) * 100) : 0
   return (
     <button
       type="button"
       onClick={() => (marcando ? onMarcar() : onOpen(ep.episodeId))}
-      title={marcando ? 'Clique pra marcar ou desmarcar' : `${ep.animeTitle} — arraste até outra temporada pra mover`}
-      draggable={!marcando}
+      title={
+        marcando
+          ? 'Clique pra marcar ou desmarcar'
+          : broll
+            ? rotulo
+            : `${ep.animeTitle} — arraste até outra temporada pra mover`
+      }
+      draggable={!marcando && !broll}
       onContextMenu={(e) => {
         e.preventDefault()
         onMenu(e.clientX, e.clientY, ep, temporada)
@@ -405,7 +460,7 @@ function CartaoEpisodio({
       <span className="relative block">
         <Capa url={ep.coverUrl} className="aspect-video w-full" />
         <span className="absolute bottom-2 left-2 rounded-md bg-black/75 px-2 py-0.5 text-[12px] font-bold text-white">
-          {rotulo}
+          {broll ? `B-roll ${String(ep.episode).padStart(2, '0')}` : rotulo}
         </span>
         {marcando && (
           <span className="absolute right-2 top-2 grid size-6 place-items-center rounded-md bg-black/70">
@@ -413,6 +468,9 @@ function CartaoEpisodio({
           </span>
         )}
       </span>
+      {broll && (
+        <span className="line-clamp-2 px-3 pt-2.5 text-[13px] font-semibold leading-snug">{rotulo}</span>
+      )}
       <span className="flex items-center justify-between gap-2 px-3 py-2.5 text-[12px]">
         <span className="text-muted-foreground">{ep.shotCount} cenas</span>
         <span className={cn(pct >= 60 ? 'text-primary' : pct > 0 ? 'text-warning' : 'text-muted-foreground')}>

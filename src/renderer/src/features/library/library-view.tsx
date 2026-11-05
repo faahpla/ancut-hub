@@ -2,6 +2,7 @@ import {
   Clapperboard,
   Combine,
   Download,
+  Film,
   FolderOpen,
   FolderSearch,
   Loader2,
@@ -25,11 +26,12 @@ import type { RecentEpisode } from '@shared/types'
 import { AnimePage } from './anime-page'
 import { Capa, Cobertura } from './capa'
 import { DeleteEpisodeDialog } from './delete-episode-dialog'
-import { agruparPorAnime, filtrar, type Anime } from './group-episodes'
+import { agruparPorAnime, filtrar, todosOsEpisodios, type Anime } from './group-episodes'
 import { ImportCastDialog } from './import-cast-dialog'
 import { MergeAnimeDialog } from './merge-anime-dialog'
 import { OrganizeDialog } from './organize-dialog'
 import { SeasonDialog } from './season-dialog'
+import { ToBrollDialog } from './to-broll-dialog'
 
 type Filtro = 'tudo' | 'series' | 'filmes'
 type Ordem = 'recentes' | 'nome' | 'cenas' | 'menos'
@@ -82,7 +84,7 @@ export function LibraryView({
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null)
 
   const exportarPersonagens = async (anime: Anime): Promise<void> => {
-    const ids = anime.temporadas.flatMap((t) => t.episodios.map((e) => e.episodeId))
+    const ids = todosOsEpisodios(anime).map((e) => e.episodeId)
     const r = await window.ancut.results.castExport(ids, anime.nome)
     if (!r) return
     if (r.erro || r.characters === 0) {
@@ -122,7 +124,7 @@ export function LibraryView({
   const [repescando, setRepescando] = useState<string | null>(null)
   const repescar = async (anime: Anime): Promise<void> => {
     if (repescando) return
-    const ids = anime.temporadas.flatMap((t) => t.episodios.map((e) => e.episodeId))
+    const ids = todosOsEpisodios(anime).map((e) => e.episodeId)
     setRepescando(anime.pasta)
     setAviso({ ok: true, texto: `Procurando personagem nas cenas sem ninguém de “${anime.nome}”...` })
     const parar = window.ancut.results.onRepescarEvent((ev) => {
@@ -194,6 +196,8 @@ export function LibraryView({
   /** Clique direito numa capa de anime. */
   const [menuAnime, setMenuAnime] = useState<{ x: number; y: number; anime: Anime } | null>(null)
   const [excluindo, setExcluindo] = useState<{ id: number; rotulo: string } | null>(null)
+  /** Episódios na janela de passar pra B-roll. */
+  const [paraBroll, setParaBroll] = useState<{ ids: number[]; rotulo: string } | null>(null)
   /** Episódios na janela de organizar (tipo, número e pasta). */
   const [organizando, setOrganizando] = useState<RecentEpisode[] | null>(null)
 
@@ -297,7 +301,45 @@ export function LibraryView({
         />
       )}
 
-      {menu && (
+      {paraBroll && (
+        <ToBrollDialog
+          episodeIds={paraBroll.ids}
+          rotulo={paraBroll.rotulo}
+          onClose={() => setParaBroll(null)}
+          onDone={() => {
+            setParaBroll(null)
+            void loadRecent()
+          }}
+        />
+      )}
+
+      {menu && menu.ep.kind === 'BROLL' && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: 'Abrir', icon: PlayCircle, onSelect: () => onOpen(menu.ep.episodeId) },
+            {
+              label: 'Abrir a pasta',
+              icon: FolderOpen,
+              onSelect: () => void window.ancut.shell.reveal(menu.ep.episodeRoot)
+            },
+            {
+              label: 'Excluir…',
+              icon: Trash2,
+              danger: true,
+              onSelect: () =>
+                setExcluindo({
+                  id: menu.ep.episodeId,
+                  rotulo: episodeLabel(menu.ep.season, menu.ep.episode, menu.ep.kind, menu.ep.titulo)
+                })
+            }
+          ]}
+        />
+      )}
+
+      {menu && menu.ep.kind !== 'BROLL' && (
         <ContextMenu
           x={menu.x}
           y={menu.y}
@@ -323,6 +365,15 @@ export function LibraryView({
               label: 'Mudar o tipo (abertura, encerramento)…',
               icon: Shapes,
               onSelect: () => setOrganizando([menu.ep])
+            },
+            {
+              label: 'Passar pra B-roll…',
+              icon: Film,
+              onSelect: () =>
+                setParaBroll({
+                  ids: [menu.ep.episodeId],
+                  rotulo: episodeLabel(menu.ep.season, menu.ep.episode, menu.ep.kind)
+                })
             },
             {
               label: 'Excluir…',
@@ -431,6 +482,7 @@ export function LibraryView({
           repescando={repescando === aberto.pasta}
           ocupado={repescando !== null}
           onOrganizar={() => setOrganizando(aberto.temporadas.flatMap((t) => t.episodios))}
+          onBroll={(ids, rotulo) => setParaBroll({ ids, rotulo })}
         />
         {dialogos}
       </div>
@@ -581,7 +633,7 @@ export function LibraryView({
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="truncate text-[13.5px] font-semibold">{ep.animeTitle}</span>
                       <span className="text-[12px] text-muted-foreground">
-                        {episodeLabel(ep.season, ep.episode, ep.kind)} · {ep.shotCount} cenas
+                        {episodeLabel(ep.season, ep.episode, ep.kind, ep.titulo)} · {ep.shotCount} cenas
                       </span>
                     </span>
                   </button>
@@ -664,7 +716,12 @@ function CartaoAnime({
   onMenu: (x: number, y: number) => void
 }): JSX.Element {
   const t = anime.temporadas.length
-  const selo = anime.filme ? 'Filme' : `${t} ${t === 1 ? 'temporada' : 'temporadas'}`
+  const selo =
+    t === 0 && anime.broll.length > 0
+      ? 'B-roll'
+      : anime.filme
+        ? 'Filme'
+        : `${t} ${t === 1 ? 'temporada' : 'temporadas'}`
   return (
     <button
       type="button"
@@ -690,8 +747,13 @@ function CartaoAnime({
       <span className="flex flex-col gap-2 px-3.5 pb-3.5 pt-3">
         <span className="truncate text-[14.5px] font-semibold">{anime.nome}</span>
         <span className="text-[12.5px] text-muted-foreground">
-          {anime.episodios} {anime.episodios === 1 ? 'episódio' : 'episódios'} ·{' '}
-          {anime.cenas.toLocaleString('pt-BR')} cenas
+          {[
+            anime.episodios > 0 && `${anime.episodios} ${anime.episodios === 1 ? 'episódio' : 'episódios'}`,
+            anime.broll.length > 0 && `${anime.broll.length} de B-roll`,
+            `${anime.cenas.toLocaleString('pt-BR')} cenas`
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </span>
         <Cobertura marcadas={anime.marcadas} cenas={anime.cenas} />
       </span>

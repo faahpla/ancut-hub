@@ -18,6 +18,7 @@ import { useQueueStore } from '@/stores/queue-store'
 import type { MediaKind } from '@shared/types'
 import { DiscoveryDialog } from './discovery-dialog'
 import { EpisodeForm, MidiaToggle, PularPorTempo } from './episode-form'
+import { LinkForm } from './link-form'
 import { ModeCards } from './mode-cards'
 import { NeedsInputDialog } from './needs-input-dialog'
 import { ProgressPanel } from './progress-panel'
@@ -142,14 +143,18 @@ export function AnalyzeView({
       }
     }
 
+    const broll = dadosDeBroll(ep)
     begin()
     try {
       await window.ancut.analysis.start({
         videoPath: ep.videoPath,
         anime: ep.anime.trim(),
-        season: ep.season,
-        episode: ep.episode,
+        season: broll ? 1 : ep.season,
+        // B-roll novo: 0 = o motor escolhe o próximo número livre.
+        episode: broll ? 0 : ep.episode,
         kind: ep.kind,
+        titulo: broll?.titulo,
+        origem: broll?.origem,
         outputDir: ep.outputDir.trim(),
         outputFolder: ep.animeFolder,
         skipHeadSeconds: parseMmss(ep.skipHead),
@@ -187,12 +192,15 @@ export function AnalyzeView({
       setStartError(problem)
       return
     }
+    const broll = dadosDeBroll(ep)
     useQueueStore.getState().adicionarConferido({
       videoPath: ep.videoPath,
       anime: ep.anime.trim(),
-      season: ep.season,
-      episode: ep.episode,
-      kind: ep.kind
+      season: broll ? 1 : ep.season,
+      episode: broll ? 0 : ep.episode,
+      kind: ep.kind,
+      titulo: broll?.titulo,
+      origem: broll?.origem
     })
     // Volta pra área de soltar: o próximo vídeo já pode vir.
     ep.set({ videoPath: '', chapters: [] })
@@ -221,6 +229,12 @@ export function AnalyzeView({
           onVarios={(paths) => void useQueueStore.getState().adicionar(paths)}
         />
 
+        {/* Sem arquivo, a tela é só "de onde vem o vídeo": soltar um arquivo
+            ou colar um link. As escolhas de corte aparecem com o arquivo. */}
+        {!ep.videoPath && <LinkForm disabled={false} />}
+
+        {ep.videoPath && (
+          <>
         <section className="flex flex-col gap-2.5">
           <h2 className="text-[13px] font-semibold text-muted-foreground">O que fazer</h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -354,6 +368,8 @@ export function AnalyzeView({
             </Button>
           </div>
         )}
+          </>
+        )}
 
         {status !== 'idle' && <ProgressPanel />}
       </div>
@@ -395,6 +411,26 @@ export function AnalyzeView({
       />
     </div>
   )
+}
+
+/**
+ * Título e origem quando o arquivo é B-roll; null nos outros tipos.
+ *
+ * A origem de um arquivo baixado pelo yt-dlp é o link do vídeo (o "[id]" no
+ * nome); de um arquivo qualquer, o próprio caminho. É ela que faz cortar o
+ * MESMO vídeo de novo cair na mesma vaga em vez de virar um B-roll a mais.
+ */
+function dadosDeBroll(ep: {
+  kind: string
+  titulo: string
+  videoPath: string
+}): { titulo: string; origem: string } | null {
+  if (ep.kind !== 'BROLL') return null
+  const id = /\[([A-Za-z0-9_-]{11})\][^\\/]*$/.exec(ep.videoPath)?.[1]
+  return {
+    titulo: ep.titulo.trim(),
+    origem: id ? `https://www.youtube.com/watch?v=${id}` : ep.videoPath
+  }
 }
 
 /** Devolve a mensagem do primeiro problema encontrado, ou null. */

@@ -1,8 +1,15 @@
 import { create } from 'zustand'
-import type { AnalysisEvent, EpisodeKind, RecentEpisode } from '@shared/types'
+import type {
+  AnalysisEvent,
+  EpisodeKind,
+  EventoLink,
+  QualidadeDownload,
+  RecentEpisode,
+  VideoDoLink
+} from '@shared/types'
 import { pastaDoAnime } from '@/features/library/group-episodes'
 import { pedidoDeIdentificacao } from '@/lib/identificar'
-import { episodeLabel } from '@/lib/utils'
+import { episodeLabel, tituloSemAnime } from '@/lib/utils'
 import { useAnalysisStore } from './analysis-store'
 import { useEpisodeStore } from './episode-store'
 import { useReforcoStore } from './reforco-store'
@@ -28,7 +35,7 @@ import { useReforcoStore } from './reforco-store'
  */
 
 /** `pulado`: episódio que já tinha personagens — ver `dispararProximo`. */
-export type StatusItem = 'esperando' | 'cortando' | 'pronto' | 'falhou' | 'pulado'
+export type StatusItem = 'esperando' | 'baixando' | 'cortando' | 'pronto' | 'falhou' | 'pulado'
 export type ModoItem = 'cortar' | 'descobrir'
 
 export interface ItemFila {
@@ -49,6 +56,20 @@ export interface ItemFila {
   /** Preenchidos quando termina, pra tela poder abrir o resultado. */
   episodeId?: number
   shots?: number
+  /**
+   * Veio de um link: primeiro baixa (pra `link.pasta`), depois corta como
+   * B-roll. `videoPath` fica vazio até o download terminar.
+   */
+  link?: { url: string; pasta: string; qualidade: QualidadeDownload; inicio?: number; fim?: number }
+  /** Pasta do anime na saída — a mesma onde o vídeo baixado fica guardado. */
+  pastaAnime?: string
+  /** B-roll: nome do vídeo e de onde ele veio. */
+  titulo?: string
+  origem?: string
+  /** Durante o download: 0..1, ou -1 quando o site não diz quanto falta. */
+  progresso?: number
+  /** O que está acontecendo agora ("baixando 45% · 2,1 MB/s"). */
+  etapa?: string
 }
 
 interface QueueState {
@@ -70,7 +91,14 @@ interface QueueState {
     season: number
     episode: number
     kind: EpisodeKind
+    titulo?: string
+    origem?: string
   }) => void
+  /** Vídeos de um link: baixar e cortar como B-roll, um depois do outro. */
+  adicionarLinks: (
+    videos: VideoDoLink[],
+    opcoes: { anime: string; pastaAnime: string; pasta: string; qualidade: QualidadeDownload; inicio?: number; fim?: number }
+  ) => void
   /** Episódios já cortados, pra identificar um depois do outro. */
   adicionarDescoberta: (eps: RecentEpisode[]) => void
   remover: (id: string) => void
@@ -94,7 +122,7 @@ function nomeDe(path: string): string {
 
 /** "Slime S04E24" — a pasta do anime, que é o que a Biblioteca mostra. */
 function rotuloDe(item: ItemFila): string {
-  const ep = episodeLabel(item.season, item.episode, item.kind)
+  const ep = episodeLabel(item.season, item.episode, item.kind, item.titulo)
   return item.anime ? `${item.anime} ${ep}` : item.nomeArquivo
 }
 
@@ -147,6 +175,31 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     set({ itens: [...get().itens, item] })
   },
 
+  adicionarLinks: (videos, o) => {
+    const ja = new Set(get().itens.map((i) => i.origem).filter(Boolean))
+    const novos: ItemFila[] = videos
+      .filter((v) => !ja.has(v.url))
+      .map((v) => ({
+        id: `f${++contador}`,
+        modo: 'cortar',
+        videoPath: '',
+        nomeArquivo: v.titulo,
+        anime: o.anime,
+        season: 1,
+        // 0 = o motor escolhe o próximo número livre de B-roll na pasta.
+        episode: 0,
+        kind: 'BROLL' as EpisodeKind,
+        titulo: tituloSemAnime(v.titulo, o.anime),
+        // Trecho é outro B-roll: com o link puro ele cairia na vaga do vídeo
+        // inteiro (mesma origem) e o substituiria.
+        origem: o.inicio || o.fim ? `${v.url}#trecho=${o.inicio ?? 0}-${o.fim ?? 0}` : v.url,
+        pastaAnime: o.pastaAnime,
+        link: { url: v.url, pasta: o.pasta, qualidade: o.qualidade, inicio: o.inicio, fim: o.fim },
+        status: 'esperando' as StatusItem
+      }))
+    set({ itens: [...get().itens, ...novos] })
+  },
+
   adicionarDescoberta: (eps) => {
     const jaNaFila = new Set(
       get()
@@ -184,6 +237,7 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 
   iniciar: async () => {
     if (get().rodando) return
+    ouvirDownloads()
     set({ rodando: true })
     await dispararProximo(set, get)
   },
@@ -193,12 +247,16 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     // Volta o que estava rodando pra "esperando": cancelar não é falhar, e
     // os clipes já feitos ficam em cache — recomeçar sai do ponto em que
     // parou, não do zero.
+    const baixando = get().itens.some((i) => i.status === 'baixando')
     set({
       itens: get().itens.map((i) =>
-        i.status === 'cortando' ? { ...i, status: 'esperando' as StatusItem } : i
+        i.status === 'cortando' || i.status === 'baixando'
+          ? { ...i, status: 'esperando' as StatusItem, progresso: undefined, etapa: undefined }
+          : i
       )
     })
-    void window.ancut.analysis.cancel()
+    if (baixando) void window.ancut.link.cancelar()
+    else void window.ancut.analysis.cancel()
   },
 
   aplicar: (event) => {
@@ -256,14 +314,15 @@ async function dispararProximo(
   get: () => QueueState
 ): Promise<void> {
   if (!get().rodando) return
-  const proximo = get().itens.find((i) => i.status === 'esperando')
+  let proximo = get().itens.find((i) => i.status === 'esperando')
   if (!proximo) {
     set({ rodando: false })
     return
   }
 
+  const idDoItem = proximo.id
   const falhar = (erro: string): Promise<void> => {
-    get().editar(proximo.id, { status: 'falhou', erro })
+    get().editar(idDoItem, { status: 'falhou', erro })
     return dispararProximo(set, get)
   }
 
@@ -311,6 +370,30 @@ async function dispararProximo(
     return
   }
 
+  // Veio de link: baixa primeiro. O vídeo fica guardado (pasta Baixados do
+  // anime), então cortar de novo depois não baixa outra vez.
+  if (proximo.link && !proximo.videoPath) {
+    const id = proximo.id
+    get().editar(id, { status: 'baixando', progresso: 0, etapa: 'Começando o download…', erro: undefined })
+    const r = await window.ancut.link.baixar(proximo.link)
+    if (!get().rodando) return
+    if ('erro' in r) {
+      get().editar(id, { progresso: undefined, etapa: undefined })
+      return falhar(r.erro)
+    }
+    get().editar(id, {
+      videoPath: r.arquivo,
+      // A do item ganha: num trecho ela leva a marca do trecho, e a do
+      // download (o link puro) faria o trecho ocupar a vaga do vídeo inteiro.
+      origem: proximo.origem || r.origem,
+      titulo: proximo.titulo || tituloSemAnime(r.titulo, proximo.anime),
+      progresso: undefined,
+      etapa: undefined
+    })
+    proximo = get().itens.find((i) => i.id === id)
+    if (!proximo) return dispararProximo(set, get)
+  }
+
   get().editar(proximo.id, { status: 'cortando', erro: undefined })
   // Zera o painel de progresso e o põe em "rodando", igual ao fluxo de um
   // episódio só. Sem isto o painel mostraria as etapas do episódio ANTERIOR
@@ -326,8 +409,9 @@ async function dispararProximo(
       outputDir: ep.outputDir.trim(),
       // Vazio = o motor decide pela memória de pastas. Na fila os animes
       // podem ser diferentes entre si, então mandar a pasta resolvida do
-      // formulário jogaria todos na pasta do último nome digitado.
-      outputFolder: '',
+      // formulário jogaria todos na pasta do último nome digitado. O link
+      // já sabe a dele: é onde o vídeo baixado ficou guardado.
+      outputFolder: proximo.pastaAnime ?? '',
       skipHeadSeconds: 0,
       skipTailSeconds: 0,
       params: ep.params,
@@ -338,7 +422,9 @@ async function dispararProximo(
       skipCreditShots: ep.skipCreditShots,
       useDanbooru: ep.useDanbooru,
       mediaKind: ep.mediaKind,
-      renderExportMode: ep.renderExportMode
+      renderExportMode: ep.renderExportMode,
+      titulo: proximo.titulo,
+      origem: proximo.origem
     })
   } catch (e) {
     // O start falha antes de o motor subir (motor não encontrado): nenhum
@@ -346,4 +432,34 @@ async function dispararProximo(
     // ficaria parada pra sempre.
     return falhar(e instanceof Error ? e.message : 'Falha ao iniciar o corte.')
   }
+}
+
+let ouvindo = false
+
+/**
+ * Progresso do download no item que está baixando. Um ouvinte só, ligado na
+ * primeira vez que a fila anda — o baixador é um só no main.
+ */
+function ouvirDownloads(): void {
+  if (ouvindo) return
+  ouvindo = true
+  window.ancut.link.onEvento((ev: EventoLink) => {
+    const st = useQueueStore.getState()
+    const atual = st.itens.find((i) => i.status === 'baixando')
+    if (!atual) return
+    if (ev.tipo === 'ferramenta') {
+      const pct = ev.fracao >= 0 ? ` ${Math.round(ev.fracao * 100)}%` : ''
+      st.editar(atual.id, { progresso: ev.fracao, etapa: `${ev.mensagem}${pct}` })
+      return
+    }
+    const partes =
+      ev.fase === 'juntando'
+        ? ['Juntando áudio e vídeo…']
+        : [
+            ev.fracao >= 0 ? `Baixando ${Math.round(ev.fracao * 100)}%` : 'Baixando o trecho…',
+            ev.velocidade && ev.velocidade !== 'NA' ? ev.velocidade : '',
+            ev.falta && ev.falta !== 'NA' ? `falta ${ev.falta}` : ''
+          ]
+    st.editar(atual.id, { progresso: ev.fracao, etapa: partes.filter(Boolean).join(' · ') })
+  })
 }

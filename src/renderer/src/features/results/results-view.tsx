@@ -108,7 +108,7 @@ export function ResultsView({
           </button>
           <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
           <h1 className="shrink-0 font-bold">
-            {episodeLabel(results.season, results.episode, results.kind)}
+            {episodeLabel(results.season, results.episode, results.kind, results.titulo)}
           </h1>
         </nav>
         <span className="text-[12px] text-muted-foreground">
@@ -119,7 +119,7 @@ export function ResultsView({
         <IdentifyButton results={results} onStarted={onAnalyze} />
         <BenchmarkButton
           episodeId={results.episodeId}
-          label={`${results.animeTitle} ${episodeLabel(results.season, results.episode, results.kind)}`}
+          label={`${results.animeTitle} ${episodeLabel(results.season, results.episode, results.kind, results.titulo)}`}
         />
         <HarvestButton episodeId={results.episodeId} />
         {results.refsDir && (

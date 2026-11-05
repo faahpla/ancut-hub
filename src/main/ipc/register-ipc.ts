@@ -5,10 +5,12 @@ import type {
   AnalysisRequest,
   AppInfo,
   AppSettings,
+  PedidoDownload,
   ReclassifyRequest,
   SceneSearchRequest
 } from '../../shared/types'
 import { allowMediaRoot, caminhoDaMidia, mediaUrlPrefix } from '../register-protocol'
+import { Baixador } from '../services/baixador'
 import { tiraDoClipe } from '../services/strip-service'
 import type { PythonService } from '../services/python-service'
 import type { UpdateService } from '../services/update-service'
@@ -209,6 +211,17 @@ export function registerIpc(
   ipcMain.handle(CH.reclassifyApply, async (_e, req: ReclassifyRequest) =>
     python.reclassify(req, true)
   )
+  ipcMain.handle(CH.toBrollPlan, async (_e, ids: number[]) => python.toBroll(ids, false))
+  ipcMain.handle(CH.toBrollApply, async (_e, ids: number[]) => python.toBroll(ids, true))
+
+  // ------------------------------------------------------- baixar por link
+  const baixador = new Baixador((evento) => windows.send(CH.linkEvento, evento))
+  ipcMain.handle(CH.linkListar, async (_e, url: string) => baixador.listar(String(url)))
+  ipcMain.handle(CH.linkBaixar, async (_e, pedido: PedidoDownload) => baixador.baixar(pedido))
+  ipcMain.handle(CH.linkCancelar, async () => baixador.cancelar())
+  // Fechar o app no meio de um download não pode deixar o yt-dlp (e o
+  // ffmpeg dele) rodando sozinho.
+  app.on('before-quit', () => baixador.cancelar())
 
   /**
    * A grade de um personagem mistura episódios de vários animes, então a raiz
@@ -382,8 +395,9 @@ export function registerIpc(
       await settings.set({
         outputDir: req.outputDir,
         lastAnime: req.anime,
-        lastSeason: req.season,
-        lastEpisode: req.episode,
+        // B-roll vai com número 0 (o motor escolhe): gravar isso faria o
+        // próximo episódio abrir o formulário em "Episódio 0".
+        ...(req.kind === 'BROLL' ? {} : { lastSeason: req.season, lastEpisode: req.episode }),
         params: req.params,
         useDanbooru: req.useDanbooru
       })

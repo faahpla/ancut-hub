@@ -42,7 +42,7 @@ const COLUNAS = 6
  * desenvolvimento, o repositório do motor tem o mesmo binário em bin/. Sem
  * nenhum dos dois, o do PATH.
  */
-function ferramenta(nome: 'ffmpeg'): string {
+export function ferramenta(nome: 'ffmpeg'): string {
   const exe = `${nome}.exe`
   const candidatos = app.isPackaged
     ? [join(dirname(app.getPath('exe')), 'engine', '_internal', 'bin', exe)]

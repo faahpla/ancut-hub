@@ -7,6 +7,7 @@ import type {
   AppInfo,
   AppSettings,
   EpisodeKind,
+  EventoLink,
   HarvestEvent,
   RepescarEvent,
   SceneSearchEvent,
@@ -77,6 +78,8 @@ const bridge: AnCutBridge = {
       ipcRenderer.invoke(CH.setSeasonApply, episodeIds, season),
     reclassifyPlan: (req) => ipcRenderer.invoke(CH.reclassifyPlan, req),
     reclassifyApply: (req) => ipcRenderer.invoke(CH.reclassifyApply, req),
+    toBrollPlan: (episodeIds: number[]) => ipcRenderer.invoke(CH.toBrollPlan, episodeIds),
+    toBrollApply: (episodeIds: number[]) => ipcRenderer.invoke(CH.toBrollApply, episodeIds),
     favToggle: (shotId: number, characterId = 0) =>
       ipcRenderer.invoke(CH.favToggle, shotId, characterId),
     favorites: () => ipcRenderer.invoke(CH.favorites),
@@ -144,6 +147,18 @@ const bridge: AnCutBridge = {
       ipcRenderer.on(CH.updateEvent, listener)
       return () => {
         ipcRenderer.off(CH.updateEvent, listener)
+      }
+    }
+  },
+  link: {
+    listar: (url: string) => ipcRenderer.invoke(CH.linkListar, url),
+    baixar: (pedido) => ipcRenderer.invoke(CH.linkBaixar, pedido),
+    cancelar: () => ipcRenderer.invoke(CH.linkCancelar),
+    onEvento: (handler: (evento: EventoLink) => void) => {
+      const listener = (_: unknown, evento: EventoLink): void => handler(evento)
+      ipcRenderer.on(CH.linkEvento, listener)
+      return () => {
+        ipcRenderer.off(CH.linkEvento, listener)
       }
     }
   },

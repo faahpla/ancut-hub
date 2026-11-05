@@ -2,6 +2,7 @@ import {
   CheckCircle2,
   CircleAlert,
   Clock,
+  Download,
   FilePlus2,
   Loader2,
   Play,
@@ -122,7 +123,7 @@ export function QueuePanel({
                 <Linha
                   key={i.id}
                   item={i}
-                  podeRemover={!rodando || i.status !== 'cortando'}
+                  podeRemover={!rodando || (i.status !== 'cortando' && i.status !== 'baixando')}
                   onRemover={() => remover(i.id)}
                   onVerResultado={onVerResultado}
                 />
@@ -149,13 +150,16 @@ function rotuloComecar(esperando: ItemFila[]): string {
   const n = esperando.length
   const eps = n === 1 ? 'episódio' : 'episódios'
   const descobrir = esperando.filter((i) => i.modo === 'descobrir').length
-  if (descobrir === 0) return `Cortar ${n} ${eps}`
+  const links = esperando.filter((i) => i.link && !i.videoPath).length
+  if (links === n) return `Baixar e cortar ${n} ${n === 1 ? 'vídeo' : 'vídeos'}`
+  if (descobrir === 0 && links === 0) return `Cortar ${n} ${eps}`
   if (descobrir === n) return `Modo Descoberta em ${n} ${eps}`
   return `Começar fila (${n} ${eps})`
 }
 
 const CORES: Record<StatusItem, string> = {
   esperando: 'text-muted-foreground',
+  baixando: 'text-primary',
   cortando: 'text-primary',
   pronto: 'text-primary',
   falhou: 'text-warning',
@@ -164,6 +168,7 @@ const CORES: Record<StatusItem, string> = {
 
 function Icone({ status }: { status: StatusItem }): JSX.Element {
   if (status === 'cortando') return <Loader2 className="size-3.5 animate-spin" />
+  if (status === 'baixando') return <Download className="size-3.5 animate-pulse" />
   if (status === 'pronto') return <CheckCircle2 className="size-3.5" />
   if (status === 'falhou') return <CircleAlert className="size-3.5" />
   if (status === 'pulado') return <SkipForward className="size-3.5" />
@@ -181,15 +186,18 @@ function Linha({
   onRemover: () => void
   onVerResultado: (episodeId: number) => void
 }): JSX.Element {
-  const rotulo = item.anime
-    ? `${item.anime} ${episodeLabel(item.season, item.episode, item.kind)}`
-    : item.nomeArquivo
+  const rotulo =
+    item.kind === 'BROLL'
+      ? `${item.anime} · ${item.titulo || item.nomeArquivo}`
+      : item.anime
+        ? `${item.anime} ${episodeLabel(item.season, item.episode, item.kind)}`
+        : item.nomeArquivo
 
   return (
     <li
       className={cn(
         'group flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-[12.5px]',
-        item.status === 'cortando'
+        item.status === 'cortando' || item.status === 'baixando'
           ? 'border-primary/40 bg-primary/[0.08]'
           : 'border-border bg-surface-sunken/50'
       )}
@@ -208,6 +216,20 @@ function Linha({
             </span>
           )}
         </span>
+        {item.status === 'baixando' && (
+          <span className="mt-1 flex flex-col gap-1">
+            <span className="block truncate text-[11.5px] text-muted-foreground">{item.etapa}</span>
+            <span className="block h-1 overflow-hidden rounded-full bg-muted">
+              <span
+                className={cn(
+                  'block h-full rounded-full bg-primary transition-[width]',
+                  (item.progresso ?? -1) < 0 && 'w-1/3 animate-pulse'
+                )}
+                style={(item.progresso ?? -1) >= 0 ? { width: `${Math.round((item.progresso ?? 0) * 100)}%` } : undefined}
+              />
+            </span>
+          </span>
+        )}
         {item.erro && (
           <span
             className={cn(
