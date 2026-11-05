@@ -23,6 +23,7 @@ import type {
   CastPackResult,
   ReclassifyPlan,
   ToBrollPlan,
+  ResgateFavoritos,
   RelinkResult,
   ReclassifyRequest,
   SeasonPlan,
@@ -517,6 +518,13 @@ export class PythonService {
 
   favorites(): Promise<FavoritesIndex | null> {
     return this.runOneShot<FavoritesIndex>(['favorites'], 'favorites')
+  }
+
+  resgatarFavoritos(aplicar: boolean): Promise<ResgateFavoritos | null> {
+    return this.runOneShot<ResgateFavoritos>(
+      ['resgatar-favoritos', ...(aplicar ? ['apply'] : [])],
+      'resgatar-favoritos'
+    )
   }
 
   /** Personagens do acervo inteiro, já agrupados por identidade. */

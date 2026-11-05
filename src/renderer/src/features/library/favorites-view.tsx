@@ -3,6 +3,7 @@ import {
   FolderOpen,
   GripVertical,
   Loader2,
+  LifeBuoy,
   PlayCircle,
   Star,
   Tag,
@@ -19,7 +20,8 @@ import type {
   CharacterEntry,
   FavoriteAnime,
   FavoriteShot,
-  FavoritesIndex
+  FavoritesIndex,
+  ResgateFavoritos
 } from '@shared/types'
 
 /** O balaio do backend (`storage/favoritos.py`), pra a tela poder explicá-lo. */
@@ -113,6 +115,7 @@ export function FavoritesView(): JSX.Element {
             </kbd>
             . Eles aparecem aqui separados por anime e personagem.
           </p>
+          <ResgatarFavoritos onDevolvidos={carregar} />
         </div>
       </div>
     )
@@ -131,6 +134,7 @@ export function FavoritesView(): JSX.Element {
             {dados.animes.length === 1 ? 'título' : 'títulos'}, separados por personagem
           </p>
         </div>
+        <ResgatarFavoritos onDevolvidos={carregar} compacto />
         <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
           Escala
           <input
@@ -457,6 +461,103 @@ function AnimeCard({
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Procurar favoritos que sumiram quando a análise de um episódio foi refeita.
+ *
+ * Na 1.38.0 a "Análise rápida" refazia episódios prontos e os favoritos deles
+ * iam junto (o Ajk perdeu todos). O motor 0.24.1 não perde mais; isto traz de
+ * volta os que já tinham sumido, lendo o que ainda está no arquivo do banco.
+ * Primeiro mostra quantos achou — devolver é um segundo clique.
+ */
+function ResgatarFavoritos({
+  onDevolvidos,
+  compacto = false
+}: {
+  onDevolvidos: () => void
+  compacto?: boolean
+}): JSX.Element {
+  const [estado, setEstado] = useState<'parado' | 'procurando' | 'achou' | 'devolvendo'>('parado')
+  const [r, setR] = useState<ResgateFavoritos | null>(null)
+  const [texto, setTexto] = useState('')
+
+  const procurar = async (): Promise<void> => {
+    setEstado('procurando')
+    setTexto('')
+    const res = await window.ancut.results.resgatarFavoritos(false)
+    setR(res)
+    if (!res) {
+      setTexto('A procura não terminou — tente de novo.')
+      setEstado('parado')
+    } else if (res.devolver === 0) {
+      setTexto(
+        res.achados > 0
+          ? `Achei ${res.achados} favoritos apagados, mas não dá pra saber com certeza de que cena eram.`
+          : 'Nenhum favorito perdido no banco.'
+      )
+      setEstado('parado')
+    } else {
+      setEstado('achou')
+    }
+  }
+
+  const devolver = async (): Promise<void> => {
+    setEstado('devolvendo')
+    const res = await window.ancut.results.resgatarFavoritos(true)
+    setEstado('parado')
+    setR(null)
+    if (res?.aplicado) {
+      setTexto(`Pronto: ${res.devolver} favoritos de volta.`)
+      onDevolvidos()
+    } else {
+      setTexto('Não deu pra devolver — tente de novo.')
+    }
+  }
+
+  if (estado === 'achou' && r) {
+    return (
+      <div className="flex max-w-[420px] flex-col gap-2 rounded-lg border border-primary/40 bg-primary/[0.08] px-3.5 py-2.5 text-left text-[12.5px]">
+        <span>
+          Achei <b>{r.devolver}</b> {r.devolver === 1 ? 'favorito que sumiu' : 'favoritos que sumiram'} quando a
+          análise foi refeita, em {r.episodios} {r.episodios === 1 ? 'episódio' : 'episódios'}.
+          {r.semCena > 0 && ` Outros ${r.semCena} não dá pra saber de que cena eram.`}
+        </span>
+        <span className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void devolver()}
+            className="rounded-md bg-primary px-3 py-1 text-[12.5px] font-semibold text-primary-foreground"
+          >
+            Devolver
+          </button>
+          <button
+            type="button"
+            onClick={() => setEstado('parado')}
+            className="rounded-md px-3 py-1 text-[12.5px] text-muted-foreground hover:text-foreground"
+          >
+            Agora não
+          </button>
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className={cn('flex items-center gap-2', compacto ? 'self-end' : 'mt-2 flex-col')}>
+      <button
+        type="button"
+        disabled={estado !== 'parado'}
+        onClick={() => void procurar()}
+        title="Favoritos de episódios cuja análise foi refeita na 1.38.0 podem ter sumido. Isto procura e devolve."
+        className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-[12px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
+      >
+        {estado === 'parado' ? <LifeBuoy className="size-3.5" /> : <Loader2 className="size-3.5 animate-spin" />}
+        {estado === 'devolvendo' ? 'Devolvendo…' : 'Procurar favoritos perdidos'}
+      </button>
+      {texto && <span className="text-[12px] text-muted-foreground">{texto}</span>}
     </div>
   )
 }

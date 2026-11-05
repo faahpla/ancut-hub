@@ -1023,6 +1023,18 @@ export interface ToBrollPlan {
   aplicado?: boolean
 }
 
+/** Ver storage/resgate_favoritos.py no motor. */
+export interface ResgateFavoritos {
+  /** Favoritos apagados achados no arquivo do banco. */
+  achados: number
+  /** Quantos dá pra devolver com certeza da cena. */
+  devolver: number
+  /** Achados sem como saber a cena nova. */
+  semCena: number
+  episodios: number
+  aplicado: boolean
+}
+
 export interface AnCutBridge {
   analysis: {
     start(req: AnalysisRequest): Promise<{ runId: string }>
@@ -1130,6 +1142,8 @@ export interface AnCutBridge {
     removeCharacter(episodeId: number, characterId: number): Promise<RemoveCharacter | null>
     /** Favoritos em anime → personagem → cenas. */
     favorites(): Promise<FavoritesIndex | null>
+    /** Procura favoritos apagados por reanálise; com `aplicar`, devolve. */
+    resgatarFavoritos(aplicar: boolean): Promise<ResgateFavoritos | null>
     /** Personagens do acervo inteiro, agrupados por identidade. */
     characters(termo?: string): Promise<CharacterIndex | null>
     /** Todas as cenas desses personagens, atravessando episódios. */

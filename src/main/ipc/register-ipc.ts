@@ -243,6 +243,10 @@ export function registerIpc(
   )
 
   /** Igual à busca por personagem: a raiz do media:// é a saída inteira. */
+  ipcMain.handle(CH.resgatarFavoritos, async (_e, aplicar: boolean) =>
+    python.resgatarFavoritos(Boolean(aplicar))
+  )
+
   ipcMain.handle(CH.favorites, async () => {
     const r = await python.favorites()
     if (r?.outputDir) allowMediaRoot(r.outputDir)

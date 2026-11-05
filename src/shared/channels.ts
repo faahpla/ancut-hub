@@ -105,6 +105,8 @@ export const CH = {
   removeCharacter: 'results:remove-character',
   /** Favoritos do acervo, em anime → personagem → cenas. */
   favorites: 'results:favorites',
+  /** Procura (e devolve) favoritos que sumiram quando a análise foi refeita. */
+  resgatarFavoritos: 'results:resgatar-favoritos',
   /** Personagens do acervo INTEIRO, com contagem de cenas. */
   characters: 'results:characters',
   /** Todas as cenas de um personagem, atravessando episódios. */
