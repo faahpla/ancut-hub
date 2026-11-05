@@ -555,7 +555,7 @@ export function LibraryView({
           {(
             [
               ['tudo', 'Tudo', animes.length],
-              ['series', 'Séries e animes', animes.length - nFilmes],
+              ['series', 'Animes', animes.length - nFilmes],
               ['filmes', 'Filmes', nFilmes]
             ] as const
           ).map(([id, rotulo, n]) => (
@@ -645,7 +645,7 @@ export function LibraryView({
           <section className="flex flex-col gap-3">
             {!buscando && (
               <h2 className="text-[14px] font-semibold text-muted-foreground">
-                {filtro === 'filmes' ? 'Filmes' : filtro === 'series' ? 'Séries e animes' : 'Tudo no acervo'}
+                {filtro === 'filmes' ? 'Filmes' : filtro === 'series' ? 'Animes' : 'Tudo no acervo'}
               </h2>
             )}
             {visiveis.length === 0 ? (
