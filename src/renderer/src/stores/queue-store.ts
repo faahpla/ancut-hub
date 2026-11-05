@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type {
   AnalysisEvent,
+  DiscoveryReadyEvent,
   EpisodeKind,
   EventoLink,
   QualidadeDownload,
@@ -10,7 +11,7 @@ import type {
 import { pastaDoAnime } from '@/features/library/group-episodes'
 import { pedidoDeIdentificacao } from '@/lib/identificar'
 import { episodeLabel, tituloSemAnime } from '@/lib/utils'
-import { useAnalysisStore } from './analysis-store'
+import { aoDescobrir, useAnalysisStore } from './analysis-store'
 import { useEpisodeStore } from './episode-store'
 import { useReforcoStore } from './reforco-store'
 
@@ -29,27 +30,54 @@ import { useReforcoStore } from './reforco-store'
  * episódio e outro. Foi o pedido: cortar vários pela fila, depois sentar e
  * identificar todos em sequência.
  *
- * O "Automático" fica de fora de propósito: ele para pra perguntar coisas
- * que não são nomes (anime não encontrado, refs faltando), e uma fila
- * travada numa pergunta dessas na terceira de oito é pior que fila nenhuma.
+ * **Análise rápida** (11/2026, pedido do Levi) — reconhece sozinho quem o
+ * app já conhece: o elenco do AniList e quem foi batizado no Modo
+ * Descoberta (os rostos batizados viram referência). Não para pra nada:
+ * a pergunta que a análise faria (anime não encontrado, refs faltando)
+ * vira "falhou" com o motivo, e a fila segue pro próximo.
+ *
+ * E a Descoberta na fila só PARA quando aparece gente nova: se todo
+ * personagem que importa no episódio já foi batizado antes, ela confirma
+ * sozinha (ver `confirmarSeTodosConhecidos`). Era o "identificar todo
+ * episódio" que cansava.
  */
 
 /** `pulado`: episódio que já tinha personagens — ver `dispararProximo`. */
 export type StatusItem = 'esperando' | 'baixando' | 'cortando' | 'pronto' | 'falhou' | 'pulado'
-export type ModoItem = 'cortar' | 'descobrir'
+export type ModoItem = 'cortar' | 'reconhecer' | 'descobrir'
+
+const CHAVE_MODO = 'ancut.fila.modo'
+const CHAVE_SOZINHA = 'ancut.fila.descoberta-sozinha'
+
+function lerModo(): ModoItem {
+  try {
+    const v = localStorage.getItem(CHAVE_MODO)
+    return v === 'reconhecer' || v === 'descobrir' ? v : 'cortar'
+  } catch {
+    return 'cortar'
+  }
+}
+
+function lerSozinha(): boolean {
+  try {
+    return localStorage.getItem(CHAVE_SOZINHA) !== 'nao'
+  } catch {
+    return true
+  }
+}
 
 export interface ItemFila {
   /** Só pra chave de lista e remoção — o caminho pode repetir. */
   id: string
   modo: ModoItem
-  /** Vazio em 'descobrir': o vídeo vem do histórico na hora de rodar. */
+  /** Vazio quando vem da Biblioteca (`origemId`): o vídeo sai do histórico. */
   videoPath: string
   nomeArquivo: string
   anime: string
   season: number
   episode: number
   kind: EpisodeKind
-  /** 'descobrir': o episódio JÁ cortado que vai ser identificado. */
+  /** Da Biblioteca: o episódio JÁ cortado que vai ser identificado. */
   origemId?: number
   status: StatusItem
   erro?: string
@@ -70,6 +98,8 @@ export interface ItemFila {
   progresso?: number
   /** O que está acontecendo agora ("baixando 45% · 2,1 MB/s"). */
   etapa?: string
+  /** Recado sobre como terminou ("todos já conhecidos — confirmado sozinho"). */
+  nota?: string
 }
 
 interface QueueState {
@@ -78,6 +108,12 @@ interface QueueState {
   rodando: boolean
   /** Lendo nome de arquivo pra preencher anime/temporada/episódio. */
   lendo: boolean
+  /** O que fazer com os episódios que entram (e os que estão esperando). */
+  modoNovos: ModoItem
+  setModoNovos: (m: ModoItem) => void
+  /** Descoberta: confirmar sozinha quando não aparece ninguém novo. */
+  descobertaSozinha: boolean
+  setDescobertaSozinha: (v: boolean) => void
 
   adicionar: (paths: string[]) => Promise<void>
   /**
@@ -93,6 +129,7 @@ interface QueueState {
     kind: EpisodeKind
     titulo?: string
     origem?: string
+    modo?: ModoItem
   }) => void
   /** Vídeos de um link: baixar e cortar como B-roll, um depois do outro. */
   adicionarLinks: (
@@ -100,7 +137,7 @@ interface QueueState {
     opcoes: { anime: string; pastaAnime: string; pasta: string; qualidade: QualidadeDownload; inicio?: number; fim?: number }
   ) => void
   /** Episódios já cortados, pra identificar um depois do outro. */
-  adicionarDescoberta: (eps: RecentEpisode[]) => void
+  adicionarDescoberta: (eps: RecentEpisode[], modo?: 'descobrir' | 'reconhecer') => void
   remover: (id: string) => void
   limparProntos: () => void
   limparTudo: () => void
@@ -114,6 +151,8 @@ interface QueueState {
 }
 
 let contador = 0
+/** Recado pro item que está terminando — quem põe é a confirmação sozinha. */
+let notaDoAutomatico: string | undefined
 
 /** Nome do arquivo sem a pasta. */
 function nomeDe(path: string): string {
@@ -130,6 +169,35 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   itens: [],
   rodando: false,
   lendo: false,
+  modoNovos: lerModo(),
+  descobertaSozinha: lerSozinha(),
+
+  setModoNovos: (m) => {
+    try {
+      localStorage.setItem(CHAVE_MODO, m)
+    } catch {
+      /* sem armazenamento: vale só nesta sessão */
+    }
+    // Vale também pros arquivos que já estão esperando — é o gesto de quem
+    // soltou oito episódios e só depois lembrou de escolher. B-roll de link
+    // fica no corte (trailer de jogo não tem elenco), e o que veio da
+    // Biblioteca já tem o modo que foi pedido lá.
+    set({
+      modoNovos: m,
+      itens: get().itens.map((i) =>
+        i.status === 'esperando' && i.origemId === undefined && !i.link ? { ...i, modo: m } : i
+      )
+    })
+  },
+
+  setDescobertaSozinha: (v) => {
+    try {
+      localStorage.setItem(CHAVE_SOZINHA, v ? 'sim' : 'nao')
+    } catch {
+      /* idem */
+    }
+    set({ descobertaSozinha: v })
+  },
 
   adicionar: async (paths) => {
     if (paths.length === 0) return
@@ -141,13 +209,13 @@ export const useQueueStore = create<QueueState>((set, get) => ({
       // vez só, na hora de montar a fila.
       const novos: ItemFila[] = []
       for (const videoPath of paths) {
-        if (get().itens.some((i) => i.modo === 'cortar' && i.videoPath === videoPath)) {
+        if (get().itens.some((i) => i.origemId === undefined && i.videoPath === videoPath)) {
           continue
         }
         const p = await window.ancut.episode.parseFilename(videoPath)
         novos.push({
           id: `f${++contador}`,
-          modo: 'cortar',
+          modo: get().modoNovos,
           videoPath,
           nomeArquivo: nomeDe(videoPath),
           anime: p?.anime ?? '',
@@ -164,10 +232,10 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   },
 
   adicionarConferido: (v) => {
-    if (get().itens.some((i) => i.modo === 'cortar' && i.videoPath === v.videoPath)) return
+    if (get().itens.some((i) => i.origemId === undefined && i.videoPath === v.videoPath)) return
     const item: ItemFila = {
       id: `f${++contador}`,
-      modo: 'cortar',
+      modo: v.modo ?? 'cortar',
       nomeArquivo: nomeDe(v.videoPath),
       status: 'esperando',
       ...v
@@ -200,17 +268,17 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     set({ itens: [...get().itens, ...novos] })
   },
 
-  adicionarDescoberta: (eps) => {
+  adicionarDescoberta: (eps, modo = 'descobrir') => {
     const jaNaFila = new Set(
       get()
-        .itens.filter((i) => i.modo === 'descobrir' && i.status === 'esperando')
+        .itens.filter((i) => i.origemId !== undefined && i.status === 'esperando')
         .map((i) => i.origemId)
     )
     const novos: ItemFila[] = eps
       .filter((e) => !jaNaFila.has(e.episodeId))
       .map((e) => ({
         id: `f${++contador}`,
-        modo: 'descobrir',
+        modo,
         videoPath: '',
         nomeArquivo: '',
         // A pasta do anime, não o título da fonte: é o que a Biblioteca mostra
@@ -267,9 +335,11 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     if (event.type === 'done') {
       get().editar(atual.id, {
         status: 'pronto',
+        nota: notaDoAutomatico ?? atual.nota,
         episodeId: event.result.episodeId,
         shots: event.result.totalShots
       })
+      notaDoAutomatico = undefined
       // O reforço pedido no batismo roda ANTES do próximo episódio, e a fila
       // espera ele: reforço e análise abrem cada um o seu motor, e os dois
       // carregando modelo na mesma placa só deixaria os dois lentos.
@@ -289,12 +359,23 @@ export const useQueueStore = create<QueueState>((set, get) => ({
       // deixou rodando. `needs-input` entra aqui porque, na fila, não há
       // quem responda à pergunta — e esperar por ela travaria a fila pra
       // sempre.
-      get().editar(atual.id, { status: 'falhou', erro: event.message })
+      notaDoAutomatico = undefined
+      // Na Análise rápida, a pergunta que ficou sem resposta tem saída
+      // conhecida: batizar esse episódio no Modo Descoberta. Dizer isso
+      // poupa a pessoa de adivinhar.
+      const dica =
+        event.type === 'needs-input' && atual.modo === 'reconhecer'
+          ? event.kind === 'refs-missing'
+            ? ' — o app ainda não conhece ninguém deste anime: rode este episódio no Modo Descoberta e batize.'
+            : ' — rode este episódio no Modo Descoberta: os nomes que você der ficam valendo pros próximos.'
+          : ''
+      get().editar(atual.id, { status: 'falhou', erro: `${event.message}${dica}` })
       void dispararProximo(set, get)
       return
     }
 
     if (event.type === 'cancelled') {
+      notaDoAutomatico = undefined
       get().editar(atual.id, { status: 'esperando' })
       set({ rodando: false })
     }
@@ -328,7 +409,8 @@ async function dispararProximo(
 
   const ep = useEpisodeStore.getState()
 
-  if (proximo.modo === 'descobrir') {
+  if (proximo.origemId !== undefined) {
+    const descobrir = proximo.modo === 'descobrir'
     // O pedido sai do que o banco sabe do episódio já cortado — o mesmo que
     // o botão "Identificar personagens" usa. É isso que mantém o episódio na
     // pasta em que ele mora, reaproveitando o corte.
@@ -336,11 +418,12 @@ async function dispararProximo(
       proximo.origemId !== undefined ? await window.ancut.results.load(proximo.origemId) : null
     if (!get().rodando) return
     if (!results) return falhar('O episódio não está mais no histórico.')
-    // Já identificado: pula. Refazer a descoberta APAGA as cenas e as recria
+    // Já identificado: pula (só na Descoberta). Refazer a descoberta APAGA
+    // as cenas e as recria
     // (`clear_episode_shots`), e com elas vão os favoritos e as marcações à
     // mão daquele episódio. Um "Marcar todos" na Biblioteca pega episódio
     // que já está pronto, e a fila não pode cobrar isso calada.
-    if (results.characters.length > 0) {
+    if (descobrir && results.characters.length > 0) {
       get().editar(proximo.id, {
         status: 'pulado',
         episodeId: results.episodeId,
@@ -354,9 +437,12 @@ async function dispararProximo(
     get().editar(proximo.id, { status: 'cortando', erro: undefined })
     useAnalysisStore.getState().begin()
     try {
-      await window.ancut.analysis.start(pedidoDeIdentificacao(results, ep, true))
+      // Análise rápida em cima do que já existe SOMA: a curadoria à mão e
+      // os favoritos daquele episódio continuam.
+      const pedido = pedidoDeIdentificacao(results, ep, descobrir)
+      await window.ancut.analysis.start(descobrir ? pedido : { ...pedido, mergePrevious: true })
     } catch (e) {
-      return falhar(e instanceof Error ? e.message : 'Falha ao iniciar a descoberta.')
+      return falhar(e instanceof Error ? e.message : 'Falha ao iniciar a identificação.')
     }
     return
   }
@@ -394,6 +480,26 @@ async function dispararProximo(
     if (!proximo) return dispararProximo(set, get)
   }
 
+  // Descoberta num arquivo que já tem personagens: pula, pela mesma razão
+  // do ramo da Biblioteca — refazê-la apagaria favoritos e marcações.
+  if (proximo.modo === 'descobrir' && proximo.kind !== 'BROLL') {
+    const ja = await window.ancut.episode.hasAnalysis(
+      proximo.videoPath,
+      proximo.anime.trim(),
+      proximo.season,
+      proximo.episode,
+      proximo.kind
+    )
+    if (!get().rodando) return
+    if (ja) {
+      get().editar(proximo.id, {
+        status: 'pulado',
+        erro: 'Já tinha personagens — pulado pra não apagar favoritos e marcações. A Análise rápida completa sem apagar.'
+      })
+      return dispararProximo(set, get)
+    }
+  }
+
   get().editar(proximo.id, { status: 'cortando', erro: undefined })
   // Zera o painel de progresso e o põe em "rodando", igual ao fluxo de um
   // episódio só. Sem isto o painel mostraria as etapas do episódio ANTERIOR
@@ -416,9 +522,13 @@ async function dispararProximo(
       skipTailSeconds: 0,
       params: ep.params,
       aiReview: false,
-      discovery: false,
-      cutOnly: true,
-      mergePrevious: false,
+      // B-roll é sempre só corte: trailer de jogo não tem elenco, e uma
+      // pergunta de "anime não encontrado" depois do download jogaria o
+      // vídeo baixado fora.
+      discovery: proximo.modo === 'descobrir' && proximo.kind !== 'BROLL',
+      cutOnly: proximo.modo === 'cortar' || proximo.kind === 'BROLL',
+      // Rápida por cima de análise antiga soma, não substitui.
+      mergePrevious: proximo.modo === 'reconhecer',
       skipCreditShots: ep.skipCreditShots,
       useDanbooru: ep.useDanbooru,
       mediaKind: ep.mediaKind,
@@ -463,3 +573,30 @@ function ouvirDownloads(): void {
     st.editar(atual.id, { progresso: ev.fracao, etapa: partes.filter(Boolean).join(' · ') })
   })
 }
+
+/**
+ * Descoberta na fila sem ninguém novo: confirma sozinha.
+ *
+ * Todo grupo que importa (os figurantes ficam de fora, como na tela) já foi
+ * reconhecido como alguém batizado em outro episódio — a tela de batismo
+ * só pediria um "Salvar" sem mudar nada. Aparecendo QUALQUER rosto
+ * relevante desconhecido, ela para como sempre, com os conhecidos já
+ * preenchidos. Devolve true quando confirmou (a tela não abre).
+ */
+function confirmarSeTodosConhecidos(ev: DiscoveryReadyEvent): boolean {
+  const fila = useQueueStore.getState()
+  if (!fila.rodando || !fila.descobertaSozinha) return false
+  const atual = fila.itens.find((i) => i.status === 'cortando')
+  if (!atual || atual.modo !== 'descobrir') return false
+  const relevantes = ev.groups.filter((g) => !g.minor)
+  if (relevantes.length === 0 || relevantes.some((g) => g.known !== true)) return false
+  const nomes: Record<number, string> = {}
+  for (const g of ev.groups) if (g.known === true && g.suggestedName) nomes[g.key] = g.suggestedName
+  if (Object.keys(nomes).length === 0) return false
+  const quem = [...new Set(Object.values(nomes))]
+  notaDoAutomatico = `Ninguém novo — confirmado sozinho (${quem.slice(0, 4).join(', ')}${quem.length > 4 ? '…' : ''}).`
+  void window.ancut.analysis.commitDiscovery(nomes, {})
+  return true
+}
+
+aoDescobrir(confirmarSeTodosConhecidos)

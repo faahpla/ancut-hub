@@ -103,9 +103,12 @@ export default function App(): JSX.Element {
    * rodando, começar agora faria o primeiro bater em "já existe uma análise"
    * — eles ficam esperando na fila, com o botão de começar à mão.
    */
-  const descobrirEmSequencia = (eps: RecentEpisode[]): void => {
+  const descobrirEmSequencia = (
+    eps: RecentEpisode[],
+    modo: 'descobrir' | 'reconhecer' = 'descobrir'
+  ): void => {
     const fila = useQueueStore.getState()
-    fila.adicionarDescoberta(eps)
+    fila.adicionarDescoberta(eps, modo)
     const avulsa = useAnalysisStore.getState().status === 'running' && !fila.rodando
     if (!avulsa) void fila.iniciar()
     ir('novo')

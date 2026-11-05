@@ -7,6 +7,7 @@ import {
   FolderOpen,
   Loader2,
   Move,
+  ScanFace,
   Shapes,
   Share2,
   Square,
@@ -55,7 +56,7 @@ export function AnimePage({
   onJuntar: () => void
   onMudarTemporada: (alvo: { ids: number[]; rotulo: string; atual: number; destino?: number }) => void
   onMenu: (x: number, y: number, ep: RecentEpisode, temporada: number) => void
-  onDescobrir: (eps: RecentEpisode[]) => void
+  onDescobrir: (eps: RecentEpisode[], modo?: 'descobrir' | 'reconhecer') => void
   onExportar: () => void
   onRepescar: () => void
   repescando: boolean
@@ -360,10 +361,24 @@ export function AnimePage({
           </Button>
           <Button
             size="sm"
+            variant="secondary"
+            className="gap-1.5"
+            disabled={marcados.size === 0}
+            title="Marca sozinho quem o app já conhece (AniList e quem você batizou no Modo Descoberta), sem parar em nenhum episódio. Soma com o que já está marcado."
+            onClick={() => {
+              onDescobrir(ordem.filter((e) => marcados.has(e.episodeId)), 'reconhecer')
+              sairDaMarcacao()
+            }}
+          >
+            <ScanFace />
+            Análise rápida
+          </Button>
+          <Button
+            size="sm"
             variant="primary"
             className="gap-1.5"
             disabled={marcados.size === 0}
-            title="Cada episódio para na tela de batismo esperando os nomes, e o próximo começa quando você salvar"
+            title="Junta os rostos de cada episódio e pede os nomes. Na fila, só para quando aparece gente nova."
             onClick={() => {
               // Na ordem do anime, não na ordem em que foram clicados.
               onDescobrir(ordem.filter((e) => marcados.has(e.episodeId)))

@@ -6,6 +6,7 @@ import {
   FilePlus2,
   Loader2,
   Play,
+  ScanFace,
   Square,
   SkipForward,
   Trash2,
@@ -16,7 +17,27 @@ import { useState, type DragEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Panel } from '@/components/ui/panel'
 import { cn, episodeLabel } from '@/lib/utils'
-import { useQueueStore, type ItemFila, type StatusItem } from '@/stores/queue-store'
+import { useQueueStore, type ItemFila, type ModoItem, type StatusItem } from '@/stores/queue-store'
+
+/** O que a fila faz com cada episódio. Escolhido uma vez pra leva toda. */
+const MODOS: { valor: ModoItem; rotulo: string; explica: string }[] = [
+  {
+    valor: 'cortar',
+    rotulo: 'Só cortar',
+    explica: 'Corta em cenas e para. Sem internet e sem reconhecer ninguém — o mais rápido.'
+  },
+  {
+    valor: 'reconhecer',
+    rotulo: 'Análise rápida',
+    explica:
+      'Corta e marca sozinho quem o app já conhece: o elenco do AniList e quem você batizou no Modo Descoberta. Não para pra perguntar nada.'
+  },
+  {
+    valor: 'descobrir',
+    rotulo: 'Descoberta',
+    explica: 'Junta os rostos e pede os nomes. Quem já foi batizado em outro episódio vem preenchido.'
+  }
+]
 
 const VIDEO_RE = /\.(mp4|mkv|mov|avi|webm|ts|m2ts)$/i
 
@@ -32,8 +53,20 @@ export function QueuePanel({
 }: {
   onVerResultado: (episodeId: number) => void
 }): JSX.Element {
-  const { itens, rodando, lendo, adicionar, remover, limparProntos, iniciar, parar } =
-    useQueueStore()
+  const {
+    itens,
+    rodando,
+    lendo,
+    adicionar,
+    remover,
+    limparProntos,
+    iniciar,
+    parar,
+    modoNovos,
+    setModoNovos,
+    descobertaSozinha,
+    setDescobertaSozinha
+  } = useQueueStore()
   const [dragging, setDragging] = useState(false)
 
   const escolher = async (): Promise<void> => {
@@ -107,14 +140,52 @@ export function QueuePanel({
           )}
         </div>
 
+        <div className="flex flex-col gap-1.5">
+          <div className="inline-flex w-full gap-1 rounded-lg border border-border bg-surface-sunken/80 p-1">
+            {MODOS.map((m) => (
+              <button
+                key={m.valor}
+                type="button"
+                title={m.explica}
+                aria-pressed={modoNovos === m.valor}
+                onClick={() => setModoNovos(m.valor)}
+                className={cn(
+                  'h-7 flex-1 whitespace-nowrap rounded-md px-2 text-[12px] font-semibold transition-colors',
+                  modoNovos === m.valor ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {m.rotulo}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+            {MODOS.find((m) => m.valor === modoNovos)?.explica}
+          </p>
+          {(modoNovos === 'descobrir' || itens.some((i) => i.modo === 'descobrir' && i.status === 'esperando')) && (
+            <label className="flex cursor-pointer items-start gap-2 text-[12px]">
+              <input
+                type="checkbox"
+                checked={descobertaSozinha}
+                onChange={(e) => setDescobertaSozinha(e.target.checked)}
+                className="mt-0.5 size-3.5 shrink-0 accent-primary"
+              />
+              <span>
+                Só parar quando aparecer personagem novo
+                <span className="block text-[11.5px] text-muted-foreground">
+                  Se todo mundo do episódio já foi batizado antes, a fila confirma sozinha e segue.
+                </span>
+              </span>
+            </label>
+          )}
+        </div>
+
         {itens.length === 0 ? (
           <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-            Arraste vários episódios aqui (ou use o botão) e eles são cortados em
-            cenas, um depois do outro, sem precisar de você. Os personagens ficam
-            pra depois: na Biblioteca, o botão{' '}
-            <Wand2 className="inline size-3.5 align-[-2px] text-foreground" /> de cada
-            anime marca vários episódios pra identificar em sequência no{' '}
-            <strong className="font-semibold text-foreground">Modo Descoberta</strong>.
+            Arraste vários episódios aqui (ou use o botão) e eles rodam um depois do
+            outro, do jeito escolhido acima. Episódio já cortado se identifica pela
+            Biblioteca: na página do anime,{' '}
+            <strong className="font-semibold text-foreground">Descobrir personagens</strong>{' '}
+            marca vários de uma vez.
           </p>
         ) : (
           <>
@@ -134,7 +205,9 @@ export function QueuePanel({
               {prontos > 0 && `${prontos} pronto${prontos > 1 ? 's' : ''}. `}
               {falhos > 0 && `${falhos} falhou${falhos > 1 ? '/falharam' : ''}. `}
               {itens.some((i) => i.modo === 'descobrir' && i.status !== 'pronto')
-                ? 'No Modo Descoberta, cada episódio para na tela de batismo esperando os nomes. '
+                ? descobertaSozinha
+                  ? 'Na Descoberta, a fila só para no batismo quando aparece gente nova. '
+                  : 'Na Descoberta, cada episódio para na tela de batismo esperando os nomes. '
                 : ''}
               A fila usa a escolha Anime/Filme do topo da tela.
             </p>
@@ -150,6 +223,8 @@ function rotuloComecar(esperando: ItemFila[]): string {
   const n = esperando.length
   const eps = n === 1 ? 'episódio' : 'episódios'
   const descobrir = esperando.filter((i) => i.modo === 'descobrir').length
+  const rapida = esperando.filter((i) => i.modo === 'reconhecer').length
+  if (rapida === n) return `Análise rápida em ${n} ${eps}`
   const links = esperando.filter((i) => i.link && !i.videoPath).length
   if (links === n) return `Baixar e cortar ${n} ${n === 1 ? 'vídeo' : 'vídeos'}`
   if (descobrir === 0 && links === 0) return `Cortar ${n} ${eps}`
@@ -209,7 +284,13 @@ function Linha({
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <span className="truncate font-medium">{rotulo}</span>
-          {item.modo === 'descobrir' && (
+          {item.modo === 'reconhecer' && item.kind !== 'BROLL' && (
+            <span className="flex shrink-0 items-center gap-1 rounded bg-primary/15 px-1.5 py-px text-[10.5px] font-semibold text-primary">
+              <ScanFace className="size-3" />
+              rápida
+            </span>
+          )}
+          {item.modo === 'descobrir' && item.kind !== 'BROLL' && (
             <span className="flex shrink-0 items-center gap-1 rounded bg-primary/15 px-1.5 py-px text-[10.5px] font-semibold text-primary">
               <Wand2 className="size-3" />
               descoberta
@@ -238,6 +319,11 @@ function Linha({
             )}
           >
             {item.erro}
+          </span>
+        )}
+        {item.nota && (
+          <span className="block truncate text-[11.5px] text-primary/90" title={item.nota}>
+            {item.nota}
           </span>
         )}
         {item.status === 'pronto' && item.shots !== undefined && (

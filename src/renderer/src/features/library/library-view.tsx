@@ -56,7 +56,7 @@ export function LibraryView({
 }: {
   onOpen: (episodeId: number) => void
   /** Episódios marcados pra identificar em sequência, no Modo Descoberta. */
-  onDescobrir: (eps: RecentEpisode[]) => void
+  onDescobrir: (eps: RecentEpisode[], modo?: 'descobrir' | 'reconhecer') => void
 }): JSX.Element {
   const {
     recent,

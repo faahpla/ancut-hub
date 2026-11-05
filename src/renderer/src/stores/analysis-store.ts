@@ -103,6 +103,16 @@ interface AnalysisState {
  * porque depende do histórico entre eventos — recalcular na renderização
  * faria o número pular a cada frame.
  */
+/**
+ * Quem pode responder o batismo antes da tela abrir. É a fila (ver
+ * `confirmarSeTodosConhecidos` no queue-store): registrada por fora pra este
+ * store não importar a fila, que já importa ele.
+ */
+let interceptarDescoberta: ((ev: DiscoveryReadyEvent) => boolean) | null = null
+export function aoDescobrir(fn: (ev: DiscoveryReadyEvent) => boolean): void {
+  interceptarDescoberta = fn
+}
+
 export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   status: 'idle',
   stages: freshStages(),
@@ -230,6 +240,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         return
 
       case 'discovery-ready':
+        // Na fila, sem ninguém novo no episódio, ela mesma confirma: a tela
+        // de batismo não abre e o run segue pro fim.
+        if (interceptarDescoberta?.(event)) {
+          set({ statusText: 'Ninguém novo neste episódio — confirmando os nomes que o app já conhece…' })
+          return
+        }
         // Os grupos chegaram: o Python está PARADO esperando os nomes. A
         // interface segue "rodando" — cancelar aqui ainda aborta o run.
         set({

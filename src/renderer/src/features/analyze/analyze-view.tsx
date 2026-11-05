@@ -200,7 +200,8 @@ export function AnalyzeView({
       episode: broll ? 0 : ep.episode,
       kind: ep.kind,
       titulo: broll?.titulo,
-      origem: broll?.origem
+      origem: broll?.origem,
+      modo: acao === 'cortar' ? 'cortar' : acao === 'reconhecer' ? 'reconhecer' : 'descobrir'
     })
     // Volta pra área de soltar: o próximo vídeo já pode vir.
     ep.set({ videoPath: '', chapters: [] })
@@ -350,7 +351,7 @@ export function AnalyzeView({
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {acao === 'cortar' && ep.videoPath && (
+            {ep.videoPath && (
               <Button
                 variant="secondary"
                 size="lg"
