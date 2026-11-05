@@ -135,7 +135,7 @@ export function QueuePanel({
               {itens.some((i) => i.modo === 'descobrir' && i.status !== 'pronto')
                 ? 'No Modo Descoberta, cada episódio para na tela de batismo esperando os nomes. '
                 : ''}
-              A fila usa o tipo de mídia do formulário acima.
+              A fila usa a escolha Anime/Filme do topo da tela.
             </p>
           </>
         )}

@@ -35,8 +35,7 @@ export function ProgressPanel(): JSX.Element {
     // que é justamente o que o FAAH quer ver. Quem dá espaço agora é a
     // página, que rola (`min-h-full` na AnalyzeView).
     <Panel
-      step="3"
-      title="Progresso da análise"
+      title="Progresso"
       className="flex-1"
       action={
         <button

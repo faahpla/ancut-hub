@@ -1,56 +1,52 @@
 import {
-  CheckSquare,
-  ChevronRight,
   Clapperboard,
-  Square,
-  Wand2,
   Combine,
+  Download,
   FolderOpen,
   FolderSearch,
-  Library,
-  FolderOpen as FolderOpenIcon,
   Loader2,
   Move,
   PlayCircle,
   RefreshCw,
-  Share2,
-  Download,
-  ScanSearch,
   Search,
   Shapes,
-  Star,
-  Users,
+  Share2,
   Trash2,
   UserSearch,
   X
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { episodeLabel } from '@/lib/utils'
-import { cn } from '@/lib/utils'
-import { useResultsStore } from '@/stores/results-store'
-import { agruparPorAnime, filtrar, type Anime } from './group-episodes'
-import { MergeAnimeDialog } from './merge-anime-dialog'
-import { SeasonDialog } from './season-dialog'
-import { OrganizeDialog } from './organize-dialog'
-import { ImportCastDialog } from './import-cast-dialog'
-import { DeleteEpisodeDialog } from './delete-episode-dialog'
-import { CharactersView } from './characters-view'
-import { FavoritesView } from './favorites-view'
-import { ScenesView } from './scenes-view'
 import { ContextMenu } from '@/components/ui/context-menu'
+import { cn, episodeLabel } from '@/lib/utils'
+import { useNav } from '@/stores/nav-store'
+import { useResultsStore } from '@/stores/results-store'
 import type { RecentEpisode } from '@shared/types'
+import { AnimePage } from './anime-page'
+import { Capa, Cobertura } from './capa'
+import { DeleteEpisodeDialog } from './delete-episode-dialog'
+import { agruparPorAnime, filtrar, type Anime } from './group-episodes'
+import { ImportCastDialog } from './import-cast-dialog'
+import { MergeAnimeDialog } from './merge-anime-dialog'
+import { OrganizeDialog } from './organize-dialog'
+import { SeasonDialog } from './season-dialog'
+
+type Filtro = 'tudo' | 'series' | 'filmes'
+type Ordem = 'recentes' | 'nome' | 'cenas' | 'menos'
 
 /**
- * O acervo em árvore: anime → temporada → episódio.
+ * A Biblioteca: o acervo em capas, e — com um anime aberto — a página dele.
  *
- * Substitui a lista corrida que a aba Resultados mostrava. Com 28 episódios
- * a lista já obrigava a ler linha por linha pra achar um, porque a única
- * ordem era a data e o mesmo anime aparecia espalhado do topo ao fim.
+ * Era uma lista de texto numa coluna estreita ("S01E01 · 444 cenas"), com
+ * cinco ícones sem nome por linha. Na interface nova (11/2026) cada anime é
+ * uma capa com a barrinha de quanto dele já tem personagem marcado, e o que
+ * ficava espremido dentro da linha virou a página do anime (anime-page.tsx).
  *
- * As pastas esquecidas no disco moram aqui também: procurar episódio e
- * recuperar episódio são a mesma tarefa vista de dois ângulos, e deixá-las em
- * abas diferentes faria a segunda nunca ser encontrada.
+ * Os diálogos (juntar, temporada, organizar, excluir, importar) moram aqui e
+ * servem às duas telas: abrir um anime não pode perder o que estava aberto.
+ *
+ * As pastas esquecidas no disco continuam aqui embaixo: procurar episódio e
+ * recuperar episódio são a mesma tarefa vista de dois ângulos.
  */
 export function LibraryView({
   onOpen,
@@ -72,16 +68,25 @@ export function LibraryView({
     ultimoReligar,
     atualizarBiblioteca
   } = useResultsStore()
+  const { busca } = useResultsStore((s) => s.biblioteca)
+  const setBiblioteca = useResultsStore((s) => s.setBiblioteca)
+  const setBusca = (b: string): void => setBiblioteca({ busca: b })
+  const animePasta = useNav((s) => s.animePasta)
+  const abrirAnime = useNav((s) => s.abrirAnime)
+  const ir = useNav((s) => s.ir)
 
-  /** O que o último exportar/importar de personagens fez — uma linha no topo. */
-  const [avisoPacote, setAvisoPacote] = useState<{ ok: boolean; texto: string } | null>(null)
+  const [filtro, setFiltro] = useState<Filtro>('tudo')
+  const [ordem, setOrdem] = useState<Ordem>('recentes')
+
+  /** O que o último exportar/importar/repescar fez — uma linha no topo. */
+  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null)
 
   const exportarPersonagens = async (anime: Anime): Promise<void> => {
     const ids = anime.temporadas.flatMap((t) => t.episodios.map((e) => e.episodeId))
     const r = await window.ancut.results.castExport(ids, anime.nome)
     if (!r) return
     if (r.erro || r.characters === 0) {
-      setAvisoPacote({
+      setAviso({
         ok: false,
         texto: r.erro || `“${anime.nome}” ainda não tem personagem batizado pra exportar.`
       })
@@ -92,17 +97,17 @@ export function LibraryView({
     const semFoto = r.withoutPhotos ?? []
     const base = `Exportado: ${r.characters} personagens de “${anime.nome}”, ${r.photos} fotos${r.merged ? `, ${r.merged} nomes repetidos juntados` : ''}.`
     if (semFoto.length === r.characters) {
-      setAvisoPacote({
+      setAviso({
         ok: false,
         texto: `${base} ATENÇÃO: nenhum personagem saiu com foto — este pacote só ajuda no Modo Descoberta.`
       })
     } else if (semFoto.length > 0) {
-      setAvisoPacote({
+      setAviso({
         ok: false,
         texto: `${base} ${semFoto.length} sem foto (só ajudam no Modo Descoberta): ${semFoto.slice(0, 5).join(', ')}${semFoto.length > 5 ? '…' : ''}.`
       })
     } else {
-      setAvisoPacote({
+      setAviso({
         ok: true,
         texto: `${base} Todos com foto. Mande o .zip pra quem quiser — no AnCut dele, é “Importar personagens” aqui na Biblioteca.`
       })
@@ -119,10 +124,10 @@ export function LibraryView({
     if (repescando) return
     const ids = anime.temporadas.flatMap((t) => t.episodios.map((e) => e.episodeId))
     setRepescando(anime.pasta)
-    setAvisoPacote({ ok: true, texto: `Procurando personagem nas cenas sem ninguém de “${anime.nome}”...` })
+    setAviso({ ok: true, texto: `Procurando personagem nas cenas sem ninguém de “${anime.nome}”...` })
     const parar = window.ancut.results.onRepescarEvent((ev) => {
       if (ev.type !== 'repescar-progresso') return
-      setAvisoPacote({
+      setAviso({
         ok: true,
         texto: `Procurando personagem nas cenas sem ninguém de “${anime.nome}”: episódio ${ev.feitos} de ${ev.total}, ${ev.cenas} cenas marcadas até agora...`
       })
@@ -130,13 +135,13 @@ export function LibraryView({
     try {
       const r = await window.ancut.results.repescar(ids)
       if (!r) {
-        setAvisoPacote({ ok: false, texto: 'A procura não terminou — tente de novo.' })
+        setAviso({ ok: false, texto: 'A procura não terminou — tente de novo.' })
       } else if (r.erro) {
-        setAvisoPacote({ ok: false, texto: r.erro })
+        setAviso({ ok: false, texto: r.erro })
       } else if (r.cenas === 0) {
-        setAvisoPacote({
+        setAviso({
           ok: true,
-          texto: `“${anime.nome}”: nenhuma cena nova com certeza suficiente. O que sobrou sem ninguém dá pra marcar à mão.`
+          texto: `“${anime.nome}”: nenhuma cena nova com certeza suficiente. O que sobrou sem ninguém dá pra marcar à mão — o palpite aparece na lista “Sem ninguém” de cada episódio.`
         })
       } else {
         const quem = Object.entries(r.porPersonagem)
@@ -144,7 +149,7 @@ export function LibraryView({
           .slice(0, 6)
           .map(([n, c]) => `${n} (${c})`)
           .join(', ')
-        setAvisoPacote({
+        setAviso({
           ok: true,
           texto: `“${anime.nome}”: mais ${r.cenas} cenas com personagem em ${r.episodios} episódios — ${quem}${Object.keys(r.porPersonagem).length > 6 ? '…' : ''}.`
         })
@@ -168,23 +173,7 @@ export function LibraryView({
     const pasta = await window.ancut.dialog.pickFolder()
     if (pasta) await atualizarBiblioteca(pasta)
   }
-  /**
-   * Dois jeitos de olhar o MESMO acervo.
-   *
-   * Por anime é como o material entra (anime → temporada → episódio). Por
-   * personagem é como ele costuma ser pedido: "tudo que eu tenho do Rimuru",
-   * que atravessa episódios e temporadas. Duas abas separadas dariam a
-   * impressão de dois acervos; aqui é um, visto de dois ângulos.
-   *
-   * O ângulo, a busca e o que está destrinchado vêm do store — esta tela é
-   * desmontada ao trocar de aba, e com eles aqui dentro a volta de um
-   * episódio chegava sempre na estaca zero.
-   */
-  const { modo, busca, abertos } = useResultsStore((s) => s.biblioteca)
-  const setBiblioteca = useResultsStore((s) => s.setBiblioteca)
-  const setModo = (m: 'anime' | 'personagem' | 'favorito' | 'cena'): void =>
-    setBiblioteca({ modo: m })
-  const setBusca = (b: string): void => setBiblioteca({ busca: b })
+
   /** Anime que o usuário quer fazer sumir dentro de outro. */
   const [juntando, setJuntando] = useState<Anime | null>(null)
   /** Episódios que vão mudar de temporada, e o rótulo do que são. */
@@ -202,6 +191,8 @@ export function LibraryView({
     ep: RecentEpisode
     temporada: number
   } | null>(null)
+  /** Clique direito numa capa de anime. */
+  const [menuAnime, setMenuAnime] = useState<{ x: number; y: number; anime: Anime } | null>(null)
   const [excluindo, setExcluindo] = useState<{ id: number; rotulo: string } | null>(null)
   /** Episódios na janela de organizar (tipo, número e pasta). */
   const [organizando, setOrganizando] = useState<RecentEpisode[] | null>(null)
@@ -212,26 +203,27 @@ export function LibraryView({
   }, [])
 
   const animes = useMemo(() => agruparPorAnime(recent), [recent])
-  const visiveis = useMemo(() => filtrar(animes, busca), [animes, busca])
-
-  // Buscando, tudo que sobrou está aberto: filtrar pra depois ter que clicar
-  // em cada resultado pra ver se era aquele não é uma busca, é uma segunda
-  // busca. Com um anime só, idem — não há o que escolher.
   const buscando = busca.trim() !== ''
-  const expandido = (a: Anime): boolean =>
-    buscando || visiveis.length === 1 || abertos.includes(a.pasta)
-
-  const alternar = (pasta: string): void =>
-    setBiblioteca({
-      abertos: abertos.includes(pasta)
-        ? abertos.filter((p) => p !== pasta)
-        : [...abertos, pasta]
-    })
+  const visiveis = useMemo(() => {
+    const lista = filtrar(animes, busca).filter(
+      (a) => filtro === 'tudo' || (filtro === 'filmes' ? a.filme : !a.filme)
+    )
+    const pct = (a: Anime): number => (a.cenas ? a.marcadas / a.cenas : 0)
+    return [...lista].sort((a, b) =>
+      ordem === 'nome'
+        ? a.nome.localeCompare(b.nome, 'pt-BR')
+        : ordem === 'cenas'
+          ? b.cenas - a.cenas
+          : ordem === 'menos'
+            ? pct(a) - pct(b)
+            : b.recente.localeCompare(a.recente)
+    )
+  }, [animes, busca, filtro, ordem])
+  const nFilmes = animes.filter((a) => a.filme).length
+  const aberto = animePasta ? animes.find((a) => a.pasta === animePasta) ?? null : null
 
   // Só engole a tela na PRIMEIRA carga. Nas outras a lista que já está aqui
-  // continua valendo enquanto o motor responde — trocar o acervo inteiro por
-  // um rodopio a cada volta de episódio é o que fazia a Biblioteca parecer
-  // que carregava toda hora.
+  // continua valendo enquanto o motor responde.
   if (loadingRecent && recent.length === 0 && orphans.length === 0) {
     return (
       <div className="grid h-full place-items-center">
@@ -240,225 +232,42 @@ export function LibraryView({
     )
   }
 
-  if (recent.length === 0 && orphans.length === 0) {
-    return (
-      <div className="grid h-full place-items-center">
-        <div className="flex max-w-[340px] flex-col items-center gap-2 text-center">
-          <Library className="size-8 text-muted-foreground/50" />
-          <p className="text-[14px] font-semibold">Biblioteca vazia</p>
-          <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-            Analise um episódio na aba Analisar. Ele entra aqui organizado por
-            anime e temporada, e continua disponível nas próximas vezes que
-            você abrir o app.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="animate-rise-in mx-auto flex w-full max-w-3xl flex-col gap-3 py-2">
-      <header className="flex items-center gap-2 px-1">
-        <Library className="size-4 text-muted-foreground" />
-        <h1 className="text-[14px] font-semibold">Biblioteca</h1>
-        {modo === 'anime' && (
-          <span className="truncate text-[12px] text-muted-foreground">
-            {animes.length} {animes.length === 1 ? 'anime' : 'animes'} ·{' '}
-            {recent.length} {recent.length === 1 ? 'episódio' : 'episódios'}
-          </span>
-        )}
-        <span className="flex-1" />
-        {modo === 'anime' && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="shrink-0 gap-1.5"
-            title="Abre um pacote de personagens exportado por outro AnCut: nomes, fotos de rosto e o reconhecimento de cada um. Só soma — nada daqui é apagado."
-            onClick={() => void importarPersonagens()}
-          >
-            <Download />
-            Importar personagens
-          </Button>
-        )}
-        {modo === 'anime' && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="shrink-0 gap-1.5"
-            disabled={religando}
-            title="Procura de novo as pastas dos episódios — pra quando você mudou anime de pasta no Explorer. Nada é movido nem apagado."
-            onClick={() => void atualizarBiblioteca()}
-          >
-            <RefreshCw className={cn(religando && 'animate-spin')} />
-            Atualizar
-          </Button>
-        )}
-        {/* `shrink-0` e `whitespace-nowrap`: sem os dois, o cabeçalho sem
-            espaço quebrava "Por anime" em duas linhas e o alternador virava um
-            bloco torto de 3 alturas diferentes. */}
-        <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-surface-sunken p-0.5">
-          <ModoBotao
-            ativo={modo === 'anime'}
-            onClick={() => setModo('anime')}
-            icone={Library}
-            rotulo="Anime"
-          />
-          <ModoBotao
-            ativo={modo === 'personagem'}
-            onClick={() => setModo('personagem')}
-            icone={Users}
-            rotulo="Personagem"
-          />
-          <ModoBotao
-            ativo={modo === 'favorito'}
-            onClick={() => setModo('favorito')}
-            icone={Star}
-            rotulo="Favoritos"
-          />
-          <ModoBotao
-            ativo={modo === 'cena'}
-            onClick={() => setModo('cena')}
-            icone={ScanSearch}
-            rotulo="Cenas"
-          />
-        </div>
-        {modo === 'anime' && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="shrink-0 gap-1.5"
-            disabled={!buscando || visiveis.length === 0}
-            title={
-              buscando
-                ? 'Mudar o tipo (episódio, abertura, encerramento), o número e a pasta do que apareceu na busca, tudo de uma vez'
-                : 'Procure primeiro (ex.: "Black Clover") — organiza tudo que aparecer na busca de uma vez'
-            }
-            onClick={() =>
-              setOrganizando(
-                visiveis.flatMap((a) => a.temporadas.flatMap((t) => t.episodios))
-              )
-            }
-          >
-            <Shapes />
-            Organizar
-          </Button>
-        )}
-        {modo === 'anime' && (
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Procurar anime…"
-              className="h-8 w-44 rounded-md border border-border bg-surface-sunken pl-8 pr-7 text-[12.5px] outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
-            />
-            {busca && (
-              <button
-                type="button"
-                onClick={() => setBusca('')}
-                aria-label="Limpar busca"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-3.5" />
-              </button>
-            )}
-          </div>
-        )}
-      </header>
-
-      {avisoPacote && (
+  const avisos = (
+    <>
+      {aviso && (
         <p
           className={cn(
-            'mx-1 flex items-start gap-2 rounded-md border px-3 py-2 text-[12px] leading-relaxed',
-            avisoPacote.ok
+            'flex items-start gap-2 rounded-lg border px-3.5 py-2.5 text-[12.5px] leading-relaxed',
+            aviso.ok
               ? 'border-primary/40 bg-primary/[0.08] text-foreground'
               : 'border-warning/40 bg-warning/[0.08] text-muted-foreground'
           )}
         >
-          <span className="flex-1">{avisoPacote.texto}</span>
+          <span className="flex-1">{aviso.texto}</span>
           <button
             type="button"
             aria-label="Fechar aviso"
-            onClick={() => setAvisoPacote(null)}
+            onClick={() => setAviso(null)}
             className="text-muted-foreground hover:text-foreground"
           >
             <X className="size-3.5" />
           </button>
         </p>
       )}
-
       {ultimoReligar && ultimoReligar.religados.length > 0 && (
-        <p className="mx-1 rounded-md border border-primary/40 bg-primary/[0.08] px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
+        <p className="rounded-lg border border-primary/40 bg-primary/[0.08] px-3.5 py-2.5 text-[12.5px] leading-relaxed text-muted-foreground">
           <span className="font-medium text-primary">
             {ultimoReligar.religados.length}{' '}
-            {ultimoReligar.religados.length === 1
-              ? 'episódio reencontrado'
-              : 'episódios reencontrados'}
+            {ultimoReligar.religados.length === 1 ? 'episódio reencontrado' : 'episódios reencontrados'}
           </span>{' '}
           no lugar novo — o histórico já aponta pra lá.
         </p>
       )}
+    </>
+  )
 
-      {missingRoots > 0 && (
-        <div className="mx-1 rounded-md border border-warning/40 bg-warning/[0.08] px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
-          <p>
-            <span className="font-medium text-warning">
-              {missingRoots} {missingRoots === 1 ? 'episódio' : 'episódios'} do
-              histórico {missingRoots === 1 ? 'está' : 'estão'} sem pasta no disco
-            </span>{' '}
-            — a pasta foi apagada, ou movida pra um lugar onde o app não
-            procurou. Nada foi perdido do lado do histórico. Se você mudou o
-            anime de lugar, mostre onde ele está agora.
-          </p>
-          <div className="mt-2 flex gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              className="gap-1.5"
-              disabled={religando}
-              onClick={() => void procurarEmOutraPasta()}
-            >
-              <FolderSearch />
-              Procurar em outra pasta…
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {modo === 'personagem' ? (
-        <CharactersView />
-      ) : modo === 'favorito' ? (
-        <FavoritesView />
-      ) : modo === 'cena' ? (
-        <ScenesView animes={animes} />
-      ) : visiveis.length === 0 ? (
-        <p className="px-1 py-6 text-center text-[12.5px] text-muted-foreground">
-          Nada com “{busca}”.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-1.5">
-          {visiveis.map((anime) => (
-            <li key={anime.pasta}>
-              <AnimeCard
-                anime={anime}
-                aberto={expandido(anime)}
-                onAlternar={() => alternar(anime.pasta)}
-                onOpen={onOpen}
-                onJuntar={() => setJuntando(anime)}
-                podeJuntar={animes.length > 1}
-                onMudarTemporada={setMudandoTemporada}
-                onMenu={(x, y, ep, temporada) => setMenu({ x, y, ep, temporada })}
-                onDescobrir={onDescobrir}
-                onExportar={() => void exportarPersonagens(anime)}
-                onRepescar={() => void repescar(anime)}
-                repescando={repescando === anime.pasta}
-                ocupado={repescando !== null}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-
+  const dialogos = (
+    <>
       {juntando && (
         <MergeAnimeDialog
           origem={juntando}
@@ -466,8 +275,9 @@ export function LibraryView({
           onClose={() => setJuntando(null)}
           onDone={() => {
             setJuntando(null)
-            // Relê do backend em vez de remendar a lista: pasta, histórico e
-            // memória de nomes mudaram todos de uma vez.
+            // A pasta de origem sumiu: voltar pra grade em vez de mostrar uma
+            // página de anime que não existe mais.
+            ir('biblioteca')
             void loadRecent()
           }}
         />
@@ -493,14 +303,10 @@ export function LibraryView({
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            {
-              label: 'Abrir',
-              icon: PlayCircle,
-              onSelect: () => onOpen(menu.ep.episodeId)
-            },
+            { label: 'Abrir', icon: PlayCircle, onSelect: () => onOpen(menu.ep.episodeId) },
             {
               label: 'Abrir a pasta',
-              icon: FolderOpenIcon,
+              icon: FolderOpen,
               onSelect: () => void window.ancut.shell.reveal(menu.ep.episodeRoot)
             },
             {
@@ -532,6 +338,35 @@ export function LibraryView({
         />
       )}
 
+      {menuAnime && (
+        <ContextMenu
+          x={menuAnime.x}
+          y={menuAnime.y}
+          onClose={() => setMenuAnime(null)}
+          items={[
+            { label: 'Abrir', icon: PlayCircle, onSelect: () => abrirAnime(menuAnime.anime.pasta) },
+            {
+              label: 'Achar quem ficou sem marca',
+              icon: UserSearch,
+              onSelect: () => void repescar(menuAnime.anime)
+            },
+            {
+              label: 'Exportar personagens…',
+              icon: Share2,
+              onSelect: () => void exportarPersonagens(menuAnime.anime)
+            },
+            ...(animes.length > 1
+              ? [{ label: 'Juntar com outra pasta…', icon: Combine, onSelect: () => setJuntando(menuAnime.anime) }]
+              : []),
+            {
+              label: 'Abrir a pasta',
+              icon: FolderOpen,
+              onSelect: () => void window.ancut.shell.reveal(menuAnime.anime.pasta)
+            }
+          ]}
+        />
+      )}
+
       {importando && (
         <ImportCastDialog
           file={importando}
@@ -540,7 +375,7 @@ export function LibraryView({
           onDone={(r) => {
             setImportando(null)
             const semFoto = r.withoutPhotos ?? []
-            setAvisoPacote({
+            setAviso({
               ok: semFoto.length < r.characters,
               texto:
                 `Importado: ${r.characters} personagens ligados a “${r.title}”, ${r.photos} fotos novas. ` +
@@ -575,435 +410,290 @@ export function LibraryView({
           }}
         />
       )}
+    </>
+  )
 
-      {modo === 'anime' && orphans.length > 0 && (
-        <section className="mt-2 flex flex-col gap-1.5">
-          <header className="flex items-center gap-2 px-1">
+  if (aberto) {
+    return (
+      <div className="animate-rise-in mx-auto flex w-full max-w-[1500px] flex-col gap-4">
+        {avisos}
+        <AnimePage
+          anime={aberto}
+          onVoltar={() => ir('biblioteca')}
+          onOpen={onOpen}
+          podeJuntar={animes.length > 1}
+          onJuntar={() => setJuntando(aberto)}
+          onMudarTemporada={setMudandoTemporada}
+          onMenu={(x, y, ep, temporada) => setMenu({ x, y, ep, temporada })}
+          onDescobrir={onDescobrir}
+          onExportar={() => void exportarPersonagens(aberto)}
+          onRepescar={() => void repescar(aberto)}
+          repescando={repescando === aberto.pasta}
+          ocupado={repescando !== null}
+          onOrganizar={() => setOrganizando(aberto.temporadas.flatMap((t) => t.episodios))}
+        />
+        {dialogos}
+      </div>
+    )
+  }
+
+  const recentes = recent.slice(0, 4)
+
+  return (
+    <div className="animate-rise-in mx-auto flex w-full max-w-[1500px] flex-col gap-5">
+      <header className="flex flex-wrap items-end gap-3">
+        <div className="flex min-w-[260px] flex-1 flex-col gap-1">
+          <h1 className="text-[26px] font-bold tracking-tight">Biblioteca</h1>
+          <p className="text-[14px] text-muted-foreground">
+            {animes.length} {animes.length === 1 ? 'título' : 'títulos'} · {recent.length}{' '}
+            {recent.length === 1 ? 'episódio' : 'episódios'} ·{' '}
+            {recent.reduce((s, e) => s + e.shotCount, 0).toLocaleString('pt-BR')} cenas
+          </p>
+        </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Procurar anime, filme ou série…"
+            className="h-10 w-72 rounded-lg border border-border bg-surface-sunken/80 pl-9 pr-8 text-[13.5px] outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
+          />
+          {busca && (
+            <button
+              type="button"
+              onClick={() => setBusca('')}
+              aria-label="Limpar busca"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+        {buscando && visiveis.length > 0 && (
+          <Button
+            className="h-10 gap-1.5"
+            title="Mudar o tipo (episódio, abertura, encerramento), o número e a pasta de tudo que apareceu na busca, de uma vez"
+            onClick={() => setOrganizando(visiveis.flatMap((a) => a.temporadas.flatMap((t) => t.episodios)))}
+          >
+            <Shapes />
+            Organizar o que apareceu
+          </Button>
+        )}
+        <Button
+          className="h-10 gap-1.5"
+          disabled={religando}
+          title="Procura de novo as pastas dos episódios — pra quando você mudou anime de pasta no Explorer. Nada é movido nem apagado."
+          onClick={() => void atualizarBiblioteca()}
+        >
+          <RefreshCw className={cn(religando && 'animate-spin')} />
+          Atualizar pastas
+        </Button>
+        <Button
+          className="h-10 gap-1.5"
+          title="Abre um pacote de personagens exportado por outro AnCut: nomes, fotos de rosto e o reconhecimento de cada um. Só soma — nada daqui é apagado."
+          onClick={() => void importarPersonagens()}
+        >
+          <Download />
+          Importar personagens
+        </Button>
+      </header>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex gap-1 rounded-xl border border-border/70 bg-surface-sunken/70 p-1">
+          {(
+            [
+              ['tudo', 'Tudo', animes.length],
+              ['series', 'Séries e animes', animes.length - nFilmes],
+              ['filmes', 'Filmes', nFilmes]
+            ] as const
+          ).map(([id, rotulo, n]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setFiltro(id)}
+              aria-pressed={filtro === id}
+              className={cn(
+                'h-8 rounded-lg px-3.5 text-[13px] font-semibold transition-colors',
+                filtro === id ? 'bg-surface-hover text-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {rotulo} <span className="font-medium text-muted-foreground">{n}</span>
+            </button>
+          ))}
+        </div>
+        <select
+          aria-label="Ordem"
+          value={ordem}
+          onChange={(e) => setOrdem(e.target.value as Ordem)}
+          className="h-10 rounded-lg border border-border bg-surface-sunken/80 px-2.5 text-[13px] outline-none focus:border-primary/60"
+        >
+          <option value="recentes">Analisados por último</option>
+          <option value="nome">Nome</option>
+          <option value="cenas">Mais cenas</option>
+          <option value="menos">Menos personagens marcados</option>
+        </select>
+        <span className="flex-1" />
+        {missingRoots > 0 && (
+          <button
+            type="button"
+            disabled={religando}
+            onClick={() => void procurarEmOutraPasta()}
+            title="A pasta foi apagada, ou movida pra um lugar onde o app não procurou. Nada foi perdido do lado do histórico. Se você mudou o anime de lugar, mostre onde ele está agora."
+            className="inline-flex h-9 items-center gap-2 rounded-full bg-warning/[0.12] px-3.5 text-[12.5px] font-medium text-warning hover:bg-warning/20"
+          >
+            <FolderSearch className="size-4" />
+            {missingRoots} {missingRoots === 1 ? 'episódio sem pasta no disco' : 'episódios sem pasta no disco'} ·
+            procurar
+          </button>
+        )}
+      </div>
+
+      {avisos}
+
+      {recent.length === 0 && orphans.length === 0 ? (
+        <div className="grid min-h-[320px] place-items-center">
+          <div className="flex max-w-[360px] flex-col items-center gap-2 text-center">
+            <Clapperboard className="size-9 text-muted-foreground/50" />
+            <p className="text-[15px] font-semibold">Biblioteca vazia</p>
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
+              Corte um episódio ou um filme em “Novo corte”. Ele entra aqui com capa,
+              organizado por título e temporada.
+            </p>
+            <Button variant="primary" className="mt-2" onClick={() => ir('novo')}>
+              Novo corte
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {!buscando && recentes.length > 0 && (
+            <section className="flex flex-col gap-3">
+              <h2 className="text-[14px] font-semibold text-muted-foreground">Analisados por último</h2>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+                {recentes.map((ep) => (
+                  <button
+                    key={ep.episodeId}
+                    type="button"
+                    onClick={() => onOpen(ep.episodeId)}
+                    className="flex items-center gap-3 rounded-xl border border-border/70 bg-surface/80 p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-surface-hover/70"
+                  >
+                    <Capa url={ep.coverUrl} className="h-[50px] w-[88px] shrink-0 rounded-md" />
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="truncate text-[13.5px] font-semibold">{ep.animeTitle}</span>
+                      <span className="text-[12px] text-muted-foreground">
+                        {episodeLabel(ep.season, ep.episode, ep.kind)} · {ep.shotCount} cenas
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="flex flex-col gap-3">
+            {!buscando && (
+              <h2 className="text-[14px] font-semibold text-muted-foreground">
+                {filtro === 'filmes' ? 'Filmes' : filtro === 'series' ? 'Séries e animes' : 'Tudo no acervo'}
+              </h2>
+            )}
+            {visiveis.length === 0 ? (
+              <p className="py-8 text-center text-[13px] text-muted-foreground">
+                {buscando ? `Nada com “${busca}”.` : 'Nada aqui ainda.'}
+              </p>
+            ) : (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-4">
+                {visiveis.map((anime) => (
+                  <CartaoAnime
+                    key={anime.pasta}
+                    anime={anime}
+                    repescando={repescando === anime.pasta}
+                    onAbrir={() => abrirAnime(anime.pasta)}
+                    onMenu={(x, y) => setMenuAnime({ x, y, anime })}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {orphans.length > 0 && (
+        <section className="mt-2 flex flex-col gap-2">
+          <header className="flex items-center gap-2">
             <FolderSearch className="size-4 text-muted-foreground" />
             <h2 className="text-[14px] font-semibold">Pastas encontradas na saída</h2>
             <span className="text-[12px] text-muted-foreground">({orphans.length})</span>
           </header>
-          <p className="px-1 text-[12px] leading-relaxed text-muted-foreground">
-            Episódios que já foram analisados e continuam completos no disco,
-            mas sumiram do histórico. Trazer de volta é leitura de arquivo —
-            nada é cortado de novo.
+          <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+            Episódios que já foram analisados e continuam completos no disco, mas
+            sumiram do histórico. Trazer de volta é leitura de arquivo — nada é
+            cortado de novo.
           </p>
           {orphans.map((o) => (
-            <div
-              key={o.root}
-              className="panel flex items-center gap-3 px-3.5 py-2.5"
-              title={o.root}
-            >
+            <div key={o.root} className="panel flex items-center gap-3 px-3.5 py-2.5" title={o.root}>
               <FolderSearch className="size-4 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
-                {o.anime}
-              </span>
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{o.anime}</span>
               <span className="tabular shrink-0 text-[12px] text-muted-foreground">
                 {episodeLabel(o.season, o.episode, o.kind)}
               </span>
               <span className="tabular w-20 shrink-0 text-right text-[12px] text-muted-foreground/70">
                 {o.shots} cenas
               </span>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={restoring !== ''}
-                onClick={() => void restoreOrphan(o.root)}
-              >
+              <Button size="sm" disabled={restoring !== ''} onClick={() => void restoreOrphan(o.root)}>
                 {restoring === o.root ? 'Trazendo…' : 'Trazer de volta'}
               </Button>
             </div>
           ))}
         </section>
       )}
+
+      {dialogos}
     </div>
   )
 }
 
-/** Botão do alternador de modo. Pílula, no padrão das abas do topo. */
-function ModoBotao({
-  ativo,
-  onClick,
-  icone: Icone,
-  rotulo
-}: {
-  ativo: boolean
-  onClick: () => void
-  icone: typeof Library
-  rotulo: string
-}): JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={rotulo}
-      aria-pressed={ativo}
-      className={cn(
-        'flex items-center gap-1.5 whitespace-nowrap rounded px-2 py-1 text-[12px]',
-        'font-medium transition-colors',
-        ativo
-          ? 'bg-surface-hover text-foreground'
-          : 'text-muted-foreground hover:text-foreground'
-      )}
-    >
-      <Icone className="size-3.5" />
-      {rotulo}
-    </button>
-  )
-}
-
-function AnimeCard({
+function CartaoAnime({
   anime,
-  aberto,
-  onAlternar,
-  onOpen,
-  onJuntar,
-  podeJuntar,
-  onMudarTemporada,
-  onMenu,
-  onDescobrir,
-  onExportar,
-  onRepescar,
   repescando,
-  ocupado
+  onAbrir,
+  onMenu
 }: {
   anime: Anime
-  aberto: boolean
-  onAlternar: () => void
-  onOpen: (episodeId: number) => void
-  onJuntar: () => void
-  podeJuntar: boolean
-  onMudarTemporada: (alvo: {
-    ids: number[]
-    rotulo: string
-    atual: number
-    destino?: number
-  }) => void
-  onMenu: (x: number, y: number, ep: RecentEpisode, temporada: number) => void
-  onDescobrir: (eps: RecentEpisode[]) => void
-  /** Pacote de personagens deste anime, pra levar pra outro AnCut. */
-  onExportar: () => void
-  /** Marcar quem ficou sem marcação nos episódios deste anime. */
-  onRepescar: () => void
   repescando: boolean
-  /** Outra repescagem rodando: uma por vez. */
-  ocupado: boolean
+  onAbrir: () => void
+  onMenu: (x: number, y: number) => void
 }): JSX.Element {
-  /** Temporada cujo cabeçalho está sob o episódio sendo arrastado. */
-  const [alvoArrasto, setAlvoArrasto] = useState<number | null>(null)
-  const temporadas = anime.temporadas.length
-
-  /**
-   * Marcando episódios pro Modo Descoberta em sequência.
-   *
-   * Vive no cartão, e não na Biblioteca inteira, porque a sequência é de UM
-   * anime: a tela de batismo sugere nomes a partir do elenco dele, e
-   * intercalar dois animes faria a pessoa trocar de elenco na cabeça a cada
-   * episódio.
-   */
-  const [marcando, setMarcando] = useState(false)
-  const [marcados, setMarcados] = useState<Set<number>>(new Set())
-  const ordem = anime.temporadas.flatMap((t) => t.episodios)
-
-  const alternarMarcado = (id: number): void =>
-    setMarcados((atual) => {
-      const novo = new Set(atual)
-      if (novo.has(id)) novo.delete(id)
-      else novo.add(id)
-      return novo
-    })
-
-  const sairDaMarcacao = (): void => {
-    setMarcando(false)
-    setMarcados(new Set())
-  }
-
-  return (
-    <div className="panel overflow-hidden">
-      <div className="flex items-center gap-2.5 px-2 py-2">
-        <button
-          type="button"
-          onClick={onAlternar}
-          aria-expanded={aberto}
-          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-surface-hover"
-        >
-          <ChevronRight
-            className={cn(
-              'size-4 shrink-0 text-muted-foreground transition-transform',
-              aberto && 'rotate-90'
-            )}
-          />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13.5px] font-semibold">
-              {anime.nome}
-            </span>
-            {/* O aviso só existe quando há discordância. Repetir o nome da
-                pasta embaixo dela mesma seria ruído em 90% dos casos. */}
-            {anime.titulos.length > 1 && (
-              <span
-                className="block truncate text-[11px] text-muted-foreground/80"
-                title={anime.titulos.join('\n')}
-              >
-                {anime.titulos.length} títulos diferentes no histórico
-              </span>
-            )}
-          </span>
-          <span className="shrink-0 text-[11.5px] text-muted-foreground">
-            {temporadas} {temporadas === 1 ? 'temporada' : 'temporadas'} ·{' '}
-            {anime.episodios} {anime.episodios === 1 ? 'episódio' : 'episódios'}
-          </span>
-          <span className="tabular w-24 shrink-0 text-right text-[11.5px] text-muted-foreground/70">
-            {anime.cenas.toLocaleString('pt-BR')} cenas
-          </span>
-        </button>
-        <Button
-          size="sm"
-          variant={marcando ? 'secondary' : 'ghost'}
-          title="Marcar episódios pra identificar um depois do outro, no Modo Descoberta"
-          onClick={() => {
-            if (marcando) {
-              sairDaMarcacao()
-              return
-            }
-            setMarcando(true)
-            if (!aberto) onAlternar()
-          }}
-        >
-          <Wand2 />
-        </Button>
-        {podeJuntar && (
-          <Button
-            size="sm"
-            variant="ghost"
-            title={`Juntar "${anime.nome}" com outra pasta — o mesmo anime em duas pastas`}
-            onClick={onJuntar}
-          >
-            <Combine />
-          </Button>
-        )}
-        <Button
-          size="sm"
-          variant="ghost"
-          title="Achar personagem nas cenas que ficaram sem ninguém: compara com quem já está marcado e só marca quando as duas IAs concordam"
-          disabled={ocupado}
-          onClick={onRepescar}
-        >
-          {repescando ? <Loader2 className="animate-spin" /> : <UserSearch />}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          title="Exportar personagens: um .zip com os nomes, as fotos de rosto e o reconhecimento de cada um, pra outra pessoa importar no AnCut dela"
-          onClick={onExportar}
-        >
-          <Share2 />
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          title={anime.pasta}
-          onClick={() => void window.ancut.shell.reveal(anime.pasta)}
-        >
-          <FolderOpen />
-        </Button>
-      </div>
-
-      {aberto && (
-        <div className="flex flex-col gap-2 border-t border-border px-3 py-2.5">
-          {anime.temporadas.map((t) => (
-            <div key={t.numero} className="flex flex-col gap-1">
-              <div
-                className={cn(
-                  'flex items-center gap-2 rounded-md px-1 py-0.5 transition-colors',
-                  alvoArrasto === t.numero && 'bg-primary/15 ring-1 ring-primary/50'
-                )}
-                // Soltar um episódio aqui move ele PRA ESTA temporada. É o
-                // gesto que o FAAH pediu; o botão ao lado faz o mesmo pra
-                // quem prefere digitar o número (ou pra temporada que ainda
-                // não existe na lista).
-                onDragOver={(e) => {
-                  if (!e.dataTransfer.types.includes('application/x-ancut-episodio')) return
-                  e.preventDefault()
-                  setAlvoArrasto(t.numero)
-                }}
-                onDragLeave={() => setAlvoArrasto(null)}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  setAlvoArrasto(null)
-                  const cru = e.dataTransfer.getData('application/x-ancut-episodio')
-                  if (!cru) return
-                  const info = JSON.parse(cru) as { id: number; rotulo: string; season: number }
-                  if (info.season === t.numero) return
-                  onMudarTemporada({
-                    ids: [info.id],
-                    rotulo: info.rotulo,
-                    atual: info.season,
-                    // O destino é a temporada em que ele SOLTOU. Sem mandar
-                    // isto, o diálogo abria com o número da origem e o
-                    // arrasto não adiantava nada — ele teria que digitar o
-                    // destino que acabou de apontar com o mouse.
-                    destino: t.numero
-                  })
-                }}
-              >
-                <h3 className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Temporada {t.numero}
-                </h3>
-                {/* "3 episódios", e não só "3": ao lado de "Temporada 3" o
-                    número solto era lido como a temporada de novo. */}
-                <span className="text-[11px] text-muted-foreground/60">
-                  {t.episodios.length}{' '}
-                  {t.episodios.length === 1 ? 'episódio' : 'episódios'} ·{' '}
-                  {t.cenas.toLocaleString('pt-BR')} cenas
-                </span>
-                <span className="flex-1" />
-                <button
-                  type="button"
-                  title={`Mudar a temporada destes ${t.episodios.length} episódios`}
-                  onClick={() =>
-                    onMudarTemporada({
-                      ids: t.episodios.map((e) => e.episodeId),
-                      rotulo: `Temporada ${t.numero} inteira (${t.episodios.length} episódios)`,
-                      atual: t.numero
-                    })
-                  }
-                  className="grid size-6 place-items-center rounded text-muted-foreground/70 transition-colors hover:bg-surface-hover hover:text-foreground"
-                >
-                  <Move className="size-3.5" />
-                </button>
-              </div>
-              <ul className="grid gap-1 sm:grid-cols-2">
-                {t.episodios.map((ep) => (
-                  <li key={ep.episodeId}>
-                    <EpisodeRow
-                      ep={ep}
-                      onOpen={onOpen}
-                      temporada={t.numero}
-                      onMenu={onMenu}
-                      marcado={marcando ? marcados.has(ep.episodeId) : undefined}
-                      onMarcar={() => alternarMarcado(ep.episodeId)}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-
-          {marcando && (
-            <div className="sticky bottom-0 flex flex-wrap items-center gap-2 rounded-md border border-primary/40 bg-surface-elevated px-3 py-2">
-              <Wand2 className="size-4 shrink-0 text-primary" />
-              <span className="text-[12.5px]">
-                {marcados.size === 0
-                  ? 'Clique nos episódios pra marcar'
-                  : `${marcados.size} ${marcados.size === 1 ? 'marcado' : 'marcados'}`}
-              </span>
-              <button
-                type="button"
-                className="text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                onClick={() =>
-                  setMarcados(
-                    marcados.size === ordem.length
-                      ? new Set()
-                      : new Set(ordem.map((e) => e.episodeId))
-                  )
-                }
-              >
-                {marcados.size === ordem.length ? 'Desmarcar todos' : 'Marcar todos'}
-              </button>
-              <span className="flex-1" />
-              <Button size="sm" variant="ghost" onClick={sairDaMarcacao}>
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                className="gap-1.5"
-                disabled={marcados.size === 0}
-                title="Cada episódio para na tela de batismo esperando os nomes, e o próximo começa quando você salvar"
-                onClick={() => {
-                  // Na ordem da lista, não na ordem em que foram clicados:
-                  // a sequência tem que ser a do anime.
-                  onDescobrir(ordem.filter((e) => marcados.has(e.episodeId)))
-                  sairDaMarcacao()
-                }}
-              >
-                <Wand2 />
-                Modo Descoberta em {marcados.size || ''}{' '}
-                {marcados.size === 1 ? 'episódio' : 'episódios'}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function EpisodeRow({
-  ep,
-  onOpen,
-  temporada,
-  onMenu,
-  marcado,
-  onMarcar
-}: {
-  ep: RecentEpisode
-  onOpen: (episodeId: number) => void
-  temporada: number
-  onMenu: (x: number, y: number, ep: RecentEpisode, temporada: number) => void
-  /** Definido só no modo de marcação — aí o clique marca em vez de abrir. */
-  marcado?: boolean
-  onMarcar: () => void
-}): JSX.Element {
-  const rotulo = episodeLabel(ep.season, ep.episode, ep.kind)
-  const marcando = marcado !== undefined
+  const t = anime.temporadas.length
+  const selo = anime.filme ? 'Filme' : `${t} ${t === 1 ? 'temporada' : 'temporadas'}`
   return (
     <button
       type="button"
-      onClick={() => (marcando ? onMarcar() : onOpen(ep.episodeId))}
-      title={
-        marcando
-          ? 'Clique pra marcar ou desmarcar'
-          : `${ep.animeTitle} — arraste até outra temporada pra mover`
-      }
-      draggable={!marcando}
-      // Aqui o arrasto NÃO é cancelado, ao contrário da grade de cenas: este
-      // é um arrasto interno da tela (mover de temporada), não um arrasto de
-      // arquivo pro Windows. Tipo próprio pra a área de soltar saber que o
-      // que vem é um episódio, e não qualquer coisa arrastada de fora.
+      onClick={onAbrir}
       onContextMenu={(e) => {
         e.preventDefault()
-        onMenu(e.clientX, e.clientY, ep, temporada)
+        onMenu(e.clientX, e.clientY)
       }}
-      onDragStart={(e) => {
-        e.dataTransfer.setData(
-          'application/x-ancut-episodio',
-          JSON.stringify({ id: ep.episodeId, rotulo, season: temporada })
-        )
-        e.dataTransfer.effectAllowed = 'move'
-      }}
-      className={cn(
-        'flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition-colors',
-        marcando
-          ? marcado
-            ? 'cursor-pointer border-primary/50 bg-primary/[0.12]'
-            : 'cursor-pointer border-transparent bg-surface-sunken hover:border-border hover:bg-surface-hover'
-          : 'cursor-grab border-transparent bg-surface-sunken hover:border-border hover:bg-surface-hover active:cursor-grabbing'
-      )}
+      title={anime.titulos.length > 1 ? `Títulos no histórico:\n${anime.titulos.join('\n')}` : anime.pasta}
+      className="group flex flex-col overflow-hidden rounded-xl border border-border/70 bg-surface/80 text-left shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary/40"
     >
-      {marcando ? (
-        marcado ? (
-          <CheckSquare className="size-3.5 shrink-0 text-primary" />
-        ) : (
-          <Square className="size-3.5 shrink-0 text-muted-foreground" />
-        )
-      ) : (
-        <Clapperboard className="size-3.5 shrink-0 text-muted-foreground" />
-      )}
-      <span className="tabular shrink-0 text-[12px] font-semibold">{rotulo}</span>
-      <span className="flex-1" />
-      <span className="tabular shrink-0 text-[11.5px] text-muted-foreground/70">
-        {ep.shotCount} cenas
+      <span className="relative block">
+        <Capa url={anime.capaUrl} className="aspect-video w-full" />
+        <span className="absolute left-2.5 top-2.5 rounded-full bg-black/70 px-2.5 py-0.5 text-[11.5px] font-semibold text-white">
+          {selo}
+        </span>
+        {repescando && (
+          <span className="absolute right-2.5 top-2.5 grid size-7 place-items-center rounded-full bg-black/70 text-primary">
+            <Loader2 className="size-4 animate-spin" />
+          </span>
+        )}
+      </span>
+      <span className="flex flex-col gap-2 px-3.5 pb-3.5 pt-3">
+        <span className="truncate text-[14.5px] font-semibold">{anime.nome}</span>
+        <span className="text-[12.5px] text-muted-foreground">
+          {anime.episodios} {anime.episodios === 1 ? 'episódio' : 'episódios'} ·{' '}
+          {anime.cenas.toLocaleString('pt-BR')} cenas
+        </span>
+        <Cobertura marcadas={anime.marcadas} cenas={anime.cenas} />
       </span>
     </button>
   )

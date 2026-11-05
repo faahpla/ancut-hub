@@ -1,10 +1,11 @@
 import { Loader2, ScanSearch, Search, Sparkles, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useResultsStore } from '@/stores/results-store'
 import type { CharacterShot, SceneShot } from '@shared/types'
 import { ClipGrid } from './clip-grid'
-import type { Anime } from './group-episodes'
+import { agruparPorAnime } from './group-episodes'
 
 /**
  * Procurar cena pelo que acontece nela: "luta na chuva", "pôr do sol",
@@ -21,7 +22,14 @@ import type { Anime } from './group-episodes'
  * nitidez de desempate: quadro borrado no meio do movimento perde ponto.
  * Sem descrição, são as mais bonitas do anime inteiro.
  */
-export function ScenesView({ animes }: { animes: Anime[] }): JSX.Element {
+export function ScenesView(): JSX.Element {
+  const recent = useResultsStore((s) => s.recent)
+  const loadRecent = useResultsStore((s) => s.loadRecent)
+  useEffect(() => {
+    if (recent.length === 0) void loadRecent()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const animes = useMemo(() => agruparPorAnime(recent), [recent])
   const [consulta, setConsulta] = useState('')
   const [animePasta, setAnimePasta] = useState('')
   const [ordem, setOrdem] = useState<'relevancia' | 'beleza'>('relevancia')
@@ -100,11 +108,17 @@ export function ScenesView({ animes }: { animes: Anime[] }): JSX.Element {
   const semDescricao = consulta.trim() === ''
 
   return (
-    <div className="flex w-full flex-col gap-3">
-      <header className="flex flex-wrap items-center gap-2 px-1">
-        <ScanSearch className="size-4 text-muted-foreground" />
-        <h1 className="text-[14px] font-semibold">Procurar cena</h1>
-        <span className="flex-1" />
+    <div className="animate-rise-in mx-auto flex w-full max-w-[1500px] flex-col gap-4">
+      <header className="flex flex-wrap items-end gap-3">
+        <div className="flex min-w-[260px] flex-1 flex-col gap-1">
+          <h1 className="flex items-center gap-2.5 text-[26px] font-bold tracking-tight">
+            <ScanSearch className="size-6 text-primary" />
+            Procurar cena
+          </h1>
+          <p className="text-[14px] text-muted-foreground">
+            Descreva o que acontece na cena. Nome de personagem vira filtro.
+          </p>
+        </div>
         <label className="flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground">
           Escala
           <input

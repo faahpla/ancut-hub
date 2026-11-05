@@ -1,4 +1,3 @@
-import { Settings } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAnalysisStore } from '@/stores/analysis-store'
 import { useQueueStore } from '@/stores/queue-store'
@@ -6,20 +5,24 @@ import { useReforcoStore } from '@/stores/reforco-store'
 import { useResultsStore } from '@/stores/results-store'
 import { episodeLabel } from '@/lib/utils'
 import { ReforcoBadge } from '@/features/results/reforco-badge'
-import { Brand } from '@/components/layout/brand'
 import { DeviceBadge } from '@/components/layout/device-badge'
-import { TabBar, type TabKey } from '@/components/layout/tab-bar'
+import { Sidebar } from '@/components/layout/sidebar'
 import { TitleBar } from '@/components/layout/title-bar'
-import { Button } from '@/components/ui/button'
 import { AnalyzeView } from '@/features/analyze/analyze-view'
+import { CharactersView } from '@/features/library/characters-view'
+import { FavoritesView } from '@/features/library/favorites-view'
 import { LibraryView } from '@/features/library/library-view'
+import { ScenesView } from '@/features/library/scenes-view'
 import { ResultsView } from '@/features/results/results-view'
 import { SettingsDialog } from '@/features/settings/settings-dialog'
 import { UpdateBadge, UpdateDialogHost } from '@/features/update/update-badge'
+import { cn } from '@/lib/utils'
+import { useNav } from '@/stores/nav-store'
 import type { AnalysisResult, AppInfo, RecentEpisode } from '@shared/types'
 
 export default function App(): JSX.Element {
-  const [tab, setTab] = useState<TabKey>('analyze')
+  const pagina = useNav((s) => s.pagina)
+  const ir = useNav((s) => s.ir)
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const result = useAnalysisStore((s) => s.result)
@@ -82,16 +85,16 @@ export default function App(): JSX.Element {
     }
     void openEpisode(result.episodeId)
       .catch((e) => console.error('[resultados] falha ao abrir o episódio:', e))
-      .finally(() => setTab('results'))
-  }, [result, openEpisode, filaRodando])
+      .finally(() => ir('episodio'))
+  }, [result, openEpisode, filaRodando, ir])
 
   // A tela de batismo mora na aba Analisar. Se ela ficar pronta com a pessoa
   // em outra aba — olhando o resultado do episódio anterior da fila, por
   // exemplo —, o motor fica parado esperando nomes que ninguém está vendo.
   const discoveryPronta = useAnalysisStore((s) => s.discovery !== null)
   useEffect(() => {
-    if (discoveryPronta) setTab('analyze')
-  }, [discoveryPronta])
+    if (discoveryPronta) ir('novo')
+  }, [discoveryPronta, ir])
 
   /**
    * Episódios marcados na Biblioteca vão pra fila em Modo Descoberta.
@@ -105,65 +108,57 @@ export default function App(): JSX.Element {
     fila.adicionarDescoberta(eps)
     const avulsa = useAnalysisStore.getState().status === 'running' && !fila.rodando
     if (!avulsa) void fila.iniciar()
-    setTab('analyze')
+    ir('novo')
+  }
+
+  const abrirEpisodio = (episodeId: number, origem: string): void => {
+    void openEpisode(episodeId)
+      .catch((e) => console.error(`[${origem}] falha ao abrir o episódio:`, e))
+      .finally(() => ir('episodio'))
   }
 
   return (
-    <div className="flex h-full flex-col bg-background text-foreground">
-      <TitleBar
-        actions={
-          <>
-            <ReforcoBadge />
-            <UpdateBadge />
-            <DeviceBadge info={info} />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => setSettingsOpen(true)}
-            >
-              <Settings />
-              Configurações
-            </Button>
-          </>
-        }
-      >
-        <Brand />
-        {/* Separa identidade de navegação: sem ele, "AnCut HUB" e as abas
-            viram um bloco só de texto e o olho não sabe onde a marca termina
-            e onde começa o que é clicável. */}
-        <span className="h-5 w-px shrink-0 bg-border" />
-        <TabBar value={tab} onChange={setTab} />
-      </TitleBar>
+    // A interface nova (11/2026): menu lateral fixo, e cada coisa uma página.
+    // O fundo com os gradientes fica aqui, na raiz — as páginas rolam por cima.
+    <div className="app-bg flex h-full text-foreground">
+      <Sidebar onSettings={() => setSettingsOpen(true)} />
 
-      <main className="scrollbar-thin flex-1 overflow-y-auto px-4 pb-4 pt-3">
-        {tab === 'analyze' ? (
-          <AnalyzeView
-            onVerResultado={(episodeId) => {
-              void openEpisode(episodeId)
-                .catch((e) => console.error('[fila] falha ao abrir:', e))
-                .finally(() => setTab('results'))
-            }}
-          />
-        ) : tab === 'library' ? (
-          // A Biblioteca escolhe; a aba Resultados trabalha. Abrir daqui leva
-          // pra lá porque o episódio aberto ocupa a tela inteira — mostrá-lo
-          // dentro da árvore empurraria a árvore pra fora do alcance.
-          <LibraryView
-            onOpen={(episodeId) => {
-              void openEpisode(episodeId)
-                .catch((e) => console.error('[biblioteca] falha ao abrir:', e))
-                .finally(() => setTab('results'))
-            }}
-            onDescobrir={descobrirEmSequencia}
-          />
-        ) : (
-          <ResultsView
-            onBrowse={() => setTab('library')}
-            onAnalyze={() => setTab('analyze')}
-          />
-        )}
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TitleBar
+          actions={
+            <>
+              <ReforcoBadge />
+              <UpdateBadge />
+              <DeviceBadge info={info} />
+            </>
+          }
+        />
+
+        <main
+          className={cn(
+            'flex-1 overflow-y-auto',
+            // O episódio é uma bancada de trabalho: usa a tela até a borda.
+            pagina === 'episodio' ? 'px-4 pb-4 pt-3' : 'px-8 pb-10 pt-4'
+          )}
+        >
+          {pagina === 'novo' ? (
+            <AnalyzeView onVerResultado={(id) => abrirEpisodio(id, 'fila')} />
+          ) : pagina === 'biblioteca' ? (
+            <LibraryView
+              onOpen={(id) => abrirEpisodio(id, 'biblioteca')}
+              onDescobrir={descobrirEmSequencia}
+            />
+          ) : pagina === 'personagens' ? (
+            <CharactersView />
+          ) : pagina === 'cenas' ? (
+            <ScenesView />
+          ) : pagina === 'favoritos' ? (
+            <FavoritesView />
+          ) : (
+            <ResultsView onBrowse={() => ir('biblioteca')} onAnalyze={() => ir('novo')} />
+          )}
+        </main>
+      </div>
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} info={info} />
       <UpdateDialogHost />

@@ -1,8 +1,6 @@
 import {
   ArrowLeft,
   ChevronRight,
-  Clapperboard,
-  FolderOpen,
   Loader2,
   Search,
   Users,
@@ -11,6 +9,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { Rosto } from './capa'
 import { ClipGrid } from './clip-grid'
 import type { CharacterEntry, CharacterShot } from '@shared/types'
 
@@ -35,7 +34,8 @@ export function CharactersView(): JSX.Element {
   const [animeAberto, setAnimeAberto] = useState<string>('')
   const [cenas, setCenas] = useState<CharacterShot[] | null>(null)
   const [largura, setLargura] = useState(180)
-  const [expandidos, setExpandidos] = useState<string[]>([])
+  /** Seções fechadas à mão. Abertas por padrão: com rosto, a grade se lê de relance. */
+  const [recolhidos, setRecolhidos] = useState<string[]>([])
 
   useEffect(() => {
     let vivo = true
@@ -103,8 +103,7 @@ export function CharactersView(): JSX.Element {
   // em cada resultado não é uma busca, é uma segunda busca. Mesma regra da
   // aba Anime.
   const buscando = busca.trim() !== ''
-  const expandido = (anime: string): boolean =>
-    buscando || secoes.length === 1 || expandidos.includes(anime)
+  const recolhido = (anime: string): boolean => !buscando && recolhidos.includes(anime)
 
   /** Quanto ele tem NESTE anime — o número que a seção mostra. */
   const naSecao = (c: CharacterEntry, anime: string): { shots: number; episodes: number } =>
@@ -215,26 +214,31 @@ export function CharactersView(): JSX.Element {
   }
 
   return (
-    <div className="flex w-full flex-col gap-3">
-      <header className="flex items-center gap-2 px-1">
-        <Users className="size-4 text-muted-foreground" />
-        <h1 className="text-[14px] font-semibold">Personagens</h1>
-        <span className="text-[12px] text-muted-foreground">{lista.length} no acervo</span>
-        <span className="flex-1" />
+    <div className="animate-rise-in mx-auto flex w-full max-w-[1500px] flex-col gap-6">
+      <header className="flex flex-wrap items-end gap-3">
+        <div className="flex min-w-[260px] flex-1 flex-col gap-1">
+          <h1 className="flex items-center gap-2.5 text-[26px] font-bold tracking-tight">
+            <Users className="size-6 text-primary" />
+            Personagens
+          </h1>
+          <p className="text-[14px] text-muted-foreground">
+            {lista.length} no acervo · clique pra ver todas as cenas de um personagem, de todos os episódios
+          </p>
+        </div>
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Procurar personagem…"
-            className="h-8 w-52 rounded-md border border-border bg-surface-sunken pl-8 pr-7 text-[12.5px] outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
+            placeholder="Procurar personagem ou anime…"
+            className="h-10 w-72 rounded-lg border border-border bg-surface-sunken/80 pl-9 pr-8 text-[13.5px] outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
           />
           {busca && (
             <button
               type="button"
               onClick={() => setBusca('')}
               aria-label="Limpar busca"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="size-3.5" />
             </button>
@@ -243,98 +247,62 @@ export function CharactersView(): JSX.Element {
       </header>
 
       {visiveis.length === 0 ? (
-        <p className="px-1 py-6 text-center text-[12.5px] text-muted-foreground">
+        <p className="py-8 text-center text-[13px] text-muted-foreground">
           {busca ? `Ninguém com “${busca}”.` : 'Nenhum personagem identificado ainda.'}
         </p>
       ) : (
-        <ul className="flex flex-col gap-1.5">
-          {secoes.map((sec) => (
-            <li key={sec.anime} className="panel overflow-hidden">
-              <button
-                type="button"
-                onClick={() =>
-                  setExpandidos((a) =>
-                    a.includes(sec.anime) ? a.filter((x) => x !== sec.anime) : [...a, sec.anime]
-                  )
-                }
-                aria-expanded={expandido(sec.anime)}
-                className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-surface-hover"
-              >
-                <ChevronRight
-                  className={cn(
-                    'size-4 shrink-0 text-muted-foreground transition-transform',
-                    expandido(sec.anime) && 'rotate-90'
-                  )}
-                />
-                <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold">
-                  {sec.anime}
-                </span>
-                <span className="shrink-0 text-[11.5px] text-muted-foreground">
-                  {sec.gente.length} {sec.gente.length === 1 ? 'personagem' : 'personagens'}
-                </span>
-                <span className="tabular w-24 shrink-0 text-right text-[11.5px] text-muted-foreground/70">
-                  {sec.cenas.toLocaleString('pt-BR')} cenas
-                </span>
-              </button>
-
-              {expandido(sec.anime) && (
-                <ul className="flex flex-col gap-1 border-t border-border p-2">
-                  {sec.gente.map((c) => (
-                    <li key={c.name}>
-                      <button
-                        type="button"
-                        onClick={() => abrir(c, sec.anime)}
-                        className="flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors hover:bg-surface-hover"
-                      >
-                        <div className="h-11 w-[74px] shrink-0 overflow-hidden rounded bg-black/40">
-                          {url(c.sample) ? (
-                            <img
-                              src={url(c.sample) as string}
-                              alt=""
-                              loading="lazy"
-                              draggable={false}
-                              className="size-full object-cover"
-                            />
-                          ) : (
-                            <div className="grid size-full place-items-center">
-                              <Clapperboard className="size-4 text-muted-foreground/50" />
-                            </div>
-                          )}
-                        </div>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13.5px] font-semibold">
-                            {c.name}
-                          </span>
-                          {/* O anime saiu daqui: ele é o título da seção. Sobra o que
-                      a seção NÃO diz — as outras grafias, e o aviso de que
-                      ele também aparece em outro anime. */}
-                          {(c.aliases.length > 0 || c.animes.length > 1) && (
-                            <span className="block truncate text-[11px] text-muted-foreground/80">
-                              {c.aliases.length > 0 && `também: ${c.aliases.join(', ')}`}
-                              {c.aliases.length > 0 && c.animes.length > 1 && ' · '}
-                              {c.animes.length > 1 &&
-                                `em mais ${c.animes.length - 1} ${
-                                  c.animes.length - 1 === 1 ? 'anime' : 'animes'
-                                }`}
-                            </span>
-                          )}
-                        </span>
-                        <span className="shrink-0 text-right text-[11.5px] text-muted-foreground">
-                          <span className="tabular block font-medium text-foreground">
-                            {naSecao(c, sec.anime).shots.toLocaleString('pt-BR')} cenas
-                          </span>
-                          {naSecao(c, sec.anime).episodes}{' '}
-                          {naSecao(c, sec.anime).episodes === 1 ? 'episódio' : 'episódios'}
-                        </span>
-                        <FolderOpen className="size-4 shrink-0 text-muted-foreground/40" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
+        secoes.map((sec) => (
+          <section key={sec.anime} className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                setRecolhidos((a) =>
+                  a.includes(sec.anime) ? a.filter((x) => x !== sec.anime) : [...a, sec.anime]
+                )
+              }
+              aria-expanded={!recolhido(sec.anime)}
+              className="flex items-center gap-3 text-left"
+            >
+              <ChevronRight
+                className={cn(
+                  'size-4 shrink-0 text-muted-foreground transition-transform',
+                  !recolhido(sec.anime) && 'rotate-90'
+                )}
+              />
+              <span className="truncate text-[16px] font-semibold">{sec.anime}</span>
+              <span className="shrink-0 text-[12.5px] text-muted-foreground">
+                {sec.gente.length} {sec.gente.length === 1 ? 'personagem' : 'personagens'} ·{' '}
+                {sec.cenas.toLocaleString('pt-BR')} cenas
+              </span>
+            </button>
+            {!recolhido(sec.anime) && (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
+                {sec.gente.map((c) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    onClick={() => abrir(c, sec.anime)}
+                    title={c.aliases.length > 0 ? `também: ${c.aliases.join(', ')}` : c.name}
+                    className="group flex flex-col items-center gap-2 rounded-xl border border-border/70 bg-surface/80 px-3 pb-3.5 pt-4 text-center transition-all hover:-translate-y-0.5 hover:border-primary/40"
+                  >
+                    <Rosto url={c.avatarUrl} nome={c.name} tamanho={76} />
+                    <span className="w-full truncate text-[13.5px] font-semibold">{c.name}</span>
+                    <span className="text-[11.5px] text-muted-foreground">
+                      {naSecao(c, sec.anime).shots.toLocaleString('pt-BR')} cenas ·{' '}
+                      {naSecao(c, sec.anime).episodes}{' '}
+                      {naSecao(c, sec.anime).episodes === 1 ? 'ep.' : 'eps.'}
+                    </span>
+                    {c.animes.length > 1 && (
+                      <span className="text-[11px] text-muted-foreground/70">
+                        em mais {c.animes.length - 1} {c.animes.length - 1 === 1 ? 'anime' : 'animes'}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        ))
       )}
     </div>
   )

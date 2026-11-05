@@ -1,7 +1,9 @@
-import { Clapperboard, FolderOpen, Images, Library, X } from 'lucide-react'
+import { ChevronRight, Clapperboard, FolderOpen, Images, Library, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn, episodeLabel } from '@/lib/utils'
+import { useNav } from '@/stores/nav-store'
 import { useResultsStore } from '@/stores/results-store'
+import { pastaDoAnime } from '../library/group-episodes'
 import { CharacterList } from './character-list'
 import { ExplorerSyncBar } from './explorer-sync-bar'
 import { BenchmarkButton } from './benchmark-button'
@@ -20,8 +22,14 @@ export function ResultsView({
   onAnalyze: () => void
 }): JSX.Element {
   const { results, close, abas, trocarAba, fecharAba } = useResultsStore()
+  const abrirAnime = useNav((s) => s.abrirAnime)
 
   if (!results) return <SemEpisodio onBrowse={onBrowse} />
+
+  // A pasta, e não o título, é a identidade do anime na Biblioteca — ver
+  // `pastaDoAnime`. O nome mostrado é o da pasta pelo mesmo motivo.
+  const pasta = pastaDoAnime(results.episodeRoot)
+  const nomeDaPasta = pasta.split(/[\\/]/).filter(Boolean).at(-1) || results.animeTitle
 
   return (
     <div className="animate-fade-in flex h-full flex-col gap-2.5">
@@ -79,12 +87,30 @@ export function ResultsView({
       )}
 
       <header className="flex shrink-0 items-center gap-3">
-        <h1 className="truncate text-[15px] font-bold">
-          {results.animeTitle}
-          <span className="ml-2 font-medium text-muted-foreground">
+        {/* Caminho de volta: Biblioteca › anime › episódio. Clicar no anime
+            abre a página dele, com as temporadas e os outros episódios. */}
+        <nav className="flex min-w-0 items-center gap-1.5 text-[15px]">
+          <button
+            type="button"
+            onClick={onBrowse}
+            className="shrink-0 font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Biblioteca
+          </button>
+          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+          <button
+            type="button"
+            onClick={() => abrirAnime(pasta)}
+            title={results.animeTitle}
+            className="truncate font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {nomeDaPasta}
+          </button>
+          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+          <h1 className="shrink-0 font-bold">
             {episodeLabel(results.season, results.episode, results.kind)}
-          </span>
-        </h1>
+          </h1>
+        </nav>
         <span className="text-[12px] text-muted-foreground">
           {results.totalShots} cenas · {results.characters.length} personagens
         </span>

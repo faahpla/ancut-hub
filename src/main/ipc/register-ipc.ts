@@ -1,5 +1,5 @@
 import { app, dialog, ipcMain, nativeImage, shell } from 'electron'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { CH } from '../../shared/channels'
 import type {
   AnalysisRequest,
@@ -128,7 +128,19 @@ export function registerIpc(
   )
 
   // -------------------------------------------------------- resultados
-  ipcMain.handle(CH.recentEpisodes, async () => python.recentEpisodes())
+  // A capa de cada episódio vira URL aqui, e a pasta dele é liberada pro
+  // media:// — a Biblioteca nova mostra o acervo por imagem.
+  ipcMain.handle(CH.recentEpisodes, async () => {
+    const r = await python.recentEpisodes()
+    return {
+      ...r,
+      episodes: r.episodes.map((e) => {
+        if (!e.cover || !e.episodeRoot) return e
+        allowMediaRoot(e.episodeRoot)
+        return { ...e, coverUrl: mediaUrlPrefix(e.episodeRoot) + encodeURIComponent(e.cover) }
+      })
+    }
+  })
   ipcMain.handle(CH.explorerScan, async (_e, episodeId: number) =>
     python.explorerScan(episodeId)
   )
@@ -227,7 +239,19 @@ export function registerIpc(
   ipcMain.handle(CH.characters, async (_e, termo: string) => {
     const r = await python.characters(termo)
     if (r?.outputDir) allowMediaRoot(r.outputDir)
-    return r ? { ...r, mediaPrefix: mediaUrlPrefix(r.outputDir) } : null
+    if (!r) return null
+    // O rosto de cada personagem mora no cache do motor, fora da saída.
+    const pastas = new Set<string>()
+    const characters = r.characters.map((c) => {
+      if (!c.avatar) return c
+      const pasta = dirname(c.avatar)
+      if (!pastas.has(pasta)) {
+        allowMediaRoot(pasta)
+        pastas.add(pasta)
+      }
+      return { ...c, avatarUrl: mediaUrlPrefix(pasta) + encodeURIComponent(basename(c.avatar)) }
+    })
+    return { ...r, characters, mediaPrefix: mediaUrlPrefix(r.outputDir) }
   })
 
   ipcMain.handle(CH.characterShots, async (_e, ids: number[]) => {

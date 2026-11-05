@@ -249,6 +249,12 @@ export interface RecentEpisode {
   episodeRoot: string
   shotCount: number
   processedAt: string | null
+  /** Keyframe que representa o episódio, relativo a `episodeRoot` (a capa). */
+  cover?: string
+  /** A capa já como URL `media://` (o main monta e libera a pasta). */
+  coverUrl?: string
+  /** Cenas com pelo menos um personagem marcado. */
+  tagged?: number
 }
 
 /**
@@ -373,6 +379,10 @@ export interface CharacterEntry {
   byAnime?: { anime: string; shots: number; episodes: number }[]
   /** Keyframe (relativo à saída) pra ilustrar a linha. */
   sample: string
+  /** Recorte do rosto (caminho no disco), quando o motor já fez. */
+  avatar?: string
+  /** O rosto como URL `media://` (o main monta). */
+  avatarUrl?: string
 }
 
 export interface CharacterIndex {

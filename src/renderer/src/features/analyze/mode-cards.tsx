@@ -1,5 +1,4 @@
 import { Check } from 'lucide-react'
-import { Panel } from '@/components/ui/panel'
 import { PRESETS } from '@/stores/analysis-store'
 import { useEpisodeStore } from '@/stores/episode-store'
 import { cn } from '@/lib/utils'
@@ -12,8 +11,7 @@ export function ModeCards({ disabled }: { disabled: boolean }): JSX.Element {
   const choose = useEpisodeStore((s) => s.choosePreset)
 
   return (
-    <Panel step="2" title="Modo de reconhecimento" compact>
-      <div className="grid grid-cols-3 gap-2.5">
+    <div className="grid grid-cols-3 gap-2.5">
         {ORDER.map((key) => {
           const p = PRESETS[key]
           const active = preset === key
@@ -50,7 +48,6 @@ export function ModeCards({ disabled }: { disabled: boolean }): JSX.Element {
             </button>
           )
         })}
-      </div>
-    </Panel>
+    </div>
   )
 }

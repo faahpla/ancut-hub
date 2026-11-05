@@ -59,6 +59,18 @@ interface QueueState {
   lendo: boolean
 
   adicionar: (paths: string[]) => Promise<void>
+  /**
+   * Um vídeo já conferido no cartão do arquivo: entra com o nome, temporada
+   * e episódio que estão na tela, e não com o que o nome do arquivo diz —
+   * senão a correção feita à mão se perderia no caminho pra fila.
+   */
+  adicionarConferido: (v: {
+    videoPath: string
+    anime: string
+    season: number
+    episode: number
+    kind: EpisodeKind
+  }) => void
   /** Episódios já cortados, pra identificar um depois do outro. */
   adicionarDescoberta: (eps: RecentEpisode[]) => void
   remover: (id: string) => void
@@ -121,6 +133,18 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     } finally {
       set({ lendo: false })
     }
+  },
+
+  adicionarConferido: (v) => {
+    if (get().itens.some((i) => i.modo === 'cortar' && i.videoPath === v.videoPath)) return
+    const item: ItemFila = {
+      id: `f${++contador}`,
+      modo: 'cortar',
+      nomeArquivo: nomeDe(v.videoPath),
+      status: 'esperando',
+      ...v
+    }
+    set({ itens: [...get().itens, item] })
   },
 
   adicionarDescoberta: (eps) => {

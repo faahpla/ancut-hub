@@ -22,6 +22,14 @@ export interface Anime {
   temporadas: Temporada[]
   episodios: number
   cenas: number
+  /** Cenas com personagem marcado (a barrinha do cartão). */
+  marcadas: number
+  /** A capa do anime: a do episódio mais recente que tem uma. */
+  capaUrl?: string
+  /** O mais recente que algum episódio dele foi processado. */
+  recente: string
+  /** Tudo filme (kind MOVIE)? Vai pro filtro "Filmes e séries". */
+  filme: boolean
 }
 
 /**
@@ -94,10 +102,19 @@ export function agruparPorAnime(episodios: RecentEpisode[]): Anime[] {
         titulos: [],
         temporadas: [],
         episodios: 0,
-        cenas: 0
+        cenas: 0,
+        marcadas: 0,
+        recente: '',
+        filme: true
       }
       grupos.set(chave, anime)
     }
+    anime.marcadas += ep.tagged ?? 0
+    if (ep.kind !== 'MOVIE') anime.filme = false
+    // O histórico chega do mais novo pro mais velho: a primeira capa que
+    // aparecer é a do episódio mais recente.
+    if (!anime.capaUrl && ep.coverUrl) anime.capaUrl = ep.coverUrl
+    if ((ep.processedAt ?? '') > anime.recente) anime.recente = ep.processedAt ?? ''
     if (!anime.titulos.includes(ep.animeTitle)) anime.titulos.push(ep.animeTitle)
 
     let temporada = anime.temporadas.find((t) => t.numero === ep.season)

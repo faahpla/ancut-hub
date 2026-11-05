@@ -107,7 +107,7 @@ export function FavoritesView(): JSX.Element {
           <Star className="size-8 text-muted-foreground/50" />
           <p className="text-[14px] font-semibold">Nenhum favorito ainda</p>
           <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-            Na aba Resultados, clique na estrela de um clipe — ou aperte{' '}
+            Num episódio aberto, clique na estrela de um clipe — ou aperte{' '}
             <kbd className="rounded border border-border bg-surface-sunken px-1 font-sans text-[11px]">
               F
             </kbd>
@@ -119,15 +119,18 @@ export function FavoritesView(): JSX.Element {
   }
 
   return (
-    <div className="flex w-full flex-col gap-3">
-      <header className="flex items-center gap-2 px-1">
-        <Star className="size-4 text-warning" fill="currentColor" />
-        <h1 className="text-[14px] font-semibold">Favoritos</h1>
-        <span className="text-[12px] text-muted-foreground">
-          {total} {total === 1 ? 'clipe' : 'clipes'} em {dados.animes.length}{' '}
-          {dados.animes.length === 1 ? 'anime' : 'animes'}
-        </span>
-        <span className="flex-1" />
+    <div className="animate-rise-in mx-auto flex w-full max-w-[1500px] flex-col gap-4">
+      <header className="flex flex-wrap items-end gap-3">
+        <div className="flex min-w-[260px] flex-1 flex-col gap-1">
+          <h1 className="flex items-center gap-2.5 text-[26px] font-bold tracking-tight">
+            <Star className="size-6 text-warning" fill="currentColor" />
+            Favoritos
+          </h1>
+          <p className="text-[14px] text-muted-foreground">
+            {total} {total === 1 ? 'clipe' : 'clipes'} em {dados.animes.length}{' '}
+            {dados.animes.length === 1 ? 'título' : 'títulos'}, separados por personagem
+          </p>
+        </div>
         <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
           Escala
           <input

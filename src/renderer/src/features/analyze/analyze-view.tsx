@@ -1,22 +1,77 @@
-import { Scissors, Sparkles, Wand2, X } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  ListPlus,
+  Play,
+  ScanFace,
+  Scissors,
+  Wand2,
+  X,
+  type LucideIcon
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAnalysisStore } from '@/stores/analysis-store'
 import { parseMmss, useEpisodeStore } from '@/stores/episode-store'
+import { useQueueStore } from '@/stores/queue-store'
+import type { MediaKind } from '@shared/types'
 import { DiscoveryDialog } from './discovery-dialog'
-import { EpisodeForm } from './episode-form'
+import { EpisodeForm, MidiaToggle, PularPorTempo } from './episode-form'
 import { ModeCards } from './mode-cards'
 import { NeedsInputDialog } from './needs-input-dialog'
 import { ProgressPanel } from './progress-panel'
 import { QueuePanel } from './queue-panel'
 import { ReanalyzeDialog, type ReanalyzeChoice } from './reanalyze-dialog'
-import { useQueueStore } from '@/stores/queue-store'
 
+/** O que fazer com o arquivo — antes eram quatro botões soltos no rodapé. */
+type Acao = 'cortar' | 'reconhecer' | 'descobrir'
+
+function acoes(midia: MediaKind): { valor: Acao; titulo: string; texto: string; Icone: LucideIcon }[] {
+  const filme = midia === 'live'
+  return [
+    {
+      valor: 'cortar',
+      titulo: 'Só cortar',
+      texto: filme
+        ? 'Pica o filme em cenas e para. O certo pra filme: rápido e sem internet.'
+        : 'Pica em cenas e para. Rápido, sem internet — dá pra reconhecer depois.',
+      Icone: Scissors
+    },
+    {
+      valor: 'reconhecer',
+      titulo: 'Cortar e reconhecer',
+      texto: filme
+        ? 'Corta e diz quem é quem pelo elenco do TMDB (precisa da chave).'
+        : 'Corta e já diz quem aparece em cada cena, pelo elenco do AniList.',
+      Icone: ScanFace
+    },
+    {
+      valor: 'descobrir',
+      titulo: 'Modo Descoberta',
+      texto: 'Junta os rostos parecidos e você dá os nomes no fim.',
+      Icone: Wand2
+    }
+  ]
+}
+
+const ROTULO_COMECAR: Record<Acao, string> = {
+  cortar: 'Cortar agora',
+  reconhecer: 'Cortar e reconhecer',
+  descobrir: 'Começar a Descoberta'
+}
+
+/**
+ * A tela "Novo corte".
+ *
+ * Ordem de cima pra baixo é a ordem do gesto: soltar o vídeo, conferir o que
+ * o app entendeu, escolher o que fazer, começar. O que quase nunca muda
+ * (rigor do reconhecimento, pular por tempo, IA) fica em "Mais opções".
+ */
 export function AnalyzeView({
   onVerResultado
 }: {
-  /** Abrir um episódio pronto da fila leva pra aba Resultados. */
+  /** Abrir um episódio pronto da fila leva pro episódio. */
   onVerResultado: (episodeId: number) => void
 }): JSX.Element {
   const ep = useEpisodeStore()
@@ -24,6 +79,9 @@ export function AnalyzeView({
     useAnalysisStore()
   const filaRodando = useQueueStore((s) => s.rodando)
   const [startError, setStartError] = useState<string | null>(null)
+  const [acao, setAcao] = useState<Acao>('reconhecer')
+  const [maisOpcoes, setMaisOpcoes] = useState(false)
+  const [comIA, setComIA] = useState(false)
   /** Resolve com a escolha do usuário quando o diálogo de reanálise abre. */
   const [pendingChoice, setPendingChoice] = useState<
     ((choice: ReanalyzeChoice) => void) | null
@@ -38,6 +96,11 @@ export function AnalyzeView({
     void ep.hydrate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Filme quase sempre é só pra cortar; anime, pra cortar e reconhecer.
+  useEffect(() => {
+    setAcao(ep.mediaKind === 'live' ? 'cortar' : 'reconhecer')
+  }, [ep.mediaKind])
 
   /** Abre o diálogo de reanálise e espera a escolha. */
   const askReanalyze = (): Promise<ReanalyzeChoice> =>
@@ -54,7 +117,7 @@ export function AnalyzeView({
     cutOnly?: boolean
   }): Promise<void> => {
     setStartError(null)
-    const problem = validate(ep, Boolean(opts.discovery))
+    const problem = validate(ep)
     if (problem) {
       setStartError(problem)
       return
@@ -111,80 +174,193 @@ export function AnalyzeView({
     }
   }
 
+  const comecar = (): void => {
+    if (acao === 'cortar') void start({ cutOnly: true })
+    else if (acao === 'descobrir') void start({ discovery: true })
+    else void start({ aiReview: comIA })
+  }
+
+  const porNaFila = (): void => {
+    setStartError(null)
+    const problem = validate(ep)
+    if (problem) {
+      setStartError(problem)
+      return
+    }
+    useQueueStore.getState().adicionarConferido({
+      videoPath: ep.videoPath,
+      anime: ep.anime.trim(),
+      season: ep.season,
+      episode: ep.episode,
+      kind: ep.kind
+    })
+    // Volta pra área de soltar: o próximo vídeo já pode vir.
+    ep.set({ videoPath: '', chapters: [] })
+  }
+
+  const opcoes = acoes(ep.mediaKind)
+
   return (
-    // `min-h-full` e não `h-full`: com altura FIXA a coluna não pode passar
-    // da janela, e o painel de progresso saía cortado no rodapé. Com mínima,
-    // ela ocupa a tela quando cabe e cresce quando não cabe — aí quem rola é
-    // a página, e a borda de baixo do painel aparece inteira.
-    <div className="animate-rise-in mx-auto flex min-h-full w-full max-w-5xl flex-col gap-3">
-      <EpisodeForm disabled={running} />
-      <ModeCards disabled={running} />
+    <div className="animate-rise-in mx-auto grid w-full max-w-[1400px] grid-cols-1 items-start gap-6 min-[1360px]:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="flex min-w-0 flex-col gap-5">
+        <header className="flex flex-wrap items-end gap-4">
+          <div className="flex min-w-[240px] flex-1 flex-col gap-1">
+            <h1 className="flex items-center gap-2.5 text-[26px] font-bold tracking-tight">
+              <Scissors className="size-6 text-primary" />
+              Novo corte
+            </h1>
+            <p className="text-[14px] text-muted-foreground">
+              Solte o vídeo, confira o nome e escolha o que fazer.
+            </p>
+          </div>
+          <MidiaToggle disabled={running} />
+        </header>
 
-      {startError && (
-        <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[12.5px] text-warning">
-          {startError}
-        </p>
-      )}
+        <EpisodeForm
+          disabled={running}
+          onVarios={(paths) => void useQueueStore.getState().adicionar(paths)}
+        />
 
-      {/* Some inteira enquanto a fila roda: quem para a fila é o botão dela,
-          e um "Cancelar análise" aqui pararia UM episódio sem dizer que a
-          fila seguiria pro próximo. */}
-      <div
-        className={cn(
-          'flex flex-wrap items-center justify-center gap-2 py-0.5',
-          filaRodando && 'hidden'
-        )}
-      >
-        {status === 'running' ? (
-          <Button
-            variant="danger"
-            size="lg"
-            className="gap-1.5"
-            onClick={() => void window.ancut.analysis.cancel()}
+        <section className="flex flex-col gap-2.5">
+          <h2 className="text-[13px] font-semibold text-muted-foreground">O que fazer</h2>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {opcoes.map((o) => {
+              const ativo = acao === o.valor
+              return (
+                <button
+                  key={o.valor}
+                  type="button"
+                  disabled={running}
+                  aria-pressed={ativo}
+                  onClick={() => setAcao(o.valor)}
+                  className={cn(
+                    'relative flex flex-col gap-2 rounded-xl border p-4 text-left transition-all',
+                    'disabled:cursor-not-allowed disabled:opacity-60',
+                    ativo
+                      ? 'border-primary/60 bg-primary/[0.08] shadow-[0_0_0_1px_hsl(var(--primary)/0.25)]'
+                      : 'border-border bg-surface/70 hover:border-muted hover:bg-surface-hover/60'
+                  )}
+                >
+                  {ativo && (
+                    <span className="absolute right-3 top-3 grid size-5 place-items-center rounded-full bg-primary">
+                      <Check className="size-3.5 stroke-[3] text-primary-foreground" />
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      'grid size-9 place-items-center rounded-lg',
+                      ativo ? 'bg-primary/20 text-primary' : 'bg-surface-elevated text-muted-foreground'
+                    )}
+                  >
+                    <o.Icone className="size-[18px]" />
+                  </span>
+                  <span className="text-[14.5px] font-semibold">{o.titulo}</span>
+                  <span className="text-[12.5px] leading-snug text-muted-foreground">{o.texto}</span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className="panel overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setMaisOpcoes((v) => !v)}
+            className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
           >
-            <X />
-            Cancelar análise
-          </Button>
-        ) : (
-          <>
+            <ChevronDown className={cn('size-4 transition-transform', maisOpcoes && 'rotate-180')} />
+            Mais opções
+            <span className="font-normal">
+              {acao === 'reconhecer'
+                ? '· rigor do reconhecimento, pular abertura, revisão com IA'
+                : '· pular abertura e encerramento'}
+            </span>
+          </button>
+          {maisOpcoes && (
+            <div className="flex flex-col gap-5 border-t border-border px-4 pb-4 pt-4">
+              {acao === 'reconhecer' && (
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-[12.5px] font-semibold">Rigor do reconhecimento</h3>
+                  <ModeCards disabled={running} />
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <h3 className="text-[12.5px] font-semibold">Pular por tempo</h3>
+                <PularPorTempo disabled={running} />
+              </div>
+              {acao === 'reconhecer' && (
+                <label className="flex cursor-pointer items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={comIA}
+                    disabled={running}
+                    onChange={(e) => setComIA(e.target.checked)}
+                    className="mt-0.5 size-4 shrink-0 accent-primary"
+                  />
+                  <span>
+                    <span className="text-[13px]">Pedir pra IA desempatar as cenas duvidosas</span>
+                    <span className="mt-0.5 block text-[12px] leading-relaxed text-muted-foreground">
+                      Manda só as cenas em que o app ficou na dúvida. Precisa da chave do
+                      Gemini nas Configurações.
+                    </span>
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
+        </section>
+
+        {startError && (
+          <p className="rounded-lg border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-[12.5px] text-warning">
+            {startError}
+          </p>
+        )}
+
+        {/* Enquanto a fila roda, quem para é o botão dela: um "Cancelar"
+            aqui pararia UM episódio sem dizer que a fila seguiria. */}
+        {filaRodando ? (
+          <p className="text-[12.5px] text-muted-foreground">
+            A fila está rodando — acompanhe e pare por ela.
+          </p>
+        ) : status === 'running' ? (
+          <div className="flex justify-end">
             <Button
-              variant="ghost"
-              className="gap-1.5"
-              onClick={() => void start({ cutOnly: true })}
-              title="Pica o episódio em cenas e para. Não usa internet nem identifica ninguém — e as cenas ficam em cache, então analisar depois começa daqui."
-            >
-              <Scissors />
-              Só cortar
-            </Button>
-            <Button
-              variant="secondary"
-              className="gap-1.5"
-              onClick={() => void start({ discovery: true })}
-              title="Agrupa os rostos do próprio episódio por semelhança e você dá os nomes no fim."
-            >
-              <Wand2 />
-              Modo Descoberta
-            </Button>
-            <Button variant="primary" size="lg" onClick={() => void start({})}>
-              Analisar episódio
-            </Button>
-            <Button
-              variant="special"
+              variant="danger"
               size="lg"
               className="gap-1.5"
-              onClick={() => void start({ aiReview: true })}
-              title="Manda só os shots duvidosos pra IA desempatar. Precisa de API key."
+              onClick={() => void window.ancut.analysis.cancel()}
             >
-              <Sparkles />
-              Analisar + IA
+              <X />
+              Cancelar
             </Button>
-          </>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {acao === 'cortar' && ep.videoPath && (
+              <Button
+                variant="secondary"
+                size="lg"
+                className="gap-1.5"
+                onClick={porNaFila}
+                title="Deixa este vídeo esperando na fila e libera a tela pro próximo."
+              >
+                <ListPlus />
+                Pôr na fila
+              </Button>
+            )}
+            <Button variant="primary" size="lg" className="gap-1.5" onClick={comecar}>
+              <Play />
+              {ROTULO_COMECAR[acao]}
+            </Button>
+          </div>
         )}
+
+        {status !== 'idle' && <ProgressPanel />}
       </div>
 
-      <ProgressPanel />
-
-      <QueuePanel onVerResultado={onVerResultado} />
+      <aside className="flex min-w-0 flex-col gap-4 min-[1360px]:sticky min-[1360px]:top-0">
+        <QueuePanel onVerResultado={onVerResultado} />
+      </aside>
 
       <ReanalyzeDialog
         open={pendingChoice !== null}
@@ -222,12 +398,16 @@ export function AnalyzeView({
 }
 
 /** Devolve a mensagem do primeiro problema encontrado, ou null. */
-function validate(
-  ep: { videoPath: string; anime: string; outputDir: string },
-  _discovery: boolean
-): string | null {
-  if (!ep.videoPath) return 'Selecione um arquivo de vídeo.'
-  if (!ep.anime.trim()) return 'Informe o nome do anime.'
-  if (!ep.outputDir.trim()) return 'Escolha uma pasta de saída.'
+function validate(ep: {
+  videoPath: string
+  anime: string
+  outputDir: string
+  mediaKind: MediaKind
+}): string | null {
+  if (!ep.videoPath) return 'Solte ou escolha um vídeo primeiro.'
+  if (!ep.anime.trim()) {
+    return ep.mediaKind === 'live' ? 'Informe o título do filme ou da série.' : 'Informe o nome do anime.'
+  }
+  if (!ep.outputDir.trim()) return 'Escolha onde salvar.'
   return null
 }

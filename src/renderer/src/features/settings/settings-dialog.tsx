@@ -192,7 +192,7 @@ export function SettingsDialog({
               </Field>
             </Panel>
 
-            <Panel title="Live action (filme e série)" compact>
+            <Panel title="Filme e série (gente de verdade)" compact>
               <Field label="Chave do TMDB">
                 <SecretInput
                   value={settings.tmdbApiKey}
@@ -203,7 +203,7 @@ export function SettingsDialog({
               <p className="text-[11.5px] leading-relaxed text-muted-foreground">
                 O TMDB é o AniList do cinema: dá o elenco com a foto de cada
                 ator, que vira a referência do reconhecimento. <b>Sem chave,
-                live action ainda funciona pelo Modo Descoberta</b> — ele
+                filme ainda funciona pelo Modo Descoberta</b> — ele
                 agrupa os rostos e você dá os nomes, sem depender de fonte
                 nenhuma.
               </p>

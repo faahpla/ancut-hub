@@ -1,8 +1,7 @@
-import { FileVideo, FolderOpen } from 'lucide-react'
+import { FileVideo, FolderOpen, Upload } from 'lucide-react'
 import { useState, type DragEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
-import { Panel } from '@/components/ui/panel'
 import { useEpisodeStore } from '@/stores/episode-store'
 import { cn, episodeSlug } from '@/lib/utils'
 import type { EpisodeKind, MediaKind } from '@shared/types'
@@ -28,36 +27,70 @@ const TIPOS: { valor: EpisodeKind; rotulo: string; dica: string }[] = [
   }
 ]
 
-/** Anime ou gente de verdade. Ver `MediaKind`. */
+/**
+ * Anime ou filme/série com gente de verdade. Ver `MediaKind`.
+ *
+ * "Filme" e não "Live action": é como o FAAH chama, e ele quase nunca pede
+ * pra reconhecer gente de verdade — o que importa em filme é o corte certo.
+ */
 const MIDIAS: { valor: MediaKind; rotulo: string; dica: string }[] = [
   {
     valor: 'anime',
     rotulo: 'Anime',
-    dica: 'Reconhecimento treinado em rosto de desenho, elenco do AniList.'
+    dica: 'Desenho: corte ajustado pra anime e reconhecimento de rosto desenhado, elenco do AniList.'
   },
   {
     valor: 'live',
-    rotulo: 'Live action',
+    rotulo: 'Filme',
     dica:
-      'Filme e série com gente de verdade: reconhecimento facial (ArcFace) e ' +
-      'elenco do TMDB. Os modelos são baixados na primeira vez (~190 MB).'
+      'Filme ou série com gente de verdade: o corte certo pra filmagem. Reconhecer as pessoas é ' +
+      'opcional (usa o elenco do TMDB e baixa ~190 MB na primeira vez).'
   }
 ]
 
-export function EpisodeForm({ disabled }: { disabled: boolean }): JSX.Element {
+/** O que o arquivo é, conforme a mídia: filme com gente de verdade não tem
+ *  abertura numerada nem encerramento separado. */
+function tiposDa(midia: MediaKind): { valor: EpisodeKind; rotulo: string; dica: string }[] {
+  if (midia === 'live') {
+    return [
+      { valor: 'MOVIE', rotulo: 'Filme', dica: 'Vai pra pasta "Filme (ano)", sem temporada nem episódio.' },
+      { valor: '', rotulo: 'Episódio de série', dica: 'Um episódio, com temporada e número.' }
+    ]
+  }
+  return TIPOS
+}
+
+/**
+ * O arquivo a cortar.
+ *
+ * Sem arquivo: uma área grande pra soltar — é o primeiro gesto da tela, e ele
+ * merece o espaço (era uma faixa fina no meio de oito campos). Soltando
+ * vários de uma vez, todos vão pra fila. Com arquivo: o cartão com o que o
+ * app entendeu do nome, e os campos pra corrigir.
+ */
+export function EpisodeForm({
+  disabled,
+  onVarios
+}: {
+  disabled: boolean
+  /** Mais de um vídeo solto de uma vez: vão pra fila. */
+  onVarios: (paths: string[]) => void
+}): JSX.Element {
   const ep = useEpisodeStore()
   const [dragging, setDragging] = useState(false)
 
-  const onDrop = (e: DragEvent<HTMLDivElement>): void => {
+  const onDrop = (e: DragEvent<HTMLElement>): void => {
     e.preventDefault()
     setDragging(false)
     if (disabled) return
-    const file = Array.from(e.dataTransfer.files).find((f) => VIDEO_RE.test(f.name))
-    if (!file) return
     // `File.path` não existe desde o Electron 32 — o caminho real só vem por
     // webUtils, exposto pelo preload.
-    const path = window.ancutFiles.pathFor(file)
-    if (path) void ep.applyFile(path)
+    const paths = Array.from(e.dataTransfer.files)
+      .filter((f) => VIDEO_RE.test(f.name))
+      .map((f) => window.ancutFiles.pathFor(f))
+      .filter((p): p is string => Boolean(p))
+    if (paths.length > 1) onVarios(paths)
+    else if (paths[0]) void ep.applyFile(paths[0])
   }
 
   const pick = async (): Promise<void> => {
@@ -71,96 +104,72 @@ export function EpisodeForm({ disabled }: { disabled: boolean }): JSX.Element {
   }
 
   const fileName = ep.videoPath ? ep.videoPath.split(/[\\/]/).pop() : null
+  const arrasto = {
+    onDragOver: (e: DragEvent<HTMLElement>) => {
+      e.preventDefault()
+      if (!disabled) setDragging(true)
+    },
+    onDragLeave: () => setDragging(false),
+    onDrop
+  }
 
-  return (
-    <Panel step="1" title="Configurações do episódio" compact>
-      <div
-        onDragOver={(e) => {
-          e.preventDefault()
-          if (!disabled) setDragging(true)
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
+  if (!fileName) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => void pick()}
+        {...arrasto}
         className={cn(
-          'flex items-center gap-3 rounded-md border border-dashed px-3 py-2.5 transition-colors',
-          dragging
-            ? 'border-primary bg-primary/[0.07]'
-            : 'border-border/70 bg-surface-sunken/40'
+          'flex w-full items-center gap-5 rounded-2xl border-2 border-dashed px-7 py-7 text-left transition-colors disabled:opacity-50',
+          dragging ? 'border-primary bg-primary/[0.08]' : 'border-border bg-surface-sunken/50 hover:border-primary/50'
         )}
       >
-        <FileVideo
-          className={cn('size-4 shrink-0', fileName ? 'text-primary' : 'text-muted-foreground')}
-        />
-        <span
-          className={cn(
-            'flex-1 truncate text-[13px]',
-            fileName ? 'text-foreground' : 'text-muted-foreground'
-          )}
-          title={ep.videoPath || undefined}
-        >
-          {fileName ?? 'Arraste o episódio aqui (.mp4/.mkv) ou clique em Selecionar'}
+        <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary/15 text-primary">
+          <Upload className="size-6" />
         </span>
-        <Button size="sm" onClick={pick} disabled={disabled}>
-          Selecionar
+        <span className="flex flex-1 flex-col gap-1">
+          <span className="text-[17px] font-semibold">Arraste os vídeos pra cá</span>
+          <span className="text-[13.5px] text-muted-foreground">
+            ou clique pra escolher · MKV, MP4 · vários de uma vez vão pra fila
+          </span>
+        </span>
+        <span className="inline-flex h-10 items-center rounded-lg border border-border bg-surface px-4 text-[13.5px] font-semibold">
+          Escolher arquivo
+        </span>
+      </button>
+    )
+  }
+
+  const tipos = tiposDa(ep.mediaKind)
+  const ehFilme = ep.kind === 'MOVIE'
+
+  return (
+    <article
+      {...arrasto}
+      className={cn('panel flex flex-col gap-4 p-5 transition-colors', dragging && 'border-primary bg-primary/[0.06]')}
+    >
+      <div className="flex items-start gap-4">
+        <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
+          <FileVideo className="size-6" />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h2 className="truncate text-[20px] font-bold leading-tight">{ep.anime || 'Sem nome'}</h2>
+          <p className="truncate text-[12.5px] text-muted-foreground" title={ep.videoPath}>
+            {fileName}
+          </p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => void pick()} disabled={disabled}>
+          Trocar arquivo
         </Button>
       </div>
 
-      {/* Antes de tudo: é o que decide QUEM vai reconhecer o rosto. Um filme
-          analisado com o modelo de anime não acha ninguém, e o erro só
-          apareceria no fim, com o episódio inteiro cortado à toa. */}
-      <Field label="Tipo de mídia">
-        <div className="flex gap-1.5">
-          {MIDIAS.map((m) => (
-            <button
-              key={m.valor}
-              type="button"
-              disabled={disabled}
-              onClick={() => ep.set({ mediaKind: m.valor })}
-              title={m.dica}
-              className={cn(
-                'flex-1 rounded-md border px-3 py-1.5 text-[12.5px] font-medium transition-colors disabled:opacity-50',
-                ep.mediaKind === m.valor
-                  ? 'border-primary bg-primary/[0.12] text-primary'
-                  : 'border-border text-muted-foreground hover:bg-surface-hover hover:text-foreground'
-              )}
-            >
-              {m.rotulo}
-            </button>
-          ))}
-        </div>
-      </Field>
-
-      {/* O tipo vem ANTES dos números porque é ele que dá sentido a eles:
-          com "Abertura" marcado, o campo ao lado deixa de ser o episódio e
-          passa a ser qual abertura da temporada. */}
-      <Field label="O que é este arquivo">
-        <div className="flex gap-1.5">
-          {TIPOS.map((t) => (
-            <button
-              key={t.valor}
-              type="button"
-              disabled={disabled}
-              onClick={() => ep.set({ kind: t.valor })}
-              title={t.dica}
-              className={cn(
-                'flex-1 rounded-md border px-3 py-1.5 text-[12.5px] font-medium transition-colors disabled:opacity-50',
-                ep.kind === t.valor
-                  ? 'border-primary bg-primary/[0.12] text-primary'
-                  : 'border-border text-muted-foreground hover:bg-surface-hover hover:text-foreground'
-              )}
-            >
-              {t.rotulo}
-            </button>
-          ))}
-        </div>
-      </Field>
-
-      <div className="grid grid-cols-[1fr_110px_110px] gap-2.5">
-        <Field label="Anime">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4">
+        <Field label={ep.mediaKind === 'live' ? 'Título' : 'Anime'}>
           <Input
             value={ep.anime}
             disabled={disabled}
-            placeholder="Nome do anime"
+            placeholder={ep.mediaKind === 'live' ? 'Nome do filme ou da série' : 'Nome do anime'}
             onChange={(e) => ep.set({ anime: e.target.value })}
             list="pastas-de-anime"
             onBlur={async () => {
@@ -170,94 +179,158 @@ export function EpisodeForm({ disabled }: { disabled: boolean }): JSX.Element {
               const r = await window.ancut.episode.skipRanges(ep.anime.trim())
               if (!r) return
               if (r.skipHeadSeconds || r.skipTailSeconds) {
-                ep.set({
-                  skipHead: mmss(r.skipHeadSeconds),
-                  skipTail: mmss(r.skipTailSeconds)
-                })
+                ep.set({ skipHead: mmss(r.skipHeadSeconds), skipTail: mmss(r.skipTailSeconds) })
               }
             }}
           />
           {/* Escolher da lista é a forma mais barata de não inventar a 15ª
-              grafia do mesmo anime — que foi como o acervo dele acabou com
-              14 pastas pra 6 animes. */}
+              grafia do mesmo anime. */}
           <datalist id="pastas-de-anime">
             {ep.existingFolders.map((f) => (
               <option key={f} value={f} />
             ))}
           </datalist>
         </Field>
-        <Field label="Temporada">
-          <Input
-            type="number"
-            min={1}
-            max={50}
-            value={ep.season}
-            disabled={disabled}
-            onChange={(e) => ep.set({ season: Number(e.target.value) || 1 })}
-          />
-        </Field>
-        <Field
-          label={
-            ep.kind === 'OP' ? 'Nº da abertura' : ep.kind === 'ED' ? 'Nº do encerr.' : 'Episódio'
-          }
-        >
-          <Input
-            type="number"
-            min={1}
-            max={999}
-            value={ep.episode}
-            disabled={disabled}
-            onChange={(e) => ep.set({ episode: Number(e.target.value) || 1 })}
-          />
+        <Field label="O que é este arquivo">
+          <Segmentado opcoes={tipos} valor={ep.kind} disabled={disabled} onChange={(v) => ep.set({ kind: v as EpisodeKind })} />
         </Field>
       </div>
 
-      <Field label="Pasta de saída">
-        <div className="flex gap-2">
-          <Input
-            value={ep.outputDir}
-            disabled={disabled}
-            onChange={(e) => ep.set({ outputDir: e.target.value })}
-          />
-          <Button size="md" onClick={pickOut} disabled={disabled} className="shrink-0 gap-1.5">
-            <FolderOpen />
-            Escolher
-          </Button>
-        </div>
-        {ep.animeFolder && (
-          <p className="mt-1 truncate text-[11.5px] text-muted-foreground">
-            Vai pra{' '}
-            <span className="font-medium text-foreground">
-              {ep.animeFolder}\{episodeSlug(ep.season, ep.episode, ep.kind)}
-            </span>
-            {ep.folderRemembered && ep.animeFolder !== ep.anime.trim() && (
-              <span className="text-primary"> · pasta já usada para este anime</span>
-            )}
-          </p>
+      <div className={cn('grid gap-4', ehFilme ? 'grid-cols-1' : 'grid-cols-[96px_96px_minmax(0,1fr)]')}>
+        {!ehFilme && (
+          <>
+            <Field label="Temporada">
+              <Input
+                type="number"
+                min={1}
+                max={50}
+                value={ep.season}
+                disabled={disabled}
+                onChange={(e) => ep.set({ season: Number(e.target.value) || 1 })}
+              />
+            </Field>
+            <Field label={ep.kind === 'OP' ? 'Abertura nº' : ep.kind === 'ED' ? 'Encerr. nº' : 'Episódio'}>
+              <Input
+                type="number"
+                min={1}
+                max={999}
+                value={ep.episode}
+                disabled={disabled}
+                onChange={(e) => ep.set({ episode: Number(e.target.value) || 1 })}
+              />
+            </Field>
+          </>
         )}
-      </Field>
-
-      <div className="grid grid-cols-2 gap-2.5">
-        <Field label="Ignorar abertura (OP)">
-          <Input
-            value={ep.skipHead}
-            disabled={disabled}
-            placeholder="01:30"
-            onChange={(e) => ep.set({ skipHead: e.target.value })}
-          />
-        </Field>
-        <Field label="Ignorar encerramento (ED)">
-          <Input
-            value={ep.skipTail}
-            disabled={disabled}
-            placeholder="01:30"
-            onChange={(e) => ep.set({ skipTail: e.target.value })}
-          />
+        <Field label="Salvar em">
+          <div className="flex gap-2">
+            <Input value={ep.outputDir} disabled={disabled} onChange={(e) => ep.set({ outputDir: e.target.value })} />
+            <Button size="md" onClick={pickOut} disabled={disabled} className="shrink-0 gap-1.5">
+              <FolderOpen />
+              Escolher
+            </Button>
+          </div>
         </Field>
       </div>
+
+      {ep.animeFolder && (
+        <p className="-mt-1.5 truncate text-[12px] text-muted-foreground">
+          Vai pra{' '}
+          <span className="font-medium text-foreground">
+            {ep.animeFolder}\{episodeSlug(ep.season, ep.episode, ep.kind)}
+          </span>
+          {ep.folderRemembered && ep.animeFolder !== ep.anime.trim() && (
+            <span className="text-primary"> · pasta já usada para este título</span>
+          )}
+        </p>
+      )}
 
       <MarcacoesDoArquivo />
-    </Panel>
+    </article>
+  )
+}
+
+/**
+ * Anime ou Filme. Fica no topo da tela, fora do cartão do arquivo: a fila
+ * usa a mesma escolha, e sem arquivo escolhido o cartão nem existe.
+ */
+export function MidiaToggle({ disabled }: { disabled: boolean }): JSX.Element {
+  const ep = useEpisodeStore()
+  return (
+    <div className="w-[220px]">
+      <Segmentado
+        opcoes={MIDIAS}
+        valor={ep.mediaKind}
+        disabled={disabled}
+        onChange={(v) => {
+          const midia = v as MediaKind
+          // Filme com gente de verdade não tem abertura/encerramento
+          // numerado: o tipo acompanha.
+          const kind = midia === 'live' && (ep.kind === 'OP' || ep.kind === 'ED') ? 'MOVIE' : ep.kind
+          ep.set({ mediaKind: midia, kind })
+          // Lembra pra próxima vez: quem corta filme costuma cortar vários.
+          void window.ancut.settings.set({ mediaKind: midia })
+        }}
+      />
+    </div>
+  )
+}
+
+/** Escolha entre poucas opções, lado a lado (era uma fileira de botões soltos). */
+function Segmentado({
+  opcoes,
+  valor,
+  disabled,
+  onChange
+}: {
+  opcoes: { valor: string; rotulo: string; dica: string }[]
+  valor: string
+  disabled: boolean
+  onChange: (v: string) => void
+}): JSX.Element {
+  return (
+    <div className="inline-flex w-full gap-1 rounded-lg border border-border bg-surface-sunken/80 p-1">
+      {opcoes.map((o) => (
+        <button
+          key={o.valor || 'vazio'}
+          type="button"
+          disabled={disabled}
+          title={o.dica}
+          aria-pressed={valor === o.valor}
+          onClick={() => onChange(o.valor)}
+          className={cn(
+            'h-8 flex-1 whitespace-nowrap rounded-md px-3 text-[13px] font-semibold transition-colors disabled:opacity-50',
+            valor === o.valor ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          {o.rotulo}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Os campos de pular abertura/encerramento por tempo — moram em "Mais opções". */
+export function PularPorTempo({ disabled }: { disabled: boolean }): JSX.Element {
+  const ep = useEpisodeStore()
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <Field label="Pular do começo (abertura)">
+        <Input
+          value={ep.skipHead}
+          disabled={disabled}
+          placeholder="ex.: 01:30"
+          onChange={(e) => ep.set({ skipHead: e.target.value })}
+        />
+      </Field>
+      <Field label="Pular do fim (encerramento)">
+        <Input
+          value={ep.skipTail}
+          disabled={disabled}
+          placeholder="ex.: 01:30"
+          onChange={(e) => ep.set({ skipTail: e.target.value })}
+        />
+      </Field>
+    </div>
   )
 }
 
@@ -283,7 +356,7 @@ function MarcacoesDoArquivo(): JSX.Element | null {
   if (pulaveis.length === 0) return null
   const arquivoEhAbertura = ep.kind === 'OP' || ep.kind === 'ED'
   return (
-    <div className="mt-2.5 rounded-md border border-border bg-surface-sunken/60 px-3 py-2 text-[12px]">
+    <div className="rounded-lg border border-border bg-surface-sunken/60 px-3.5 py-2.5 text-[12.5px]">
       <label className="flex cursor-pointer items-center gap-2 font-medium">
         <input
           type="checkbox"
