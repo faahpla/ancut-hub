@@ -92,7 +92,8 @@ interface ResultsState {
   /** Aplica a faxina do Explorer. `charIds` = pastas confirmadas. */
   applyExplorer: (charIds: number[]) => Promise<void>
   dismissExplorer: () => void
-  openEpisode: (episodeId: number) => Promise<void>
+  /** `recarregar`: relê do banco mesmo que já esteja aberto (fim de análise). */
+  openEpisode: (episodeId: number, opcoes?: { recarregar?: boolean }) => Promise<void>
   /** Põe outra aba na frente, sem ir ao motor: o estado dela está guardado. */
   trocarAba: (episodeId: number) => void
   /** Fecha a aba. Fechando a ativa, a vizinha assume. */
@@ -295,7 +296,34 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
     }
   },
 
-  openEpisode: async (episodeId) => {
+  openEpisode: async (episodeId, opcoes) => {
+    // Recém-analisado: o que está na tela (ou guardado na aba) é de ANTES da
+    // análise. Foi o "identifiquei e continuou 0 personagens" do FAAH: a
+    // identificação rodou a partir do próprio episódio aberto, e no fim ele
+    // só voltava pra frente, sem reler nada.
+    if (opcoes?.recarregar) {
+      guardadas.delete(episodeId)
+      if (get().results?.episodeId === episodeId) {
+        const novo = await window.ancut.results.load(episodeId)
+        if (!novo) return
+        set({
+          results: novo,
+          selection: [],
+          activeShot: null,
+          explorer: null,
+          abas: get().abas.map((a) =>
+            a.episodeId === episodeId ? { ...a, rotulo: rotuloDe(novo) } : a
+          )
+        })
+        await get().selectCharacter({
+          id: TODAS_AS_CENAS,
+          name: 'Todas as cenas',
+          shotCount: novo.totalShots
+        })
+        return
+      }
+      set({ abas: get().abas.filter((a) => a.episodeId !== episodeId) })
+    }
     // Já está aberto: é só trazer pra frente. Recarregar jogaria fora a
     // seleção e a rolagem de quem só queria voltar pro episódio de antes.
     if (get().results?.episodeId === episodeId) return

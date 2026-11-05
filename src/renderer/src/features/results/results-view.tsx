@@ -86,10 +86,13 @@ export function ResultsView({
         </div>
       )}
 
-      <header className="flex shrink-0 items-center gap-3">
-        {/* Caminho de volta: Biblioteca › anime › episódio. Clicar no anime
-            abre a página dele, com as temporadas e os outros episódios. */}
-        <nav className="flex min-w-0 items-center gap-1.5 text-[15px]">
+      {/* Duas linhas: em cima o caminho de volta (Biblioteca › anime), em
+          baixo o episódio e as ações. Numa linha só, título de B-roll ("Petite
+          Meller ft Oslo Green — Watson (from the Netflix series…)") não
+          cabia e passava por baixo dos botões. Agora o título é o único que
+          encolhe, com reticências; o resto fica do tamanho dele. */}
+      <header className="flex shrink-0 flex-col gap-1">
+        <nav className="flex min-w-0 items-center gap-1.5 text-[12.5px]">
           <button
             type="button"
             onClick={onBrowse}
@@ -97,25 +100,30 @@ export function ResultsView({
           >
             Biblioteca
           </button>
-          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
+          <ChevronRight className="size-3 shrink-0 text-muted-foreground/60" />
           <button
             type="button"
             onClick={() => abrirAnime(pasta)}
             title={results.animeTitle}
-            className="truncate font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="min-w-0 truncate font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             {nomeDaPasta}
           </button>
-          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
-          <h1 className="shrink-0 font-bold">
+        </nav>
+        <div className="flex min-w-0 items-center gap-3">
+          <h1
+            className="min-w-0 truncate text-[17px] font-bold leading-tight"
+            title={episodeLabel(results.season, results.episode, results.kind, results.titulo)}
+          >
             {episodeLabel(results.season, results.episode, results.kind, results.titulo)}
           </h1>
-        </nav>
-        <span className="text-[12px] text-muted-foreground">
-          {results.totalShots} cenas · {results.characters.length} personagens
-        </span>
-        <NextEpisodeButton />
-        <span className="flex-1" />
+          <span className="shrink-0 whitespace-nowrap text-[12px] text-muted-foreground">
+            {results.totalShots} cenas · {results.characters.length}{' '}
+            {results.characters.length === 1 ? 'personagem' : 'personagens'}
+          </span>
+          <NextEpisodeButton />
+          <span className="min-w-0 flex-1" />
+          <div className="flex shrink-0 items-center gap-2">
         <IdentifyButton results={results} onStarted={onAnalyze} />
         <BenchmarkButton
           episodeId={results.episodeId}
@@ -163,6 +171,8 @@ export function ResultsView({
         >
           <X />
         </Button>
+          </div>
+        </div>
       </header>
 
       <ExplorerSyncBar />

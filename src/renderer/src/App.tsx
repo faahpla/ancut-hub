@@ -83,7 +83,7 @@ export default function App(): JSX.Element {
         .getState()
         .rodar(result.episodeId, `${result.animeTitle} ${episodeLabel(result.season, result.episode, result.kind)}`)
     }
-    void openEpisode(result.episodeId)
+    void openEpisode(result.episodeId, { recarregar: true })
       .catch((e) => console.error('[resultados] falha ao abrir o episódio:', e))
       .finally(() => ir('episodio'))
   }, [result, openEpisode, filaRodando, ir])
@@ -115,7 +115,8 @@ export default function App(): JSX.Element {
   }
 
   const abrirEpisodio = (episodeId: number, origem: string): void => {
-    void openEpisode(episodeId)
+    // Da fila o episódio acabou de ser analisado: relê, mesmo se estava aberto.
+    void openEpisode(episodeId, { recarregar: origem === 'fila' })
       .catch((e) => console.error(`[${origem}] falha ao abrir o episódio:`, e))
       .finally(() => ir('episodio'))
   }

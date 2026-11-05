@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { agruparPorAnime, pastaDoAnime } from '@/features/library/group-episodes'
+import { agruparPorAnime, pastaDoAnime, todosOsEpisodios } from '@/features/library/group-episodes'
 import { episodeLabel } from '@/lib/utils'
 import { useResultsStore } from '@/stores/results-store'
 import type { RecentEpisode } from '@shared/types'
@@ -43,7 +43,9 @@ export function NextEpisodeButton(): JSX.Element | null {
     const pasta = normalizar(pastaDoAnime(results.episodeRoot))
     const anime = agruparPorAnime(recent).find((a) => normalizar(a.pasta) === pasta)
     if (!anime) return {}
-    const ordem = anime.temporadas.flatMap((t) => t.episodios)
+    // Temporadas e depois o B-roll: do último episódio o "Próximo" leva pro
+    // primeiro B-roll, e entre B-rolls ele anda de um vídeo pro outro.
+    const ordem = todosOsEpisodios(anime)
     const i = ordem.findIndex((e) => e.episodeId === results.episodeId)
     if (i < 0) return {}
     return { anterior: ordem[i - 1], proximo: ordem[i + 1] }
@@ -77,12 +79,14 @@ export function NextEpisodeButton(): JSX.Element | null {
       <Button
         size="sm"
         variant="secondary"
-        className="gap-1"
+        className="max-w-[260px] gap-1"
         disabled={!vizinhos.proximo}
         title={vizinhos.proximo ? `Abrir o ${rot(vizinhos.proximo)}` : 'Este é o último'}
         onClick={() => vizinhos.proximo && void ir(vizinhos.proximo)}
       >
-        {vizinhos.proximo ? `Próximo: ${rot(vizinhos.proximo)}` : 'Último episódio'}
+        <span className="truncate">
+          {vizinhos.proximo ? `Próximo: ${rot(vizinhos.proximo)}` : 'Último episódio'}
+        </span>
         <ChevronRight />
       </Button>
     </div>
