@@ -207,6 +207,16 @@ export function SettingsDialog({
                 agrupa os rostos e você dá os nomes, sem depender de fonte
                 nenhuma.
               </p>
+              {/* O caminho da chave, que ninguem acha sozinho: entrar, pedir a
+                  "API" (uso pessoal) e copiar a "Chave da API". */}
+              <a
+                href="https://www.themoviedb.org/settings/api"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11.5px] font-medium text-primary underline-offset-2 hover:underline"
+              >
+                Pegar a chave grátis no TMDB →
+              </a>
             </Panel>
 
             <Panel title="Referências" compact>
