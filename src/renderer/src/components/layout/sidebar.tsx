@@ -9,6 +9,8 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import logoUrl from '@/assets/logo-header.png'
+import type { AppInfo } from '@shared/types'
+import { DeviceBadge } from './device-badge'
 import { cn } from '@/lib/utils'
 import { useAnalysisStore } from '@/stores/analysis-store'
 import { useNav, type Pagina } from '@/stores/nav-store'
@@ -25,7 +27,7 @@ import { useResultsStore } from '@/stores/results-store'
  * O topo da coluna é área de arrastar a janela (ela é frameless), como a
  * barra de título ao lado.
  */
-export function Sidebar({ onSettings }: { onSettings: () => void }): JSX.Element {
+export function Sidebar({ onSettings, info }: { onSettings: () => void; info: AppInfo | null }): JSX.Element {
   const pagina = useNav((s) => s.pagina)
   const ir = useNav((s) => s.ir)
   const analisando = useAnalysisStore((s) => s.status === 'running')
@@ -95,6 +97,9 @@ export function Sidebar({ onSettings }: { onSettings: () => void }): JSX.Element
 
         <div className="flex-1" />
 
+        {/* A placa de video mora aqui, perto das Configuracoes -- no topo ela
+            disputava lugar com os avisos de atualizacao. */}
+        <DeviceBadge info={info} className="mx-1 mb-1" />
         <Item icone={Settings} rotulo="Configurações" ativo={false} onClick={onSettings} />
       </div>
     </nav>

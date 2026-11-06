@@ -5,7 +5,6 @@ import { useReforcoStore } from '@/stores/reforco-store'
 import { useResultsStore } from '@/stores/results-store'
 import { episodeLabel } from '@/lib/utils'
 import { ReforcoBadge } from '@/features/results/reforco-badge'
-import { DeviceBadge } from '@/components/layout/device-badge'
 import { Sidebar } from '@/components/layout/sidebar'
 import { TitleBar } from '@/components/layout/title-bar'
 import { AnalyzeView } from '@/features/analyze/analyze-view'
@@ -125,7 +124,7 @@ export default function App(): JSX.Element {
     // A interface nova (11/2026): menu lateral fixo, e cada coisa uma página.
     // O fundo com os gradientes fica aqui, na raiz — as páginas rolam por cima.
     <div className="app-bg flex h-full text-foreground">
-      <Sidebar onSettings={() => setSettingsOpen(true)} />
+      <Sidebar onSettings={() => setSettingsOpen(true)} info={info} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <TitleBar
@@ -133,7 +132,6 @@ export default function App(): JSX.Element {
             <>
               <ReforcoBadge />
               <UpdateBadge />
-              <DeviceBadge info={info} />
             </>
           }
         />

@@ -14,12 +14,15 @@ import type { AppInfo } from '@shared/types'
  * própria 3060 sumiu — e o selo depois conserta sozinho, o que é pior:
  * parece defeito intermitente da máquina.
  */
-export function DeviceBadge({ info }: { info: AppInfo | null }): JSX.Element {
+export function DeviceBadge({ info, className }: { info: AppInfo | null; className?: string }): JSX.Element {
   if (!info) {
     return (
       <div
         title="Perguntando ao motor se há GPU disponível…"
-        className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface-sunken px-2.5 text-[12px] font-semibold text-muted-foreground"
+        className={cn(
+          'flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface-sunken px-2.5 text-[12px] font-semibold text-muted-foreground',
+          className
+        )}
       >
         <Loader2 className="size-3.5 animate-spin" />
         Verificando
@@ -42,7 +45,8 @@ export function DeviceBadge({ info }: { info: AppInfo | null }): JSX.Element {
         'flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-semibold',
         onGpu
           ? 'border-primary/25 bg-primary/10 text-primary'
-          : 'border-warning/25 bg-warning/10 text-warning'
+          : 'border-warning/25 bg-warning/10 text-warning',
+        className
       )}
     >
       {onGpu ? <Zap className="size-3.5" /> : <Cpu className="size-3.5" />}
