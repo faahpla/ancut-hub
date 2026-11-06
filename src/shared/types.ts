@@ -268,6 +268,25 @@ export interface RecentEpisode {
   origem?: string
 }
 
+/** Episódio do histórico cuja pasta não está mais no disco: qual é e onde estava. */
+export interface EpisodioSemPasta {
+  episodeId: number
+  animeTitle: string
+  season: number
+  episode: number
+  kind: EpisodeKind
+  titulo: string
+  episodeRoot: string
+}
+
+/** O histórico: os que abrem, e os que sumiram do disco. */
+export interface HistoricoDeEpisodios {
+  episodes: RecentEpisode[]
+  missingFolders: number
+  /** Vazio com motor antigo (até 0.24.2): aí só existe a contagem. */
+  semPasta: EpisodioSemPasta[]
+}
+
 /**
  * O que aconteceria (ou aconteceu) ao juntar duas pastas de anime.
  *
@@ -1079,7 +1098,7 @@ export interface AnCutBridge {
   }
   results: {
     /** Episódios já analisados, pra reabrir sem reprocessar. */
-    recent(): Promise<{ episodes: RecentEpisode[]; missingFolders: number }>
+    recent(): Promise<HistoricoDeEpisodios>
     /** O que o usuário mexeu na pasta do episódio pelo Explorer. */
     explorerScan(episodeId: number): Promise<ExplorerChanges | null>
     /**

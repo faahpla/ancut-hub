@@ -66,6 +66,7 @@ export function LibraryView({
     restoring,
     restoreOrphan,
     missingRoots,
+    semPasta,
     religando,
     ultimoReligar,
     atualizarBiblioteca
@@ -584,23 +585,55 @@ export function LibraryView({
           <option value="cenas">Mais cenas</option>
           <option value="menos">Menos personagens marcados</option>
         </select>
-        <span className="flex-1" />
-        {missingRoots > 0 && (
-          <button
-            type="button"
-            disabled={religando}
-            onClick={() => void procurarEmOutraPasta()}
-            title="A pasta foi apagada, ou movida pra um lugar onde o app não procurou. Nada foi perdido do lado do histórico. Se você mudou o anime de lugar, mostre onde ele está agora."
-            className="inline-flex h-9 items-center gap-2 rounded-full bg-warning/[0.12] px-3.5 text-[12.5px] font-medium text-warning hover:bg-warning/20"
-          >
-            <FolderSearch className="size-4" />
-            {missingRoots} {missingRoots === 1 ? 'episódio sem pasta no disco' : 'episódios sem pasta no disco'} ·
-            procurar
-          </button>
-        )}
       </div>
 
       {avisos}
+
+      {/*
+        EPISODIOS QUE SUMIRAM DO DISCO. Era uma pilula "1 episodio sem pasta no
+        disco · procurar", sem dizer qual nem o que fazer -- "como caralhos vc
+        quer q eu saiba do que se trata?". Agora: qual episodio, onde estava, e
+        as duas saidas (mostrar a pasta nova, ou tirar da lista).
+      */}
+      {missingRoots > 0 && (
+        <section className="flex flex-col gap-2.5 rounded-xl border border-warning/25 bg-warning/[0.06] px-4 py-3.5">
+          <header className="flex items-center gap-2">
+            <FolderSearch className="size-4 text-warning" />
+            <h2 className="text-[14px] font-semibold">
+              {missingRoots === 1 ? 'Um episódio sumiu do disco' : `${missingRoots} episódios sumiram do disco`}
+            </h2>
+          </header>
+          <p className="max-w-[760px] text-[12.5px] leading-relaxed text-muted-foreground">
+            {missingRoots === 1
+              ? 'A pasta com as cenas dele não está mais onde o AnCut guardou: foi apagada ou mudou de lugar. Ele continua no histórico, mas não aparece na Biblioteca porque não abre.'
+              : 'A pasta com as cenas deles não está mais onde o AnCut guardou: foi apagada ou mudou de lugar. Eles continuam no histórico, mas não aparecem na Biblioteca porque não abrem.'}{' '}
+            Se você moveu a pasta, clique em “Mostrar onde está agora” e escolha a pasta para onde levou. Se apagou de
+            propósito, tire da lista.
+          </p>
+          {semPasta.map((ep) => {
+            const rotulo = `${ep.animeTitle} · ${episodeLabel(ep.season, ep.episode, ep.kind, ep.titulo)}`
+            return (
+              <div key={ep.episodeId} className="flex items-center gap-3 rounded-lg bg-surface-sunken/70 px-3 py-2">
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-[13px] font-medium">{rotulo}</span>
+                  <span className="truncate text-[11.5px] text-muted-foreground" title={ep.episodeRoot}>
+                    Estava em {ep.episodeRoot}
+                  </span>
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => setExcluindo({ id: ep.episodeId, rotulo })}>
+                  Tirar da lista
+                </Button>
+              </div>
+            )
+          })}
+          <div>
+            <Button size="sm" disabled={religando} onClick={() => void procurarEmOutraPasta()}>
+              <FolderSearch className={cn('size-4', religando && 'animate-pulse')} />
+              {religando ? 'Procurando…' : 'Mostrar onde está agora'}
+            </Button>
+          </div>
+        </section>
+      )}
 
       {recent.length === 0 && orphans.length === 0 ? (
         <div className="grid min-h-[320px] place-items-center">
@@ -619,21 +652,24 @@ export function LibraryView({
       ) : (
         <>
           {!buscando && recentes.length > 0 && (
-            <section className="flex flex-col gap-3">
-              <h2 className="text-[14px] font-semibold text-muted-foreground">Analisados por último</h2>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+            <section className="flex flex-col gap-1.5">
+              <h2 className="px-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground/80">
+                Analisados por último
+              </h2>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-1">
                 {recentes.map((ep) => (
                   <button
                     key={ep.episodeId}
                     type="button"
                     onClick={() => onOpen(ep.episodeId)}
-                    className="flex items-center gap-3 rounded-xl border border-border/70 bg-surface/80 p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-surface-hover/70"
+                    title={`${ep.animeTitle} · ${episodeLabel(ep.season, ep.episode, ep.kind, ep.titulo)} · ${ep.shotCount} cenas`}
+                    className="flex items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors hover:bg-surface-hover/60"
                   >
-                    <Capa url={ep.coverUrl} className="h-[50px] w-[88px] shrink-0 rounded-md" />
-                    <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="truncate text-[13.5px] font-semibold">{ep.animeTitle}</span>
-                      <span className="text-[12px] text-muted-foreground">
-                        {episodeLabel(ep.season, ep.episode, ep.kind, ep.titulo)} · {ep.shotCount} cenas
+                    <Capa url={ep.coverUrl} className="h-9 w-16 shrink-0 rounded-[5px]" />
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-[13px] font-medium">{ep.animeTitle}</span>
+                      <span className="truncate text-[11.5px] text-muted-foreground">
+                        {episodeLabel(ep.season, ep.episode, ep.kind, ep.titulo)}
                       </span>
                     </span>
                   </button>

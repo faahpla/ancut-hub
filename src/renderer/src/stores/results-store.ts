@@ -4,6 +4,7 @@ import type {
   CharacterSummary,
   DeleteResult,
   EpisodeResults,
+  EpisodioSemPasta,
   ExplorerChanges,
   MergeResult,
   OrphanEpisode,
@@ -25,6 +26,8 @@ interface ResultsState {
   loadingRecent: boolean
   /** Episódios no histórico cuja pasta não está mais no disco. */
   missingRoots: number
+  /** Quais são (vazio com motor antigo, que só manda a contagem). */
+  semPasta: EpisodioSemPasta[]
   /** Pastas completas no disco que o histórico não conhece. */
   orphans: OrphanEpisode[]
   restoring: string
@@ -223,6 +226,7 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
   recent: [],
   loadingRecent: false,
   missingRoots: 0,
+  semPasta: [],
   orphans: [],
   religando: false,
   ultimoReligar: null,
@@ -262,7 +266,7 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
           r = await window.ancut.results.recent()
         }
       }
-      set({ recent: r.episodes, missingRoots: r.missingFolders })
+      set({ recent: r.episodes, missingRoots: r.missingFolders, semPasta: r.semPasta })
       // Depois do histórico, e sem travar a tela: a varredura lê o disco e
       // só interessa quando a lista já está lá pra comparar.
       set({ orphans: await window.ancut.results.orphans() })

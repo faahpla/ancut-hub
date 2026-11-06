@@ -38,6 +38,8 @@ import type {
   OrphanEpisode,
   RestoreResult,
   RecentEpisode,
+  EpisodioSemPasta,
+  HistoricoDeEpisodios,
   ShotRow
 } from '../../shared/types'
 
@@ -361,12 +363,13 @@ export class PythonService {
    * também não podem desaparecer caladas — foi assim que "episódio sumiu do
    * nada" chegou como suspeita de perda de dado.
    */
-  async recentEpisodes(): Promise<{ episodes: RecentEpisode[]; missingFolders: number }> {
+  async recentEpisodes(): Promise<HistoricoDeEpisodios> {
     const r = await this.runOneShot<{
       episodes: RecentEpisode[]
       missingFolders?: number
+      semPasta?: EpisodioSemPasta[]
     }>(['recent'], 'recent')
-    return { episodes: r?.episodes ?? [], missingFolders: r?.missingFolders ?? 0 }
+    return { episodes: r?.episodes ?? [], missingFolders: r?.missingFolders ?? 0, semPasta: r?.semPasta ?? [] }
   }
 
   explorerScan(episodeId: number): Promise<ExplorerChanges | null> {
