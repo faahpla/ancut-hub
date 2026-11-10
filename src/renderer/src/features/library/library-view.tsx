@@ -67,6 +67,7 @@ export function LibraryView({
     restoreOrphan,
     missingRoots,
     semPasta,
+    parecidos,
     religando,
     ultimoReligar,
     atualizarBiblioteca
@@ -179,6 +180,8 @@ export function LibraryView({
 
   /** Anime que o usuário quer fazer sumir dentro de outro. */
   const [juntando, setJuntando] = useState<Anime | null>(null)
+  /** Destino já escolhido quando a junção vem do aviso de "parecem o mesmo". */
+  const [juntarEm, setJuntarEm] = useState<string | undefined>(undefined)
   /** Episódios que vão mudar de temporada, e o rótulo do que são. */
   const [mudandoTemporada, setMudandoTemporada] = useState<{
     ids: number[]
@@ -237,8 +240,38 @@ export function LibraryView({
     )
   }
 
+  // Pastas que são o mesmo anime (respondem pelo mesmo pacote importado):
+  // some a menor dentro da maior, pelo "Juntar" de sempre.
+  const paresParecidos = parecidos
+    .map((nomes) => nomes.map((n) => animes.find((a) => a.nome === n)).filter((a): a is Anime => !!a))
+    .filter((lista) => lista.length >= 2)
+    .map((lista) => [...lista].sort((a, b) => b.episodios + b.broll.length - (a.episodios + a.broll.length)))
+
   const avisos = (
     <>
+      {paresParecidos.map(([maior, ...menores]) =>
+        menores.map((menor) => (
+          <p
+            key={`${maior.pasta}|${menor.pasta}`}
+            className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/[0.08] px-3.5 py-2.5 text-[12.5px]"
+          >
+            <span className="flex-1">
+              <b>“{menor.nome}”</b> e <b>“{maior.nome}”</b> parecem o mesmo anime (o mesmo pacote de
+              personagens responde pelos dois). Juntando, os episódios e os personagens viram um só.
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setJuntarEm(maior.nome)
+                setJuntando(menor)
+              }}
+            >
+              Juntar em “{maior.nome}”
+            </Button>
+          </p>
+        ))
+      )}
       {aviso && (
         <p
           className={cn(
@@ -277,9 +310,14 @@ export function LibraryView({
         <MergeAnimeDialog
           origem={juntando}
           animes={animes}
-          onClose={() => setJuntando(null)}
+          destinoSugerido={juntarEm}
+          onClose={() => {
+            setJuntando(null)
+            setJuntarEm(undefined)
+          }}
           onDone={() => {
             setJuntando(null)
+            setJuntarEm(undefined)
             // A pasta de origem sumiu: voltar pra grade em vez de mostrar uma
             // página de anime que não existe mais.
             ir('biblioteca')

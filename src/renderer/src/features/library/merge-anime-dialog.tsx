@@ -21,6 +21,7 @@ import type { Anime } from './group-episodes'
 export function MergeAnimeDialog({
   origem,
   animes,
+  destinoSugerido,
   onClose,
   onDone
 }: {
@@ -28,10 +29,12 @@ export function MergeAnimeDialog({
   origem: Anime
   /** Todos, pra escolher o destino. */
   animes: Anime[]
+  /** Já vem escolhido (o aviso de "parecem o mesmo anime"). */
+  destinoSugerido?: string
   onClose: () => void
   onDone: () => void
 }): JSX.Element {
-  const [destino, setDestino] = useState<string>('')
+  const [destino, setDestino] = useState<string>(destinoSugerido ?? '')
   const [plano, setPlano] = useState<AnimeMergePlan | null>(null)
   const [carregando, setCarregando] = useState(false)
   const [aplicando, setAplicando] = useState(false)

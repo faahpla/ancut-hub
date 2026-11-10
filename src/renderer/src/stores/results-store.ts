@@ -28,6 +28,8 @@ interface ResultsState {
   missingRoots: number
   /** Quais são (vazio com motor antigo, que só manda a contagem). */
   semPasta: EpisodioSemPasta[]
+  /** Pastas que parecem o mesmo anime: a Biblioteca oferece juntar. */
+  parecidos: string[][]
   /** Pastas completas no disco que o histórico não conhece. */
   orphans: OrphanEpisode[]
   restoring: string
@@ -227,6 +229,7 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
   loadingRecent: false,
   missingRoots: 0,
   semPasta: [],
+  parecidos: [],
   orphans: [],
   religando: false,
   ultimoReligar: null,
@@ -266,7 +269,12 @@ export const useResultsStore = create<ResultsState>((set, get) => ({
           r = await window.ancut.results.recent()
         }
       }
-      set({ recent: r.episodes, missingRoots: r.missingFolders, semPasta: r.semPasta })
+      set({
+        recent: r.episodes,
+        missingRoots: r.missingFolders,
+        semPasta: r.semPasta,
+        parecidos: r.parecidos ?? []
+      })
       // Depois do histórico, e sem travar a tela: a varredura lê o disco e
       // só interessa quando a lista já está lá pra comparar.
       set({ orphans: await window.ancut.results.orphans() })

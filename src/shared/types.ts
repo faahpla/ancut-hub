@@ -285,6 +285,8 @@ export interface HistoricoDeEpisodios {
   missingFolders: number
   /** Vazio com motor antigo (até 0.24.2): aí só existe a contagem. */
   semPasta: EpisodioSemPasta[]
+  /** Pastas que são o mesmo anime (pelo pacote importado). Motor 0.24.5+. */
+  parecidos?: string[][]
 }
 
 /**
