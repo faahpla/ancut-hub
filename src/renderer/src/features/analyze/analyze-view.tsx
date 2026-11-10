@@ -76,7 +76,7 @@ export function AnalyzeView({
   onVerResultado: (episodeId: number) => void
 }): JSX.Element {
   const ep = useEpisodeStore()
-  const { status, begin, apply, needsInput, dismissNeedsInput, discovery, discoveryMedia, clearDiscovery } =
+  const { status, error, begin, apply, needsInput, dismissNeedsInput, discovery, discoveryMedia, clearDiscovery } =
     useAnalysisStore()
   const filaRodando = useQueueStore((s) => s.rodando)
   const [startError, setStartError] = useState<string | null>(null)
@@ -324,6 +324,25 @@ export function AnalyzeView({
             </div>
           )}
         </section>
+
+        {status === 'failed' && error?.message.includes('em andamento') && (
+          <p className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-[12.5px] text-warning">
+            <span className="flex-1">
+              Uma análise anterior ainda está aberta no motor e não respondeu.
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                // Pede pra parar e, se em 5 s não parar, o app encerra à força.
+                void window.ancut.analysis.cancel()
+                setStartError('Encerrando a análise anterior… em alguns segundos dá pra começar de novo.')
+              }}
+            >
+              Encerrar a análise anterior
+            </Button>
+          </p>
+        )}
 
         {startError && (
           <p className="rounded-lg border border-warning/30 bg-warning/10 px-3.5 py-2.5 text-[12.5px] text-warning">

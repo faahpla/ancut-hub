@@ -1,7 +1,8 @@
-import { AlertTriangle, Download, Loader2 } from 'lucide-react'
+import { AlertTriangle, Check, Download, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 import type { CastPackInfo, CastPackResult } from '@shared/types'
 
 /**
@@ -13,7 +14,24 @@ import type { CastPackInfo, CastPackResult } from '@shared/types'
  * 2nd Season", nunca olhou os personagens. Agora o pacote fica guardado e se
  * liga na hora da análise, pelo id do AniList (quando o pacote traz) ou pelo
  * TÍTULO escolhido aqui — que vale pra qualquer temporada com esse nome.
+ *
+ * 11/2026: a pergunta vinha PREENCHIDA com o nome do pacote, e os animes da
+ * Biblioteca só apareciam digitando. O Levi confirmou "Avatar Seven Havens"
+ * (o nome no PC de quem exportou) e o anime dele se chamava "Avatar - Os
+ * Sete Refúgios": nunca ligou. Agora a lista da Biblioteca aparece inteira,
+ * o que tem o mesmo nome já vem marcado, e sem nenhum igual a pessoa escolhe.
  */
+
+/** Igual ao `titulo_base` do motor: sem acento, pontuação nem temporada. */
+function base(t: string): string {
+  return t
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\b(?:\d+(?:st|nd|rd|th)\s+season|season\s*\d+|s\d{1,2}|part\s*\d+|cour\s*\d+|final\s+season|ii|iii|iv)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
 export function ImportCastDialog({
   file,
   sugestoes,
@@ -42,7 +60,10 @@ export function ImportCastDialog({
         return
       }
       setInfo(r)
-      setTitulo(r.title)
+      // Já vem marcado só o anime da Biblioteca com o MESMO nome do pacote.
+      // Sem nenhum igual, nada vem marcado: a pessoa escolhe.
+      const doPacote = new Set([r.title, ...(r.titles ?? [])].map(base))
+      setTitulo(sugestoes.find((s) => doPacote.has(base(s))) ?? '')
     })
     return () => {
       vivo = false
@@ -125,26 +146,41 @@ export function ImportCastDialog({
                 </p>
               )}
 
-              <label className="flex flex-col gap-1.5">
-                <span className="font-medium">Ligar estes personagens a qual anime?</span>
-                <input
-                  value={titulo}
-                  list="import-cast-titulos"
-                  onChange={(e) => setTitulo(e.target.value)}
-                  className="rounded-md border border-border bg-surface-sunken px-2 py-1.5 outline-none focus:border-primary/60"
-                />
-                <datalist id="import-cast-titulos">
+              <div className="flex flex-col gap-1.5">
+                <span className="font-medium">Ligar estes personagens a qual anime da sua Biblioteca?</span>
+                <ul className="flex max-h-[220px] flex-col gap-1 overflow-y-auto rounded-md border border-border bg-surface-sunken/60 p-1">
                   {sugestoes.map((s) => (
-                    <option key={s} value={s} />
+                    <li key={s}>
+                      <button
+                        type="button"
+                        onClick={() => setTitulo(s)}
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left transition-colors',
+                          titulo === s ? 'bg-primary/15 font-semibold text-primary' : 'hover:bg-surface-hover'
+                        )}
+                      >
+                        <span className="flex-1 truncate">{s}</span>
+                        {titulo === s && <Check className="size-3.5 shrink-0" />}
+                      </button>
+                    </li>
                   ))}
-                </datalist>
+                </ul>
+                <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                  Ou um que ainda não está na Biblioteca:
+                  <input
+                    value={sugestoes.includes(titulo) ? '' : titulo}
+                    placeholder={info.title}
+                    onChange={(e) => setTitulo(e.target.value)}
+                    className="min-w-0 flex-1 rounded-md border border-border bg-surface-sunken px-2 py-1 text-foreground outline-none focus:border-primary/60"
+                  />
+                </label>
                 <span className="text-[11.5px] leading-relaxed text-muted-foreground">
                   Vale pra qualquer temporada com esse nome — “Black Clover” liga também
                   “Black Clover 2nd Season”.
                   {info.hasIds && ' O pacote também traz o número do anime no AniList, que liga sozinho.'}{' '}
                   Nada daqui é apagado: importar só soma.
                 </span>
-              </label>
+              </div>
             </>
           )}
         </div>

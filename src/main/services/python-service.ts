@@ -716,13 +716,35 @@ export class PythonService {
     return r?.shots ?? []
   }
 
-  /** Espera o filho anterior acabar de morrer. Só vale quando ele já emitiu
-   *  o evento final — para não mascarar uma análise de verdade em curso. */
+  /**
+   * Espera o filho anterior acabar de morrer. Só vale quando ele já emitiu
+   * o evento final — para não mascarar uma análise de verdade em curso.
+   *
+   * Se ele não morrer no prazo, é encerrado à força: já disse que acabou,
+   * e um processo que não sai depois disso só serve pra travar o app. Foi o
+   * caso do Levi (1.38.1): "anime não encontrado" com o CCIP ainda baixando
+   * por trás deixava o motor vivo, e toda análise seguinte dava "já existe
+   * uma análise em andamento" até reiniciar o app.
+   */
   private async aguardarEncerrar(limiteMs = 15_000): Promise<void> {
     const ate = Date.now() + limiteMs
     while (this.current && this.encerrando && Date.now() < ate) {
       await new Promise((r) => setTimeout(r, 40))
     }
+    if (this.current && this.encerrando) this.matar()
+  }
+
+  /** Encerra o filho atual à força e libera o lugar na hora. */
+  private matar(): void {
+    const filho = this.current
+    if (!filho) return
+    try {
+      filho.kill()
+    } catch {
+      // já tinha morrido
+    }
+    this.current = null
+    this.encerrando = false
   }
 
   async start(req: AnalysisRequest): Promise<string> {
@@ -754,7 +776,10 @@ export class PythonService {
       // Evento final: daqui pra frente o processo está só terminando de
       // morrer, e quem pedir o próximo run pode esperar em vez de levar erro.
       const tipo = (parsed as { type?: string }).type
-      if (tipo === 'done' || tipo === 'failed' || tipo === 'cancelled') {
+      // `needs-input` também é fim: o motor avisa (anime não encontrado,
+      // refs faltando) e SAI — quem responde é um run novo. Fora desta
+      // lista, a análise seguinte dava erro em vez de esperar ele sair.
+      if (tipo === 'done' || tipo === 'failed' || tipo === 'cancelled' || tipo === 'needs-input') {
         this.encerrando = true
       }
       this.emit(parsed as AnalysisEvent)
@@ -771,8 +796,10 @@ export class PythonService {
 
     child.on('error', (err) => {
       this.emit({ type: 'failed', message: `Falha ao iniciar o backend: ${err.message}` })
-      this.current = null
-      this.encerrando = false
+      if (this.current === child) {
+        this.current = null
+        this.encerrando = false
+      }
     })
 
     child.on('close', (code) => {
@@ -786,8 +813,12 @@ export class PythonService {
           message: `O backend encerrou inesperadamente (código ${code}).`
         })
       }
-      this.current = null
-      this.encerrando = false
+      // Só limpa se ainda for ELE: depois de um encerramento à força o lugar
+      // já pode ser de um run novo.
+      if (this.current === child) {
+        this.current = null
+        this.encerrando = false
+      }
     })
 
     child.stdin.write(JSON.stringify(toWireRequest(req)) + '\n')
@@ -800,13 +831,24 @@ export class PythonService {
    * termina antes.
    */
   cancel(): void {
-    if (!this.current) return
+    const filho = this.current
+    if (!filho) return
     try {
-      this.current.stdin.write(JSON.stringify({ cmd: 'cancel' }) + '\n')
+      filho.stdin.write(JSON.stringify({ cmd: 'cancel' }) + '\n')
     } catch {
       // stdin já fechado: mata direto.
-      this.current.kill()
+      this.matar()
+      return
     }
+    // O cancelamento é educado (o motor para na próxima fronteira de
+    // etapa). Se em 5 s ele não saiu, sai à força: cancelar nunca pode
+    // deixar o app sem saída.
+    setTimeout(() => {
+      if (this.current === filho) {
+        this.matar()
+        this.emit({ type: 'cancelled' })
+      }
+    }, 5_000)
   }
 
   /**
@@ -819,9 +861,13 @@ export class PythonService {
     removed: Record<number, number[]>
   ): void {
     if (!this.current) {
-      throw new Error(
-        'A descoberta não está mais ativa. Rode o Modo Descoberta de novo.'
-      )
+      // Não é exceção crua: a tela recebe um fim de análise com o motivo e
+      // volta a funcionar, em vez de ficar girando esperando um "done".
+      this.emit({
+        type: 'failed',
+        message: 'A descoberta não estava mais ativa (o motor já tinha encerrado). Rode o Modo Descoberta de novo.'
+      })
+      return
     }
     this.current.stdin.write(
       JSON.stringify({ cmd: 'commit-discovery', names, removed }) + '\n'

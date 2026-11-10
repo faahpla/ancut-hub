@@ -278,7 +278,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     }
   },
 
-  dismissNeedsInput: () => set({ needsInput: null }),
+  dismissNeedsInput: () => {
+    // O motor já sai sozinho depois desse aviso; o cancelamento é a
+    // garantia de que fechar a tela nunca deixa um processo pendurado.
+    void window.ancut.analysis.cancel()
+    set({ needsInput: null })
+  },
   clearDiscovery: () => set({ discovery: null, discoveryMedia: '' })
 }))
 
