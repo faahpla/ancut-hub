@@ -40,6 +40,11 @@ export function MergeAnimeDialog({
   const [aplicando, setAplicando] = useState(false)
 
   const opcoes = animes.filter((a) => a.pasta !== origem.pasta)
+  /** Onde a pasta mora: só aparece quando há outra com o mesmo nome. */
+  const lugar = (a: Anime): string =>
+    animes.some((b) => b.pasta !== a.pasta && b.nome.toLowerCase() === a.nome.toLowerCase())
+      ? ` — em ${a.pasta.replace(/[\\/][^\\/]+$/, '')}`
+      : ''
 
   // Cada troca de destino refaz o plano: os conflitos dependem do par, e um
   // plano velho na tela é pior que nenhum.
@@ -48,19 +53,19 @@ export function MergeAnimeDialog({
     let vivo = true
     setCarregando(true)
     void window.ancut.results
-      .mergeAnimePlan(origem.nome, destino)
+      .mergeAnimePlan(origem.pasta, destino)
       .then((p) => vivo && setPlano(p))
       .finally(() => vivo && setCarregando(false))
     return () => {
       vivo = false
     }
-  }, [destino, origem.nome])
+  }, [destino, origem.pasta])
 
   const aplicar = async (): Promise<void> => {
     if (!plano?.pode) return
     setAplicando(true)
     try {
-      const r = await window.ancut.results.mergeAnimeApply(origem.nome, destino)
+      const r = await window.ancut.results.mergeAnimeApply(origem.pasta, destino)
       if (r?.aplicado) onDone()
       else setPlano(r)
     } finally {
@@ -95,6 +100,7 @@ export function MergeAnimeDialog({
           <div className="flex items-center gap-2 text-[12.5px]">
             <span className="truncate rounded-md border border-border bg-surface-sunken px-2 py-1 font-medium">
               {origem.nome}
+              {lugar(origem)}
             </span>
             <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
             <select
@@ -104,8 +110,8 @@ export function MergeAnimeDialog({
             >
               <option value="">Escolha a pasta que fica…</option>
               {opcoes.map((a) => (
-                <option key={a.pasta} value={a.nome}>
-                  {a.nome} ({a.episodios})
+                <option key={a.pasta} value={a.pasta}>
+                  {a.nome} ({a.episodios}){lugar(a)}
                 </option>
               ))}
             </select>

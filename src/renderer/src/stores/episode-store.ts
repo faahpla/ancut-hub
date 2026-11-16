@@ -20,6 +20,8 @@ interface EpisodeState {
   /** B-roll: o nome do vídeo, que vira o nome da pasta. */
   titulo: string
   outputDir: string
+  /** A pasta de cada tipo, pra trocar junto com Anime/Filme. */
+  saidas: { anime: string; live: string }
   /**
    * Subpasta do anime dentro de `outputDir`. Quem responde é o motor: ele
    * guarda a pasta já combinada pra cada jeito de escrever o nome. Vazio
@@ -85,6 +87,7 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
   kind: '',
   titulo: '',
   outputDir: '',
+  saidas: { anime: '', live: '' },
   animeFolder: '',
   folderRemembered: false,
   existingFolders: [],
@@ -157,7 +160,8 @@ export const useEpisodeStore = create<EpisodeState>((set, get) => ({
     if (get().hydrated) return
     const s = await window.ancut.settings.get()
     set({
-      outputDir: s.outputDir,
+      outputDir: s.mediaKind === 'live' ? s.outputDirFilme || s.outputDir : s.outputDir,
+      saidas: { anime: s.outputDir, live: s.outputDirFilme || s.outputDir },
       season: s.lastSeason,
       episode: s.lastEpisode,
       preset: s.preset,

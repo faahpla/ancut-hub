@@ -397,7 +397,9 @@ export function registerIpc(
       // Persiste o que o usuário escolheu ANTES de rodar: se a análise
       // quebrar, os campos continuam preenchidos na próxima abertura.
       await settings.set({
-        outputDir: req.outputDir,
+        // Cada tipo lembra a sua pasta: a do filme não pode virar a do
+        // anime seguinte (era o que dividia o Black Clover em dois lugares).
+        ...(req.mediaKind === 'live' ? { outputDirFilme: req.outputDir } : { outputDir: req.outputDir }),
         lastAnime: req.anime,
         // B-roll vai com número 0 (o motor escolhe): gravar isso faria o
         // próximo episódio abrir o formulário em "Episódio 0".

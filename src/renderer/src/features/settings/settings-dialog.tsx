@@ -90,7 +90,9 @@ export function SettingsDialog({
       // mesma sessão rodaria no valor antigo — a opção pareceria salva (e
       // está, no disco) mas a análise sairia no formato errado, calada.
       useEpisodeStore.getState().set({
-        outputDir: settings.outputDir,
+        outputDir:
+          settings.mediaKind === 'live' ? settings.outputDirFilme || settings.outputDir : settings.outputDir,
+        saidas: { anime: settings.outputDir, live: settings.outputDirFilme || settings.outputDir },
         useDanbooru: settings.useDanbooru,
         mediaKind: settings.mediaKind,
         renderExportMode: settings.renderExportMode
@@ -126,6 +128,7 @@ export function SettingsDialog({
         ) : (
           <div className="flex flex-col gap-3 pr-1">
             <Panel title="Pasta de saída dos clipes" compact>
+              <span className="text-[12px] font-medium">Animes</span>
               <div className="flex gap-2">
                 <Input
                   value={settings.outputDir}
@@ -142,7 +145,26 @@ export function SettingsDialog({
                   Escolher
                 </Button>
               </div>
+              <span className="mt-1 text-[12px] font-medium">Filmes</span>
+              <div className="flex gap-2">
+                <Input
+                  value={settings.outputDirFilme}
+                  placeholder="A mesma dos animes"
+                  onChange={(e) => patch({ outputDirFilme: e.target.value })}
+                />
+                <Button
+                  className="shrink-0 gap-1.5"
+                  onClick={async () => {
+                    const p = await window.ancut.dialog.pickFolder(settings.outputDirFilme || settings.outputDir)
+                    if (p) patch({ outputDirFilme: p })
+                  }}
+                >
+                  <FolderOpen />
+                  Escolher
+                </Button>
+              </div>
               <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+                Cada tipo (Anime ou Filme, no topo do Novo corte) vai pra sua pasta.
                 Subpastas por anime e episódio são criadas aqui dentro.
                 Ex.: <code className="text-foreground/80">Dr. Stone/S04E25/shots/</code>
               </p>

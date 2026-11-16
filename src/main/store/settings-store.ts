@@ -90,6 +90,7 @@ function toSettings(raw: RawConfig): AppSettings {
   }
   return {
     outputDir: str(raw, 'output_dir'),
+    outputDirFilme: str(raw, 'output_dir_filme'),
     lastAnime: str(raw, 'last_anime'),
     lastSeason: num(raw, 'last_season', 1),
     lastEpisode: num(raw, 'last_episode', 1),
@@ -123,6 +124,7 @@ function applyPatch(raw: RawConfig, patch: Partial<AppSettings>): RawConfig {
     if (value !== undefined) out[key] = value
   }
   set('output_dir', patch.outputDir)
+  set('output_dir_filme', patch.outputDirFilme)
   set('last_anime', patch.lastAnime)
   set('last_season', patch.lastSeason)
   set('last_episode', patch.lastEpisode)

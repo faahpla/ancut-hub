@@ -309,7 +309,10 @@ export function MidiaToggle({ disabled }: { disabled: boolean }): JSX.Element {
           // Filme com gente de verdade não tem abertura/encerramento
           // numerado: o tipo acompanha.
           const kind = midia === 'live' && (ep.kind === 'OP' || ep.kind === 'ED') ? 'MOVIE' : ep.kind
-          ep.set({ mediaKind: midia, kind })
+          // A pasta acompanha o tipo: filme vai pra pasta de filmes, anime
+          // pra de animes — cada um como foi escolhido da última vez.
+          const saidas = { ...ep.saidas, [ep.mediaKind]: ep.outputDir }
+          ep.set({ mediaKind: midia, kind, saidas, outputDir: saidas[midia] || ep.outputDir })
           // Lembra pra próxima vez: quem corta filme costuma cortar vários.
           void window.ancut.settings.set({ mediaKind: midia })
         }}

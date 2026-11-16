@@ -850,6 +850,13 @@ export interface DeleteResult {
 
 export interface AppSettings {
   outputDir: string
+  /**
+   * Onde vão os FILMES (Anime/Filme no topo do Novo corte). Vazio = a mesma
+   * dos animes. Era uma pasta só pros dois: trocar pra cortar um filme
+   * mandava o anime seguinte pra pasta de filmes, e a Biblioteca ficava com
+   * dois "Black Clover" (FAAH, 11/2026).
+   */
+  outputDirFilme: string
   lastAnime: string
   lastSeason: number
   lastEpisode: number

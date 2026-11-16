@@ -242,8 +242,20 @@ export function LibraryView({
 
   // Pastas que são o mesmo anime (respondem pelo mesmo pacote importado):
   // some a menor dentro da maior, pelo "Juntar" de sempre.
-  const paresParecidos = parecidos
-    .map((nomes) => nomes.map((n) => animes.find((a) => a.nome === n)).filter((a): a is Anime => !!a))
+  /** "D:\Animes" — a pasta que guarda a pasta do anime. */
+  const lugarDe = (a: Anime): string => a.pasta.replace(/[\\/][^\\/]+$/, '')
+  const mesmoNome = Object.values(
+    animes.reduce<Record<string, Anime[]>>((acc, a) => {
+      ;(acc[a.nome.toLowerCase()] ??= []).push(a)
+      return acc
+    }, {})
+  ).filter((lista) => lista.length >= 2)
+  const paresParecidos = [
+    ...mesmoNome,
+    ...parecidos.map((nomes) =>
+      nomes.map((n) => animes.find((a) => a.nome === n)).filter((a): a is Anime => !!a)
+    )
+  ]
     .filter((lista) => lista.length >= 2)
     .map((lista) => [...lista].sort((a, b) => b.episodios + b.broll.length - (a.episodios + a.broll.length)))
 
@@ -256,18 +268,30 @@ export function LibraryView({
             className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/[0.08] px-3.5 py-2.5 text-[12.5px]"
           >
             <span className="flex-1">
-              <b>“{menor.nome}”</b> e <b>“{maior.nome}”</b> parecem o mesmo anime (o mesmo pacote de
-              personagens responde pelos dois). Juntando, os episódios e os personagens viram um só.
+              {menor.nome.toLowerCase() === maior.nome.toLowerCase() ? (
+                <>
+                  <b>“{maior.nome}”</b> está em dois lugares: {menor.episodios + menor.broll.length} episódios em{' '}
+                  <b>{lugarDe(menor)}</b> e {maior.episodios + maior.broll.length} em <b>{lugarDe(maior)}</b>.
+                  Acontece quando o “Salvar em” muda entre um corte e outro.
+                </>
+              ) : (
+                <>
+                  <b>“{menor.nome}”</b> e <b>“{maior.nome}”</b> parecem o mesmo anime (o mesmo pacote de
+                  personagens responde pelos dois). Juntando, os episódios e os personagens viram um só.
+                </>
+              )}
             </span>
             <Button
               size="sm"
               variant="secondary"
               onClick={() => {
-                setJuntarEm(maior.nome)
+                setJuntarEm(maior.pasta)
                 setJuntando(menor)
               }}
             >
-              Juntar em “{maior.nome}”
+              {menor.nome.toLowerCase() === maior.nome.toLowerCase()
+                ? `Juntar tudo em ${lugarDe(maior)}`
+                : `Juntar em “${maior.nome}”`}
             </Button>
           </p>
         ))
